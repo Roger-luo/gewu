@@ -1,0 +1,9 @@
+[package]
+name = "gewu-review"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Review-domain primitives for Gewu"
+
+[dependencies]

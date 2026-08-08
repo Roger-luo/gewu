@@ -1,0 +1,13 @@
+[[skill]]
+name = "rust-best-practices"
+source = "https://github.com/apollographql/skills.git"
+kind = "git"
+path = "rust-best-practices"
+version = "1.1.0"
+commit = "e1979d2f1e7c38cef58753b2bfd6fc9509101bdc"
+checksum = "sha256:62f6902bb48e44f2cc6d4ccb85d7162eb3752e7a3970a735435df6a4b5913ad4"
+
+[agents]
+template = "builtin:rust"
+checksum = "sha256:d0560c47d550d56e3348ccbbdaa0138e04dc7d2085428e359de6ad2e84973a83"
+updated-at = "2026-08-08T18:45:28Z"

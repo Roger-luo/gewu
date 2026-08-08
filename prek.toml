@@ -1,0 +1,61 @@
+#:schema https://www.schemastore.org/prek.json
+
+exclude = { glob = ["target/**"] }
+default_install_hook_types = ["pre-commit", "commit-msg"]
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-toml" },
+  { id = "check-merge-conflict" },
+  { id = "check-added-large-files" },
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "cargo-fmt"
+name = "cargo fmt"
+entry = "cargo fmt --all -- --check"
+language = "system"
+types = ["rust"]
+pass_filenames = false
+priority = 0
+
+[[repos.hooks]]
+id = "cargo-check"
+name = "cargo check"
+entry = "cargo check --workspace --all-targets --all-features"
+language = "system"
+types = ["rust"]
+pass_filenames = false
+priority = 10
+
+[[repos.hooks]]
+id = "cargo-clippy"
+name = "cargo clippy"
+entry = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+language = "system"
+types = ["rust"]
+pass_filenames = false
+priority = 20
+
+[[repos.hooks]]
+id = "cargo-test"
+name = "cargo test"
+entry = "cargo test --workspace --all-features"
+language = "system"
+types = ["rust"]
+pass_filenames = false
+priority = 30
+
+[[repos.hooks]]
+id = "conventional-commit"
+name = "conventional commit message"
+entry = '''sh -c 'message=$(awk "NR == 1 { print; exit }" "$1"); echo "$message" | grep -Eq "^(feat|fix|docs|test|ci|refactor|perf|build|chore)(\([[:alnum:]_.\/-]+\))?!?: .+"' --'''
+language = "system"
+stages = ["commit-msg"]
+always_run = true

@@ -1,0 +1,13 @@
+/target
+
+# Managed by ion
+.agents/skills/ion-cli
+.claude/skills/ion-cli
+
+# Managed by ion
+.agents/templates/AGENTS.md.upstream
+CLAUDE.md
+.agents/skills/agents-update
+.claude/skills/agents-update
+.agents/skills/rust-best-practices
+.claude/skills/rust-best-practices

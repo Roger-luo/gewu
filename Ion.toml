@@ -1,0 +1,12 @@
+[skills]
+ion-cli = { type = "local" }
+agents-update = { type = "local" }
+rust-best-practices = { source = "apollographql/skills/rust-best-practices" }
+
+[options]
+
+[options.targets]
+claude = ".claude/skills"
+
+[agents]
+template = "builtin:rust"

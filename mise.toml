@@ -1,0 +1,12 @@
+[tools]
+rust = { version = "stable", profile = "minimal", components = ["rustfmt", "clippy"] }
+prek = "latest"
+
+[tasks.check]
+description = "Run all repository checks"
+run = [
+  "cargo fmt --all -- --check",
+  "cargo check --workspace --all-targets --all-features",
+  "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+  "cargo test --workspace --all-features",
+]
