@@ -42,6 +42,9 @@ pub struct ReviewTui {
     pub(super) selected: Option<usize>,
     /// What is being asked or written at the foot of the screen, if anything.
     prompt: Option<Prompt>,
+    /// Set when the reviewer is finished, so the loop can end without every
+    /// key having to report whether it was the last one.
+    exit: bool,
 }
 
 impl ReviewTui {
@@ -68,6 +71,7 @@ impl ReviewTui {
             show_help: false,
             selected: None,
             prompt: None,
+            exit: false,
         })
     }
 
@@ -99,6 +103,9 @@ impl ReviewTui {
                 break;
             }
             self.handle(key)?;
+            if self.exit {
+                break;
+            }
         }
         Ok(())
     }
@@ -204,11 +211,16 @@ impl ReviewTui {
     /// again only lets the two disagree. Ending it stops generation, so where
     /// work remains unwritten the reviewer is asked once — pressing on through
     /// a batch must not close a review by momentum.
+    ///
+    /// Pressing on once the review is already ended leaves it: the reviewer has
+    /// nothing left to say here, and the same key that carried them through the
+    /// walkthrough should not go dead on the last screen.
     fn finish_review(&mut self) -> Result<()> {
-        let decision = self.outcome();
-        if self.session.decision == Some(decision) {
+        if self.ended() {
+            self.exit = true;
             return Ok(());
         }
+        let decision = self.outcome();
         let unwritten = self.unwritten();
         if unwritten > 0
             && !self.confirm(&format!(
@@ -226,6 +238,13 @@ impl ReviewTui {
     pub(super) fn outcome(&self) -> Decision {
         self.session
             .outcome(self.review.spec().chunks.iter().map(|chunk| &chunk.id))
+    }
+
+    /// Whether the review has been ended as it now stands. Feedback left after
+    /// the fact can change the outcome, and then it is no longer ended: the
+    /// recorded decision would be describing a review that has moved on.
+    pub(super) fn ended(&self) -> bool {
+        self.session.decision == Some(self.outcome())
     }
 
     /// Changes of the diff that no chunk shows yet. A review opened while the
@@ -440,6 +459,44 @@ mod tests {
         tui.handle(press(KeyCode::Enter)).expect("end the review");
 
         assert_eq!(tui.session.decision, Some(Decision::Approve));
+    }
+
+    /// The key that carried the reviewer through the walkthrough must not go
+    /// dead on the last screen.
+    #[test]
+    fn pressing_on_from_an_ended_review_leaves_it() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Enter)).expect("through a chunk");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("end the review");
+        assert_eq!(tui.session.decision, Some(Decision::Approve));
+        assert!(!tui.exit, "recording is not leaving");
+
+        tui.handle(press(KeyCode::Enter)).expect("leave");
+
+        assert!(tui.exit);
+    }
+
+    /// Feedback left after the fact changes what the review amounts to, so the
+    /// recorded decision no longer describes it and Enter records again.
+    #[test]
+    fn feedback_after_the_end_reopens_the_outcome_rather_than_leaving() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Enter)).expect("through a chunk");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("end the review");
+        tui.record(ReviewEvent::feedback(remark(FeedbackKind::Issue)))
+            .expect("a late request");
+
+        tui.handle(press(KeyCode::Enter))
+            .expect("record the new outcome");
+
+        assert!(!tui.exit, "{:?}", tui.session.decision);
+        assert_eq!(tui.session.decision, Some(Decision::RequestChanges));
     }
 
     #[test]

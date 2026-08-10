@@ -24,6 +24,7 @@ impl HelpScreen {
              ## Ending the review\n\n\
              - The outcome follows what you left: a request open means **request changes**, remarks alone mean **comment**, nothing at all means **approve**. There is no separate button to press, and nothing to keep in step with your feedback.\n\
              - **`Enter`** on the summary ends the review with that outcome. If part of the change set has not been written into the review yet, you are asked first, because ending it stops the rest being written.\n\
+             - **`Enter`** again leaves the review. Adding feedback afterwards changes the outcome, so `Enter` records the new one instead of leaving.\n\
              - **`u`** jumps to the first unreviewed chunk; **`g`** to the first open request.\n\n\
              ## Navigation\n\n\
              - **`↑` / `↓` or `k` / `j`** — scroll one line.\n\

@@ -98,11 +98,13 @@ impl ReviewTui {
             );
         }
         if self.is_summary() {
+            let action = if self.ended() {
+                "[Enter] Done".to_owned()
+            } else {
+                format!("[Enter] End the review as \"{}\"", self.outcome().label())
+            };
             return (
-                format!(
-                    "[Enter] End the review as \"{}\"  [u] Unreviewed  [g] Open request",
-                    self.outcome().label()
-                ),
+                format!("{action}  [u] Unreviewed  [g] Open request"),
                 format!("[←/p] Previous chunk    [?] Help    [q] Quit    {position}"),
             );
         }

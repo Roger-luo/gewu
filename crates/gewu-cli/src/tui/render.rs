@@ -107,7 +107,8 @@ impl Screen {
             outcome.label(),
             outcome_reason(outcome, open),
             match session.decision {
-                Some(recorded) if recorded == outcome => "Recorded.".to_owned(),
+                Some(recorded) if recorded == outcome =>
+                    "Recorded. Press `Enter` to leave the review.".to_owned(),
                 Some(recorded) => format!(
                     "Recorded earlier as *{}*; press `Enter` to record it as it now stands.",
                     recorded.label()
