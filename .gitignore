@@ -1,4 +1,5 @@
 /target
+/.gewu
 
 # Managed by ion
 .agents/skills/ion-cli

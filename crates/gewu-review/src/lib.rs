@@ -1,1 +1,29 @@
 //! Domain primitives for human-guided code and design review.
+
+pub mod handover;
+pub mod harness;
+mod height;
+mod input;
+mod session;
+mod spec;
+mod validation;
+
+pub use handover::Handover;
+pub use height::{chunk_height, pane_height};
+pub use input::{Change, ReviewInput, SourceIdentity};
+pub use session::{
+    Decision, EventLog, Feedback, FeedbackKind, FeedbackTarget, LineAnchor, ReviewEvent,
+    ReviewSession, SessionError,
+};
+pub use spec::{
+    ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, Illustration, Overview, Quote,
+    ReviewChunk, ReviewSpec,
+};
+pub use validation::{ValidatedReview, ValidationError, ValidationErrors};
+
+pub const SCHEMA_VERSION: u32 = 4;
+
+/// Rendered rows a chunk may occupy before it needs an explicit justification.
+/// Sized so a chunk fits one modest terminal without paging, because the chunk
+/// is the unit a reviewer comments on.
+pub const DEFAULT_MAX_CHUNK_LINES: usize = 40;

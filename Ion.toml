@@ -2,6 +2,7 @@
 ion-cli = { type = "local" }
 agents-update = { type = "local" }
 rust-best-practices = { source = "apollographql/skills/rust-best-practices" }
+gewu-review = { type = "local", path = "harness/skills/gewu-review" }
 
 [options]
 

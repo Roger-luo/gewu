@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gewu.dev/schema/review-spec-v4.json",
+  "title": "Gewu ReviewSpec",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "review_id",
+    "source",
+    "overview",
+    "chunks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 4
+    },
+    "review_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "base",
+        "head",
+        "diff_sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "diff_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "overview": {
+      "type": "object",
+      "required": [
+        "intent",
+        "changes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "changes": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string"
+          }
+        },
+        "concepts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "illustration": {
+          "$ref": "#/$defs/illustration"
+        }
+      }
+    },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/chunk"
+      }
+    }
+  },
+  "$defs": {
+    "illustration": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "before",
+            "after"
+          ],
+          "properties": {
+            "kind": {
+              "const": "before_after"
+            },
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "steps"
+          ],
+          "properties": {
+            "kind": {
+              "const": "flow"
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "input",
+            "output"
+          ],
+          "properties": {
+            "kind": {
+              "const": "example"
+            },
+            "input": {
+              "type": "string"
+            },
+            "output": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "context": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "definition",
+            "example",
+            "relation"
+          ],
+          "properties": {
+            "kind": {
+              "const": "concept"
+            },
+            "definition": {
+              "type": "string"
+            },
+            "example": {
+              "type": "string"
+            },
+            "relation": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "before",
+            "after",
+            "reason"
+          ],
+          "properties": {
+            "kind": {
+              "const": "refactor"
+            },
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "chunk": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "kind",
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "kind": {
+          "enum": [
+            "concept",
+            "refactor",
+            "integration",
+            "test",
+            "other"
+          ]
+        },
+        "content": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "oversized_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "block": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "markdown"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "narrative"
+            },
+            "markdown": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "quotes",
+            "presentation"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "changes"
+            },
+            "quotes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/quote"
+              }
+            },
+            "presentation": {
+              "enum": [
+                "diff",
+                "added_code",
+                "rendered_markdown",
+                "summary_only"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "quote": {
+      "type": "object",
+      "required": [
+        "change_id",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "change_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
