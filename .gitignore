@@ -12,3 +12,10 @@ CLAUDE.md
 .claude/skills/agents-update
 .agents/skills/rust-best-practices
 .claude/skills/rust-best-practices
+
+# Managed by ion: links `ion add` regenerates from Ion.toml. The skills
+# themselves are tracked at .agents/skills/gewu-dogfood and
+# harness/skills/gewu-review.
+.agents/skills/gewu-review
+.claude/skills/gewu-review
+.claude/skills/gewu-dogfood
