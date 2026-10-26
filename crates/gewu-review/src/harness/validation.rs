@@ -51,6 +51,15 @@ pub enum HarnessValidationError {
     DuplicateItem(String),
     #[error("work item `{0}` has an empty title or claims no changes")]
     EmptyItem(String),
+    #[error(
+        "work item `{item}` owns {lines} visible source rows but its {chunks}-chunk budget can show at most {budget}; split the item, or isolate an intentionally summarized generated artifact in its own item"
+    )]
+    ImpossibleItem {
+        item: String,
+        lines: usize,
+        chunks: usize,
+        budget: usize,
+    },
     #[error("item `{item}` expanded into {chunks} chunks but the cap is {cap}")]
     TooManyChunks {
         item: String,
@@ -120,6 +129,22 @@ impl CheckpointValidator {
         list: &WorkList,
         input: &ReviewInput,
     ) -> Result<(), HarnessValidationErrors> {
+        Self::work_list_with_budget(list, input, None)
+    }
+
+    pub(super) fn work_list_for(
+        list: &WorkList,
+        input: &ReviewInput,
+        max_chunks: usize,
+    ) -> Result<(), HarnessValidationErrors> {
+        Self::work_list_with_budget(list, input, Some(max_chunks))
+    }
+
+    fn work_list_with_budget(
+        list: &WorkList,
+        input: &ReviewInput,
+        max_chunks: Option<usize>,
+    ) -> Result<(), HarnessValidationErrors> {
         let mut errors = Self::header(list.schema_version, &list.source, input);
         if list.items.is_empty() && !input.changes.is_empty() {
             errors.push(HarnessValidationError::Empty("work items"));
@@ -133,6 +158,9 @@ impl CheckpointValidator {
                 errors.push(HarnessValidationError::EmptyItem(item.id.clone()));
             }
             errors.extend(Self::resolvable(&item.covers, input));
+            if let Some(max_chunks) = max_chunks {
+                errors.extend(Self::item_budget(item, input, max_chunks));
+            }
         }
         let covers: Vec<_> = list
             .items
@@ -141,6 +169,48 @@ impl CheckpointValidator {
             .collect();
         errors.extend(Self::uncovered(&covers, input.changes.iter().collect()));
         Self::result(errors)
+    }
+
+    /// Rejects broad work items whose ordinary source cannot fit the entire
+    /// expansion allowance. A one-change item is exempt because generated
+    /// artifacts deliberately support `summary_only`; isolating such an
+    /// artifact is also the remedy suggested to authors.
+    fn item_budget(
+        item: &WorkItem,
+        input: &ReviewInput,
+        max_chunks: usize,
+    ) -> Vec<HarnessValidationError> {
+        let change_ids: HashSet<_> = item.change_ids().collect();
+        if change_ids.len() <= 1 {
+            return Vec::new();
+        }
+
+        let known: HashMap<_, _> = input
+            .changes
+            .iter()
+            .map(|change| (&change.id, change))
+            .collect();
+        let visible_rows: HashSet<_> = item
+            .covers
+            .iter()
+            .filter_map(|quote| known.get(&quote.change_id).map(|change| (quote, *change)))
+            .flat_map(|(quote, change)| {
+                (quote.start..=quote.end.min(change.body_lines()))
+                    .filter(|line| !Self::is_blank(change, *line))
+                    .map(move |line| (&quote.change_id, line))
+            })
+            .collect();
+        let budget = input.max_chunk_lines.saturating_mul(max_chunks);
+        if visible_rows.len() <= budget {
+            Vec::new()
+        } else {
+            vec![HarnessValidationError::ImpossibleItem {
+                item: item.id.clone(),
+                lines: visible_rows.len(),
+                chunks: max_chunks,
+                budget,
+            }]
+        }
     }
 
     /// An expansion walks through exactly its item's spans, in as many views as

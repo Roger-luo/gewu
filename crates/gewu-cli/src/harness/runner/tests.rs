@@ -165,6 +165,11 @@ fn expands_one_item_and_then_waits_for_the_reviewer() {
     let spec = fixture.spec();
     assert_eq!(spec.chunks.len(), 1, "only the first item was expanded");
     assert_eq!(spec.review_id, "review-test");
+    assert_eq!(
+        spec.remaining_work_items(),
+        Some(1),
+        "the UI must know this is a generated batch, not the whole review"
+    );
     let work = fixture
         .runner
         .store
@@ -184,6 +189,55 @@ fn expands_one_item_and_then_waits_for_the_reviewer() {
 }
 
 #[test]
+fn plan_rejects_a_multi_change_item_that_cannot_fit_its_expansion() {
+    let mut fixture = fixture();
+    fixture.input = fixture.input.clone().with_max_chunk_lines(1);
+    fixture.runner.max_chunks = 1;
+    fixture
+        .runner
+        .start(
+            "review-test".into(),
+            fixture.input.clone(),
+            ReviewOrigin {
+                base: "HEAD".into(),
+                head: Some("HEAD".into()),
+                working_tree: false,
+            },
+        )
+        .expect("start");
+    fixture
+        .runner
+        .store
+        .save_investigation(&fixture.investigation())
+        .expect("save investigation");
+    fixture.runner.next().expect("advance to plan");
+    let mut list = fixture.work_list();
+    let second = list.items.pop().expect("second item");
+    list.items[0].covers.extend(second.covers);
+    fixture
+        .runner
+        .store
+        .save_work_list(&list)
+        .expect("save impossible plan");
+
+    let retry = fixture.runner.next().expect("validate plan");
+
+    assert!(retry.contains("checkpoint needs correction"), "{retry}");
+    assert!(retry.contains("split the item"), "{retry}");
+    assert!(retry.contains("1-chunk budget"), "{retry}");
+    assert_eq!(
+        fixture
+            .runner
+            .store
+            .state()
+            .expect("state")
+            .expect("present")
+            .stage,
+        HarnessStage::Plan
+    );
+}
+
+#[test]
 fn expands_the_next_item_once_the_batch_is_reviewed() {
     let fixture = fixture();
     let list = fixture.expand_first();
@@ -200,6 +254,50 @@ fn expands_the_next_item_once_the_batch_is_reviewed() {
     let spec = fixture.spec();
     assert_eq!(spec.chunks.len(), 2, "chunks accumulate");
     assert_eq!(spec.review_id, "review-test", "session identity is stable");
+    assert_eq!(spec.remaining_work_items(), Some(0));
+}
+
+/// Draft measurement is an edit-loop action. Once the author has the prompt
+/// and a draft, repeating the full prompt hides the numbers they asked for.
+#[test]
+fn measuring_an_expansion_reports_heights_without_repeating_the_prompt() {
+    let fixture = fixture();
+    fixture
+        .runner
+        .start(
+            "review-test".into(),
+            fixture.input.clone(),
+            ReviewOrigin {
+                base: "HEAD".into(),
+                head: Some("HEAD".into()),
+                working_tree: false,
+            },
+        )
+        .expect("start");
+    fixture
+        .runner
+        .store
+        .save_investigation(&fixture.investigation())
+        .expect("save investigation");
+    fixture.runner.next().expect("advance to plan");
+    let list = fixture.work_list();
+    fixture
+        .runner
+        .store
+        .save_work_list(&list)
+        .expect("save work list");
+    fixture.runner.next().expect("advance to expand");
+    fixture.stage_expansion(&list.items[0]);
+
+    let measured = fixture.runner.status().expect("measure expansion");
+
+    assert!(measured.starts_with("Measured heights:"), "{measured}");
+    assert!(measured.contains("chunk-item-0"), "{measured}");
+    assert!(measured.contains("measure again"), "{measured}");
+    assert!(
+        !measured.contains("Spans this item covers"),
+        "the prompt is repeated: {measured}"
+    );
 }
 
 fn request(chunk_id: &str, target: FeedbackTarget) -> Feedback {
@@ -456,4 +554,40 @@ fn a_decision_completes_a_review_that_covers_everything() {
 
     assert!(complete.starts_with("# COMPLETE"), "{complete}");
     assert!(complete.contains("review-test"));
+}
+
+#[test]
+fn author_prompts_preserve_findings_and_explain_enforced_limits() {
+    let f = fixture();
+    f.runner
+        .start(
+            "review-test".into(),
+            f.input.clone(),
+            ReviewOrigin {
+                base: "HEAD".into(),
+                head: Some("HEAD".into()),
+                working_tree: false,
+            },
+        )
+        .expect("start");
+    let investigation = f.investigation();
+    f.runner
+        .store
+        .save_investigation(&investigation)
+        .expect("investigation");
+    let plan = f.runner.next().expect("plan");
+    assert!(plan.contains("40 × 6 non-blank source rows"), "{plan}");
+    f.runner
+        .store
+        .save_work_list(&f.work_list())
+        .expect("worklist");
+    let expand = f.runner.next().expect("expand");
+    assert!(
+        expand.contains("Two independent additions."),
+        "findings must survive: {expand}"
+    );
+    assert!(
+        expand.contains("500"),
+        "summary validation limit must be explicit: {expand}"
+    );
 }

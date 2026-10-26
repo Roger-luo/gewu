@@ -75,6 +75,19 @@
       "items": {
         "$ref": "#/$defs/chunk"
       }
+    },
+    "generation": {
+      "type": "object",
+      "required": [
+        "remaining_work_items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "remaining_work_items": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   },
   "$defs": {

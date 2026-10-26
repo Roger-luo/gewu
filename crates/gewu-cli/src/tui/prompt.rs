@@ -25,7 +25,7 @@ pub(super) struct Prompt {
     input: Option<Entry>,
 }
 
-const ENTRY_HINT: &str = "[Enter] save   [Shift+Enter] new line   [←/→/↑/↓] move   \
+const ENTRY_HINT: &str = "[Enter] save   [Shift/Alt+Enter or Ctrl+n] new line   [←/→/↑/↓] move   \
                           [PgUp/PgDn] scroll the chunk   [Esc] cancel";
 const INPUT_GUTTER: &str = "│ ";
 const CURSOR: &str = "█";
@@ -69,7 +69,13 @@ impl Prompt {
             },
         );
         document.newline();
-        document.push(&self.hint, muted());
+        document.push(
+            atomic_hint(&self.hint),
+            TextStyle {
+                foreground: Some(Color::White),
+                ..TextStyle::default()
+            },
+        );
         let mut document = document.wrapped(width);
         if self.input.is_none() {
             return clamped(document, rows);
@@ -79,8 +85,32 @@ impl Prompt {
         let input = self
             .input_region(width.saturating_sub(INPUT_GUTTER.chars().count()))
             .gutter(INPUT_GUTTER, muted());
-        let room = rows.saturating_sub(document.lines.len()).max(1);
-        let first = first_visible(&input, room);
+        let mut room = rows.saturating_sub(document.lines.len()).max(1);
+        let mut first = first_visible(&input, room);
+        if input.lines.len() > room && room > 1 {
+            room -= 1;
+            first = first_visible(&input, room);
+            let last = (first + room).min(input.lines.len());
+            document.newline();
+            document.push(
+                format!(
+                    "Draft rows {}–{} of {}{}{}",
+                    first + 1,
+                    last,
+                    input.lines.len(),
+                    if first > 0 { " · ↑ more above" } else { "" },
+                    if last < input.lines.len() {
+                        " · ↓ more below"
+                    } else {
+                        ""
+                    }
+                ),
+                TextStyle {
+                    foreground: Some(Color::Yellow),
+                    ..TextStyle::default()
+                },
+            );
+        }
         document
             .lines
             .extend(input.lines.into_iter().skip(first).take(room));
@@ -107,6 +137,13 @@ impl Prompt {
         document.push(after, TextStyle::default());
         document.wrapped(width)
     }
+}
+
+/// Keeps a bracketed key with the word that explains it. Ordinary spaces
+/// remain between actions, so the document wrapper can still choose clean row
+/// boundaries on a narrow terminal.
+fn atomic_hint(hint: &str) -> String {
+    hint.replace("] ", "]\u{a0}")
 }
 
 /// The editing keys terminals have carried since readline, so muscle memory
@@ -170,8 +207,8 @@ fn clamped(mut document: Document, rows: usize) -> Document {
 impl ReviewTui {
     /// Reads a body of feedback while the chunk stays scrollable, so a
     /// reviewer can look back at what they are commenting on. Enter saves and
-    /// Shift+Enter adds a line, which needs a terminal that tells the two
-    /// apart; pasting works everywhere.
+    /// Shift/Alt+Enter adds a line where the terminal distinguishes it;
+    /// Ctrl+n and pasted line breaks work everywhere.
     pub(super) fn write(&mut self, title: &str) -> Result<Option<String>> {
         self.prompt = Some(Prompt::entry(title));
         let written = self.read_entry();
@@ -215,6 +252,9 @@ impl ReviewTui {
                         KeyCode::Delete => entry.delete(),
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             return Ok(None);
+                        }
+                        KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            entry.insert_char('\n');
                         }
                         KeyCode::Char(character)
                             if key.modifiers.contains(KeyModifiers::CONTROL) =>
@@ -311,8 +351,24 @@ mod tests {
 
         assert_eq!(drawn[0], "─".repeat(30));
         assert_eq!(drawn[1], "Request change");
-        assert_eq!(drawn[2], "[Enter] whole chunk");
+        assert_eq!(drawn[2], "[Enter]\u{a0}whole chunk");
         assert_eq!(drawn.len(), 3);
+    }
+
+    #[test]
+    fn wraps_only_between_complete_key_actions() {
+        let prompt = Prompt::question("Comment", "[Enter] save   [←/→/↑/↓] move   [Esc] cancel");
+
+        let drawn = lines(&prompt.document(24, 10));
+
+        assert!(
+            drawn
+                .iter()
+                .any(|line| line.contains("[←/→/↑/↓]\u{a0}move"))
+        );
+        assert!(drawn.iter().any(|line| line.contains("[Esc]\u{a0}cancel")));
+        assert!(!drawn.iter().any(|line| line.trim() == "move"));
+        assert!(!drawn.iter().any(|line| line.trim() == "cancel"));
     }
 
     #[test]
@@ -402,5 +458,16 @@ mod tests {
 
         assert_eq!(drawn.len(), 6);
         assert_eq!(drawn[5], "│ five█");
+    }
+
+    #[test]
+    fn long_drafts_disclose_hidden_rows() {
+        let prompt = written("Comment", "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight");
+
+        let drawn = lines(&prompt.document(65, 11)).join("\n");
+
+        assert!(drawn.contains("Draft rows"), "{drawn}");
+        assert!(drawn.contains("more above"), "{drawn}");
+        assert!(drawn.contains("of 8"), "{drawn}");
     }
 }

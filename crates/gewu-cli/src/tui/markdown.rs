@@ -3,6 +3,7 @@ use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
 use super::{
     highlight::CodeHighlighter,
+    render_support::muted,
     style::{Document, TextStyle},
 };
 
@@ -169,8 +170,13 @@ impl Renderer {
         {
             self.document.newline();
         }
-        self.document
-            .append(CodeHighlighter::global().code(&language, &code));
+        let code = code.strip_suffix('\n').unwrap_or(&code);
+        self.document.append(
+            CodeHighlighter::global()
+                .code(&language, code)
+                .gutter("│ ", muted()),
+        );
+        self.document.newline();
         self.document.newline();
     }
 
@@ -224,6 +230,26 @@ mod tests {
                     span.text.contains("fn")
                         && matches!(span.style.foreground, Some(Color::Rgb { .. }))
                 })
+        );
+    }
+
+    #[test]
+    fn code_blocks_have_a_non_color_boundary_and_surrounding_space() {
+        let document = Markdown::render("Before.\n\n```text\ncommand --flag\n```\n\nAfter.");
+        let lines: Vec<String> = document
+            .lines
+            .iter()
+            .map(|line| line.spans.iter().map(|span| span.text.as_str()).collect())
+            .collect();
+        let code = lines
+            .iter()
+            .position(|line| line == "│ command --flag")
+            .expect("framed code row");
+
+        assert!(code > 0 && lines[code - 1].is_empty(), "{lines:#?}");
+        assert!(
+            lines.get(code + 1).is_some_and(String::is_empty),
+            "{lines:#?}"
         );
     }
 }

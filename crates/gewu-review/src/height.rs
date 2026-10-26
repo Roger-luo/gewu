@@ -8,7 +8,7 @@ use crate::{Change, ChangePresentation, ChunkBlock, ChunkContext, Quote, ReviewC
 /// blank, the title and its blank, the "What this does" heading, and the blank
 /// under the summary. The summary itself is measured, not assumed — validation
 /// permits 500 characters, which is seven rows at the reference width.
-const CHUNK_CHROME: usize = 7;
+const CHUNK_CHROME: usize = 8;
 
 /// Rows a quoted block costs: its source header, the blank line under it, and
 /// the blank line that closes it. Charged once per file run, because the
@@ -27,6 +27,11 @@ const CONTEXT_CHROME: usize = 2;
 /// width; 80 columns is the narrow end of what a reviewer is likely to use,
 /// which keeps the estimate honest for the case that would otherwise page.
 const REFERENCE_WIDTH: usize = 80;
+
+/// The public approximation authors use before the harness measures their
+/// actual draft. Keeping the prose beside the implementation makes prompt and
+/// validator drift visible in review.
+pub const CHUNK_HEIGHT_GUIDANCE: &str = "Start with 8 rows of chunk chrome, plus any title rows beyond its first when wrapped at 80 columns. Add the summary wrapped at 80 columns. Add each narrative block wrapped at 80 columns plus 1 closing blank row. For each consecutive run of quotes from one file, add 3 rows for its source header and surrounding blanks, plus any extra rows needed to wrap that header. Add 1 explicit elision row between separate views and at either edge where the view omits hunk lines. Then add every displayed source row, including wrapping after the line-number gutter; rendered Markdown is charged by its rendered rows plus 1 closing blank row, and a summary-only artifact costs 1 row. Add a confidence note at its wrapped height plus 1 blank row. A context pane is measured separately and is not charged to the chunk budget.";
 
 /// The gutter is as wide as the largest line number it has to print, so a file
 /// past a thousand lines costs a column more than a short one.
@@ -49,7 +54,9 @@ fn quote_indent(change: &Change) -> usize {
 /// estimate that errs slightly high rather than an exact row count.
 #[must_use]
 pub fn chunk_height(chunk: &ReviewChunk, changes: &HashMap<&String, &Change>) -> usize {
-    let mut height = CHUNK_CHROME + prose_height(&chunk.summary, REFERENCE_WIDTH);
+    let mut height = CHUNK_CHROME
+        + wrapped_rows(&chunk.title, REFERENCE_WIDTH).saturating_sub(1)
+        + prose_height(&chunk.summary, REFERENCE_WIDTH);
     if let Some(confidence) = &chunk.confidence {
         height += CONFIDENCE_CHROME
             + prose_height(&format!("*Confidence:* {confidence}"), REFERENCE_WIDTH);
@@ -79,10 +86,25 @@ pub fn chunk_height(chunk: &ReviewChunk, changes: &HashMap<&String, &Change>) ->
                     .iter()
                     .map(|(quote, change)| quoted_height(quote, change, *presentation, indent))
                     .sum();
-                // Views inside a block are separated by a blank row.
-                let separators = resolved.len().saturating_sub(1);
+                // Elision markers make omitted material and separate views
+                // explicit. Each file run can carry one at either edge, and
+                // every later view carries one before it.
+                let elisions = resolved
+                    .chunk_by(|left, right| left.1.path == right.1.path)
+                    .map(|run| {
+                        usize::from(run[0].0.start > 1)
+                            + run.len().saturating_sub(1)
+                            + usize::from(
+                                run.last()
+                                    .is_some_and(|(quote, change)| quote.end < change.body_lines()),
+                            )
+                    })
+                    .sum::<usize>();
                 let files: Vec<_> = resolved.iter().map(|(_, change)| *change).collect();
-                BLOCK_CHROME * file_runs(&files).max(1) + header_rows(&files) + separators + rows
+                BLOCK_CHROME * file_runs(&files).max(1)
+                    + header_rows(&resolved, *presentation)
+                    + elisions
+                    + rows
             }
         };
     }
@@ -133,15 +155,44 @@ fn context_height(context: &ChunkContext) -> usize {
 /// Rows the source headers cost beyond the one row `BLOCK_CHROME` already
 /// allows for each. A header names the path and the presentation, and a long
 /// path wraps.
-fn header_rows(changes: &[&Change]) -> usize {
+fn header_rows(quotes: &[(&Quote, &Change)], presentation: ChangePresentation) -> usize {
     let mut rows = 0;
-    let mut previous = None;
-    for change in changes {
-        if previous != Some(&change.path) {
-            // "▏ " plus the path plus " · added code".
-            rows += wrapped_rows(&format!("  {} · added code", change.path), REFERENCE_WIDTH) - 1;
-            previous = Some(&change.path);
-        }
+    for run in quotes.chunk_by(|left, right| left.1.path == right.1.path) {
+        let path = &run[0].1.path;
+        let ranges = run
+            .iter()
+            .filter_map(|(quote, change)| {
+                let lines: Vec<_> = (quote.start..=quote.end)
+                    .filter_map(|body_line| change.new_line_at(body_line))
+                    .collect();
+                match (lines.first(), lines.last()) {
+                    (Some(first), Some(last)) if first != last => Some(format!("{first}-{last}")),
+                    (Some(line), _) => Some(line.to_string()),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let location = if ranges.is_empty() {
+            path.clone()
+        } else {
+            format!("{path}:{ranges}")
+        };
+        let presentation = match presentation {
+            ChangePresentation::Diff => "diff",
+            ChangePresentation::AddedCode => "added code",
+            ChangePresentation::RenderedMarkdown => "document",
+            ChangePresentation::SummaryOnly => "not shown",
+        };
+        let views = if run.len() > 1 {
+            format!(" · {} views", run.len())
+        } else {
+            String::new()
+        };
+        rows += wrapped_rows(
+            &format!("  {location} · {presentation}{views}"),
+            REFERENCE_WIDTH,
+        ) - 1;
     }
     rows
 }
@@ -272,7 +323,13 @@ mod tests {
 
     use crate::{Change, ChangePresentation, ChunkBlock, ChunkKind, Quote, ReviewChunk};
 
-    use super::{BLOCK_CHROME, CHUNK_CHROME, chunk_height};
+    use super::{BLOCK_CHROME, CHUNK_CHROME, CHUNK_HEIGHT_GUIDANCE, chunk_height};
+
+    /// Prompt drift once made authors undercount every rendered document.
+    #[test]
+    fn public_guidance_names_the_rendered_markdown_closing_row() {
+        assert!(CHUNK_HEIGHT_GUIDANCE.contains("rendered rows plus 1 closing blank row"));
+    }
 
     /// The fixtures' one-line summary, which is measured rather than assumed.
     const SUMMARY: usize = 1;
@@ -322,8 +379,9 @@ mod tests {
 
         let height = chunk_height(&chunk, &changes);
 
-        // Two file runs, two quoted lines, and the blank row between the views.
-        assert_eq!(height, CHUNK_CHROME + SUMMARY + BLOCK_CHROME * 2 + 1 + 2);
+        // Two file runs and two quoted lines. Each run's closing blank already
+        // separates it from the next header.
+        assert_eq!(height, CHUNK_CHROME + SUMMARY + BLOCK_CHROME * 2 + 2);
     }
 
     #[test]
@@ -338,6 +396,19 @@ mod tests {
 
         // 500 characters is seven rows at the reference width, not one.
         assert!(grew >= 5, "a long summary only cost {grew} extra rows");
+    }
+
+    #[test]
+    fn charges_for_a_title_that_wraps() {
+        let brief = chunk(vec![ChunkBlock::Narrative {
+            markdown: "One line.".into(),
+        }]);
+        let mut long = brief.clone();
+        long.title = "title ".repeat(40);
+
+        let grew = chunk_height(&long, &HashMap::new()) - chunk_height(&brief, &HashMap::new());
+
+        assert!(grew >= 2, "a long title only cost {grew} extra rows");
     }
 
     #[test]

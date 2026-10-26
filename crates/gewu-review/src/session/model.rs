@@ -202,6 +202,8 @@ impl ReviewEvent {
 pub struct ReviewSession {
     pub spec_id: Option<String>,
     pub visited: HashSet<String>,
+    /// Most recently visited live chunk, used only to orient a resumed UI.
+    pub last_visited: Option<String>,
     pub reviewed: HashSet<String>,
     pub feedback: HashMap<String, Feedback>,
     /// Feedback ids in the order they were written. A reviewer selects feedback
@@ -219,6 +221,7 @@ impl ReviewSession {
             }
             EventAction::Visited { chunk_id } => {
                 self.visited.insert(chunk_id.clone());
+                self.last_visited = Some(chunk_id.clone());
             }
             EventAction::ReviewChanged { chunk_id, reviewed } => {
                 if *reviewed {

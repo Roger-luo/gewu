@@ -32,9 +32,10 @@ Rules:
 - Show the same lines the chunk shows now. Where a view begins and ends, how
   many views there are, and what you say about them are yours to change; which
   code the reviewer is looking at is not.
-- Keep each chunk to at most {{max_chunk_lines}} rendered rows. Run
-  `gewu harness status` after writing the file: with a draft in place it reports
-  measured heights without advancing.
+- Keep each chunk to at most {{max_chunk_lines}} rendered rows. In a direct CLI
+  session run `gewu harness status` after writing the file: with a draft in
+  place it reports measured heights without advancing. Under a driver, send the
+  complete revision through its measure action instead.
 - A `context` pane is not charged to those rows, so a reviewer asking to be
   reminded what a type is can be answered with one. Add it where they asked;
   keep it to what they need to read the code in front of them.
@@ -53,5 +54,7 @@ Then, for each request you have answered:
 gewu review resolve --id <feedback-id>
 ```
 
-Then run `gewu harness next`. If you believe a request is mistaken, say so to
-the human and stop rather than resolving it.
+When working directly in the CLI, then run `gewu harness next`. When a driver
+asked for the JSON as your response, return only the checkpoint; the driver
+writes and validates it before continuation. If you believe a request is
+mistaken, say so to the human and stop rather than resolving it.

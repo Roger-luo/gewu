@@ -17,7 +17,13 @@ Order the parts by comprehension dependency:
 Each item is one sitting: what a reviewer would read in one go and react to as a
 whole. An item names the spans of the diff it walks through. A large hunk will
 usually need several items — split it where the story changes subject, not where
-a line count runs out.
+a line count runs out. Do not split a sentence, declaration, or other semantic
+unit across item boundaries merely to meet the estimate.
+
+Keep mechanically repeated configuration together when it supports one review
+decision. Settings that differ only by a command name, label, or priority are
+usually one item; repeat a shared caveat once and point back to it rather than
+making the reviewer rediscover it in several chunks.
 
 Write `.gewu/harness/worklist.json`:
 
@@ -51,12 +57,26 @@ overlap where the story needs the same lines twice; nothing may be left out.
 
 An item becomes at most {{max_chunks}} chunks, and a chunk holds about
 {{max_chunk_lines}} rendered rows including its title, summary, prose, and quote
-headers. Count before you commit: an item whose spans cannot fit that cannot be
-expanded, and you will be sent back to split it. Never merge unrelated concerns
-to make an item look bigger.
+headers. Use this estimate as planning guidance:
 
-When the work list is complete, run:
+{{height_guidance}}
+
+At planning time the exact prose does not exist, so Gewu cannot measure a
+chunk's final rendered height. It does enforce a source-row ceiling for broad
+items: an item spanning more than one change may own at most
+{{max_chunk_lines}} × {{max_chunks}} non-blank source rows. A one-change item is
+exempt so an intentionally summarized generated artifact can be isolated in
+its own item. Budget below that ceiling conservatively and leave room for
+prose. Exact height is checked when an item is expanded; if its chunks do not
+fit, split the views or return a smaller expansion rather than merging
+unrelated concerns.
+
+When working directly in the CLI, continue with:
 
 ```bash
 gewu harness next
 ```
+
+When a driver asked for the JSON as your response, return only that checkpoint;
+planning has no measure/submit inner loop. The driver writes it, validates it,
+and runs the continuation command.

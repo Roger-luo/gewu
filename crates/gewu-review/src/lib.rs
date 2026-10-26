@@ -9,15 +9,15 @@ mod spec;
 mod validation;
 
 pub use handover::Handover;
-pub use height::{chunk_height, pane_height};
+pub use height::{CHUNK_HEIGHT_GUIDANCE, chunk_height, pane_height};
 pub use input::{Change, ReviewInput, SourceIdentity};
 pub use session::{
     Decision, EventLog, Feedback, FeedbackKind, FeedbackTarget, LineAnchor, ReviewEvent,
     ReviewSession, SessionError,
 };
 pub use spec::{
-    ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, Illustration, Overview, Quote,
-    ReviewChunk, ReviewSpec,
+    ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, GenerationStatus, Illustration,
+    Overview, Quote, ReviewChunk, ReviewSpec,
 };
 pub use validation::{ValidatedReview, ValidationError, ValidationErrors};
 

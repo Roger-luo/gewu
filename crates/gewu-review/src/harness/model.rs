@@ -137,6 +137,20 @@ impl WorkList {
         CheckpointValidator::work_list(self, input)
     }
 
+    /// Validates the plan against the expansion budget chosen by the caller.
+    ///
+    /// A single large change may later use a compact presentation such as
+    /// `summary_only`. A multi-change item, however, must leave enough room to
+    /// walk its ordinary source without making the expansion checkpoint
+    /// impossible to satisfy.
+    pub fn validate_for(
+        &self,
+        input: &ReviewInput,
+        max_chunks: usize,
+    ) -> Result<(), HarnessValidationErrors> {
+        CheckpointValidator::work_list_for(self, input, max_chunks)
+    }
+
     /// The item the agent should work on next.
     #[must_use]
     pub fn next_item(&self) -> Option<&WorkItem> {

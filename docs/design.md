@@ -87,7 +87,8 @@ The generated spec chooses the presentation that best supports review:
   green background.
 - Show syntax-highlighted added code without diff markers when reviewing a new
   implementation and the removed side adds no useful context.
-- Render Markdown sections as documents rather than raw diffs.
+- Render Markdown sections as documents while retaining source line numbers and
+  visible code-block boundaries; raw source remains available as a toggle.
 - Summarize generated artifacts whose full contents are not useful to inspect.
 
 ##### Chunk size
@@ -136,6 +137,8 @@ structural change more clearly than prose.
 
 A right-side context pane appears only when the current chunk benefits from
 supporting information. When absent, the diff uses the full available width.
+The pane stays anchored at its title while the main review body scrolls, so a
+resize or page movement cannot turn an example into an unlabeled fragment.
 
 For a new or potentially unfamiliar concept, the pane shows:
 
@@ -173,7 +176,7 @@ skipped chunks as reviewed.
 For each chunk, the user can:
 
 - Mark it reviewed.
-- Add a non-blocking comment.
+- Add a non-blocking comment, optionally attached to a specific line.
 - Request a change, optionally attached to a specific line.
 - Select one piece of feedback already left on the chunk, then reopen, resolve,
   or delete it.
@@ -195,16 +198,16 @@ Chunk review status and feedback status are independent: resolving a request
 does not mark its chunk reviewed, and revisiting a reviewed chunk does not
 resolve its requests.
 
-After all chunks have been visited, the UI summarizes unresolved requests and
-unreviewed chunks. The user can jump directly to each item, then complete the
-review with one of:
+After all currently generated chunks have been visited, the UI summarizes
+unresolved requests, unreviewed chunks, and generation still pending. The user
+can jump directly to each item, then record the current batch as one of:
 
 - Approve.
 - Comment.
 - Request changes.
 
-The UI warns about unresolved requests or unreviewed chunks but does not silently
-discard them.
+The UI warns about unreviewed chunks and labels a decision as batch-scoped when
+generation is incomplete. Recording a batch never discards pending generation.
 
 #### Content constraints and fallbacks
 
@@ -241,11 +244,10 @@ Expansion of the next item resumes only when all of the following hold:
 
 1. Every expanded chunk has been marked reviewed.
 2. No change request is unresolved, unless the reviewer overrides.
-3. The reviewer has not recorded a final decision.
-4. Nothing has changed under the review beyond what is already expanded.
+3. Nothing has changed under the review beyond what is already expanded.
 
-The first three are about the reviewer being ready. The fourth is about the
-plan still being true: the harness re-diffs the tree and compares. A chunk
+The first two are about the reviewer being ready. The third is about the plan
+still being true: the harness re-diffs the tree and compares. A chunk
 whose quoted code has moved is removed along with its reviewed status, because
 an approval over code that has since changed is not an approval. If edits reach
 work that was planned but not expanded, the remaining plan is discarded and the
@@ -258,3 +260,6 @@ untouched hunk therefore keeps its identity across a re-diff, which is what
 lets completed review work survive an unrelated edit. For the same reason the
 review a human is working through is identified by the run that created it, not
 by the content of its spec, so appending chunks never orphans their progress.
+The spec also carries the number of planned work items still outside it, so a
+client can distinguish a settled generated batch from a complete review
+without reading harness-private state.

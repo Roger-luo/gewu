@@ -15,6 +15,9 @@ pub(super) fn document_title(title: &str) -> Document {
 }
 
 pub(super) fn heading(document: &mut Document, heading: &str) {
+    if document.lines.last().is_some_and(|line| line.width() > 0) {
+        document.newline();
+    }
     document.push(
         heading,
         TextStyle {
@@ -55,7 +58,7 @@ pub(super) fn presentation_label(presentation: ChangePresentation) -> &'static s
         ChangePresentation::Diff => "diff",
         ChangePresentation::AddedCode => "added code",
         ChangePresentation::RenderedMarkdown => "document",
-        ChangePresentation::SummaryOnly => "not shown",
+        ChangePresentation::SummaryOnly => "summary only",
     }
 }
 

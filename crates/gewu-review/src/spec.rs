@@ -21,6 +21,17 @@ pub struct Overview {
     pub concepts: Vec<String>,
 }
 
+/// How much planned walkthrough work has not been generated yet.
+///
+/// The review spec is deliberately useful without a harness, so this metadata
+/// is optional. A progressive harness sets it on every emitted batch; clients
+/// can then distinguish "all generated chunks were reviewed" from "the whole
+/// review is complete" without knowing anything about harness files.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GenerationStatus {
+    pub remaining_work_items: usize,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChunkKind {
@@ -160,6 +171,8 @@ pub struct ReviewSpec {
     pub source: SourceIdentity,
     pub overview: Overview,
     pub chunks: Vec<ReviewChunk>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation: Option<GenerationStatus>,
 }
 
 impl ReviewSpec {
@@ -171,7 +184,24 @@ impl ReviewSpec {
             source,
             overview,
             chunks,
+            generation: None,
         }
+    }
+
+    /// Records the progressive harness work still outside this spec.
+    #[must_use]
+    pub fn with_remaining_work(mut self, remaining_work_items: usize) -> Self {
+        self.generation = Some(GenerationStatus {
+            remaining_work_items,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_work_items(&self) -> Option<usize> {
+        self.generation
+            .as_ref()
+            .map(|status| status.remaining_work_items)
     }
 
     #[must_use]

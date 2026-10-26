@@ -419,4 +419,24 @@ mod tests {
         assert!(!visible.contains("first"));
         assert!(!visible.contains("third"));
     }
+
+    #[test]
+    fn reflowing_narrow_then_wide_preserves_long_paths_and_unicode() {
+        let mut document = Document::new();
+        let text = "src/a/very/long/component/name/reviewer.rs · café → 東京";
+        document.push(text, TextStyle::default());
+
+        let narrow = document.clone().wrapped(18);
+        let restored = document.wrapped(110);
+        let restored_text: String = restored
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .map(|span| span.text.as_str())
+            .collect();
+
+        assert!(narrow.lines.len() > 1);
+        assert_eq!(restored.lines.len(), 1);
+        assert_eq!(restored_text, text);
+    }
 }

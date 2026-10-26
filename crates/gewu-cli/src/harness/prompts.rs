@@ -1,5 +1,6 @@
 use gewu_review::{
-    FeedbackTarget, Handover, ReviewChunk, ReviewSession, ReviewSpec, harness::WorkItem,
+    FeedbackTarget, Handover, ReviewChunk, ReviewSession, ReviewSpec,
+    harness::{InvestigationCheckpoint, WorkItem},
 };
 
 const INVESTIGATE: &str = include_str!("../../../../harness/prompts/investigate.md");
@@ -22,11 +23,13 @@ pub fn investigate() -> String {
 pub fn plan(max_chunk_lines: usize, max_chunks: usize) -> String {
     PLAN.replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
         .replace("{{max_chunks}}", &max_chunks.to_string())
+        .replace("{{height_guidance}}", gewu_review::CHUNK_HEIGHT_GUIDANCE)
 }
 
 pub fn expand(
     item: &WorkItem,
     input: &gewu_review::ReviewInput,
+    investigation: Option<&InvestigationCheckpoint>,
     max_chunk_lines: usize,
     max_chunks: usize,
 ) -> String {
@@ -35,9 +38,44 @@ pub fn expand(
         .replace("{{item_title}}", &item.title)
         .replace("{{item_purpose}}", &item.purpose)
         .replace("{{covers}}", &spans(&item.covers, input))
+        .replace(
+            "{{investigation}}",
+            &investigation_evidence(item, investigation),
+        )
         .replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
         .replace("{{max_chunks}}", &max_chunks.to_string())
+        .replace("{{height_guidance}}", gewu_review::CHUNK_HEIGHT_GUIDANCE)
         .replace("{{rubric}}", RUBRIC.trim_end())
+}
+
+fn investigation_evidence(
+    item: &WorkItem,
+    investigation: Option<&InvestigationCheckpoint>,
+) -> String {
+    let Some(investigation) = investigation else {
+        return "No investigation checkpoint is available; derive claims from the frozen source."
+            .to_owned();
+    };
+    let owned: std::collections::HashSet<_> = item.change_ids().collect();
+    let findings = investigation
+        .findings
+        .iter()
+        .filter(|finding| finding.change_ids.iter().any(|id| owned.contains(id)))
+        .map(|finding| {
+            let evidence = if finding.evidence.is_empty() {
+                String::new()
+            } else {
+                format!(" — evidence: {}", finding.evidence.join(", "))
+            };
+            format!("- {}{evidence}", finding.summary)
+        })
+        .collect::<Vec<_>>();
+    if findings.is_empty() {
+        "No investigation finding matched this item's change ids; re-check the frozen source."
+            .to_owned()
+    } else {
+        findings.join("\n")
+    }
 }
 
 /// Printed after an expansion lands: the human reviews before anything more is
@@ -168,6 +206,19 @@ pub fn retry(stage_prompt: &str, errors: &[String]) -> String {
     )
 }
 
+/// A dogfood author mistyped one change id and got two useful diagnostics
+/// followed by the entire investigation prompt. Schema checkpoints already
+/// exist on disk, so keep the correction in the foreground; `status` remains
+/// the explicit way to recover the full instructions.
+pub fn checkpoint_retry(path: &str, errors: &[String]) -> String {
+    format!(
+        "# Gewu harness: checkpoint needs correction\n\n{}\n\nCorrect `{path}`, then run \
+         `gewu harness next`. Run `gewu harness status` if you need the stage instructions \
+         again.\n",
+        bullets(errors)
+    )
+}
+
 /// What each chunk costs, so a rewrite can see where the rows went instead of
 /// guessing which sentence to cut.
 pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::ReviewInput) -> String {
@@ -228,4 +279,136 @@ fn bullets(values: &[String]) -> String {
         .map(|value| format!("- {value}"))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use gewu_review::{
+        Change, Quote, ReviewInput, SourceIdentity,
+        harness::{InvestigationCheckpoint, InvestigationFinding, WorkItem},
+    };
+
+    use super::{checkpoint_retry, expand, investigate, plan};
+
+    #[test]
+    fn author_contract_explains_driver_continuation_and_height_accounting() {
+        let investigation = investigate();
+        let plan = plan(40, 6);
+
+        assert!(investigation.contains("driver writes it, validates"));
+        assert!(investigation.contains("whole evidence base"));
+        assert!(investigation.contains("direct CLI session"));
+        assert!(investigation.contains("read-only repository inspection"));
+        assert!(investigation.contains("trace the exact characters"));
+        assert!(investigation.contains("serialized JSON string"));
+        assert!(plan.contains("Start with 8 rows of chunk chrome"));
+        assert!(plan.contains("mechanically repeated configuration together"));
+        assert!(plan.contains("40 × 6 non-blank source rows"));
+        assert!(plan.contains("A one-change item is"));
+        assert!(plan.contains("exempt so an intentionally summarized"));
+        assert!(!plan.contains("{{height_guidance}}"));
+    }
+
+    /// A generated overview once erased an internal dependency while its
+    /// detailed chunks correctly described it. Keep aggregate claims tied to
+    /// the evidence for every member rather than letting the two stages drift.
+    #[test]
+    fn prompts_reconcile_aggregate_claims_with_component_evidence() {
+        let investigation = investigate();
+        let input = ReviewInput::new(SourceIdentity::new("base", "head", b"diff"), vec![]);
+        let item = WorkItem {
+            id: "item".into(),
+            title: "Item".into(),
+            purpose: "Purpose".into(),
+            covers: Vec::<Quote>::new(),
+            expanded: false,
+        };
+        let expansion = expand(&item, &input, None, 40, 6);
+
+        assert!(investigation.contains("check every member"));
+        assert!(investigation.contains("internal relationships"));
+        assert!(expansion.contains("aggregate claim"));
+        assert!(expansion.contains("opening generalization"));
+    }
+
+    #[test]
+    fn expansion_carries_forward_only_the_items_investigation_evidence() {
+        let source = SourceIdentity::new("base", "head", b"diff");
+        let change = Change::new("src/lib.rs", (0, 0, 1, 1), "@@ -0,0 +1 @@\n+line\n");
+        let input = ReviewInput::new(source.clone(), vec![change.clone()]);
+        let item = WorkItem {
+            id: "item".into(),
+            title: "Item".into(),
+            purpose: "Purpose".into(),
+            covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
+            expanded: false,
+        };
+        let investigation = InvestigationCheckpoint {
+            schema_version: 1,
+            source,
+            intent: "Intent".into(),
+            changes: vec!["Change".into()],
+            concepts: vec![],
+            findings: vec![
+                InvestigationFinding {
+                    change_ids: vec![change.id],
+                    summary: "The exact source-backed qualification.".into(),
+                    evidence: vec!["src/lib.rs".into()],
+                },
+                InvestigationFinding {
+                    change_ids: vec!["another-change".into()],
+                    summary: "Unrelated work must not leak in.".into(),
+                    evidence: vec![],
+                },
+            ],
+        };
+
+        let prompt = expand(&item, &input, Some(&investigation), 40, 6);
+
+        assert!(prompt.contains("The exact source-backed qualification."));
+        assert!(prompt.contains("evidence: src/lib.rs"));
+        assert!(!prompt.contains("Unrelated work must not leak in."));
+    }
+
+    #[test]
+    fn expansion_schema_names_optional_fields_and_markdown_limit() {
+        let input = ReviewInput::new(SourceIdentity::new("base", "head", b"diff"), vec![]);
+        let item = WorkItem {
+            id: "item".into(),
+            title: "Item".into(),
+            purpose: "Purpose".into(),
+            covers: Vec::<Quote>::new(),
+            expanded: false,
+        };
+
+        let prompt = expand(&item, &input, None, 40, 6);
+
+        assert!(prompt.contains("\"context\""));
+        assert!(prompt.contains("\"confidence\""));
+        assert!(prompt.contains("\"oversized_reason\""));
+        assert!(prompt.contains("only for paths ending in `.md`"));
+        assert!(prompt.contains("Measurement is still the authority"));
+        assert!(prompt.contains("local hook does not prove central enforcement"));
+        assert!(prompt.contains("no options are"));
+        assert!(prompt.contains("contradict the earlier investigation overview"));
+        assert!(prompt.contains("unchanged boilerplate reviewed as one coherent unit"));
+        assert!(prompt.contains("every field of its selected shape is required"));
+        assert!(!prompt.contains("optional supporting definition"));
+        assert!(prompt.contains("trace the literal characters across"));
+        assert!(prompt.contains("serialized JSON"));
+        assert!(prompt.contains("derive claims from the frozen source"));
+    }
+
+    #[test]
+    fn checkpoint_retry_keeps_the_error_above_recoverable_instructions() {
+        let retry = checkpoint_retry(
+            ".gewu/harness/investigation.json",
+            &["unknown change id `short-id`".into()],
+        );
+
+        assert!(retry.contains("unknown change id `short-id`"));
+        assert!(retry.contains("Correct `.gewu/harness/investigation.json`"));
+        assert!(retry.contains("gewu harness status"));
+        assert!(!retry.contains("Inspect every change"));
+    }
 }

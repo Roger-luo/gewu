@@ -98,9 +98,9 @@ impl HarnessRunner {
                 // Measuring a draft should not require failing first.
                 match self.store.expansion() {
                     Ok(Some(expansion)) => Ok(format!(
-                        "{}\n{}",
-                        prompts::measured(&expansion.chunks, &run.input),
-                        prompt
+                        "{}\nRevise `.gewu/harness/expansion.json` if needed, measure again, then \
+                         run `gewu harness next`.\n",
+                        prompts::measured(&expansion.chunks, &run.input)
                     )),
                     _ => Ok(prompt),
                 }
@@ -146,15 +146,15 @@ impl HarnessRunner {
             Ok(Some(checkpoint)) => checkpoint,
             Ok(None) => return Ok(prompts::investigate()),
             Err(error) => {
-                return Ok(prompts::retry(
-                    &prompts::investigate(),
+                return Ok(prompts::checkpoint_retry(
+                    ".gewu/harness/investigation.json",
                     &[error.to_string()],
                 ));
             }
         };
         if let Err(errors) = checkpoint.validate(&run.input) {
-            return Ok(prompts::retry(
-                &prompts::investigate(),
+            return Ok(prompts::checkpoint_retry(
+                ".gewu/harness/investigation.json",
                 &error_strings(errors.0),
             ));
         }
@@ -167,15 +167,15 @@ impl HarnessRunner {
             Ok(Some(list)) => list,
             Ok(None) => return Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks)),
             Err(error) => {
-                return Ok(prompts::retry(
-                    &prompts::plan(run.input.max_chunk_lines, self.max_chunks),
+                return Ok(prompts::checkpoint_retry(
+                    ".gewu/harness/worklist.json",
                     &[error.to_string()],
                 ));
             }
         };
-        if let Err(errors) = list.validate(&run.input) {
-            return Ok(prompts::retry(
-                &prompts::plan(run.input.max_chunk_lines, self.max_chunks),
+        if let Err(errors) = list.validate_for(&run.input, self.max_chunks) {
+            return Ok(prompts::checkpoint_retry(
+                ".gewu/harness/worklist.json",
                 &error_strings(errors.0),
             ));
         }
@@ -209,11 +209,12 @@ impl HarnessRunner {
         }
         let mut spec = self.spec_so_far(run)?;
         spec.chunks.extend(expansion.chunks);
+        work.mark_expanded(&item.id);
+        spec = spec.with_remaining_work(work.remaining());
         if let Err(errors) = ValidatedReview::validate_partial(run.input.clone(), spec.clone()) {
             return self.repair(run, &item, &error_strings(errors.0));
         }
         artifacts::write(&self.spec_path, &spec)?;
-        work.mark_expanded(&item.id);
         self.store.save_work_list(&work)?;
         self.store.discard_expansion()?;
         self.advance(&mut run.state, HarnessStage::Await)?;
@@ -383,12 +384,16 @@ impl HarnessRunner {
 
     fn prompt_expand(&self, run: &Run, work: &WorkList) -> Result<String> {
         match work.next_item() {
-            Some(item) => Ok(prompts::expand(
-                item,
-                &run.input,
-                run.input.max_chunk_lines,
-                self.max_chunks,
-            )),
+            Some(item) => {
+                let investigation = self.store.investigation()?;
+                Ok(prompts::expand(
+                    item,
+                    &run.input,
+                    investigation.as_ref(),
+                    run.input.max_chunk_lines,
+                    self.max_chunks,
+                ))
+            }
             None => Ok(prompts::complete(&run.state.review_id)),
         }
     }
@@ -397,8 +402,15 @@ impl HarnessRunner {
         if run.state.stage != HarnessStage::Repair {
             self.advance(&mut run.state, HarnessStage::Repair)?;
         }
+        let investigation = self.store.investigation()?;
         Ok(prompts::retry(
-            &prompts::expand(item, &run.input, run.input.max_chunk_lines, self.max_chunks),
+            &prompts::expand(
+                item,
+                &run.input,
+                investigation.as_ref(),
+                run.input.max_chunk_lines,
+                self.max_chunks,
+            ),
             errors,
         ))
     }
@@ -426,6 +438,11 @@ impl HarnessRunner {
                 spec.overview.changes = checkpoint.changes;
                 spec.overview.concepts = checkpoint.concepts;
             }
+            if let Ok(work) = self.work_list() {
+                spec.generation = Some(gewu_review::GenerationStatus {
+                    remaining_work_items: work.remaining(),
+                });
+            }
             return Ok(spec);
         }
         let overview = self.store.investigation()?.map_or_else(
@@ -442,8 +459,10 @@ impl HarnessRunner {
                 concepts: checkpoint.concepts,
             },
         );
+        let remaining = self.work_list().map_or(0, |work| work.remaining());
         Ok(ReviewSpec::new(run.input.source.clone(), overview, vec![])
-            .for_review(run.state.review_id.clone()))
+            .for_review(run.state.review_id.clone())
+            .with_remaining_work(remaining))
     }
 
     fn work_list(&self) -> Result<WorkList> {

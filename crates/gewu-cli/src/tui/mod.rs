@@ -24,10 +24,14 @@ use crossterm::{
     },
 };
 use gewu_review::{
-    Decision, EventLog, FeedbackKind, FeedbackTarget, ReviewEvent, ReviewSession, ValidatedReview,
+    Decision, EventLog, FeedbackKind, LineAnchor, ReviewEvent, ReviewSession, ValidatedReview,
 };
 
-use self::prompt::Prompt;
+use self::{
+    prompt::Prompt,
+    render::{generation_progress, pending_generation_warning},
+    style::{Document, TextStyle},
+};
 
 pub struct ReviewTui {
     pub(super) review: ValidatedReview,
@@ -36,10 +40,24 @@ pub struct ReviewTui {
     pub(super) stage: usize,
     pub(super) scroll: usize,
     pub(super) show_help: bool,
+    /// A navigable table of contents for non-linear review.
+    pub(super) show_outline: bool,
+    pub(super) outline_selection: usize,
+    /// Shows literal diff/source rows instead of a rendered document.
+    pub(super) show_raw_source: bool,
+    /// The line picker exposes its current choice to the ordinary renderer so
+    /// the reviewer sees a marked source row, not only a number in a prompt.
+    pub(super) selected_line: Option<LineAnchor>,
     /// Which of the current chunk's feedback the reviewer has picked out.
     /// Resolving and deleting act on this one item, so they are offered only
     /// while something is selected.
     pub(super) selected: Option<usize>,
+    /// The viewport before feedback selection expanded the document.
+    pub(super) selection_origin_scroll: Option<usize>,
+    /// A one-key-lived confirmation or result shown after an action.
+    pub(super) notice: Option<String>,
+    /// Ending with unreviewed chunks takes a deliberate second Enter.
+    pub(super) confirm_finish: bool,
     /// What is being asked or written at the foot of the screen, if anything.
     prompt: Option<Prompt>,
     /// Set when the reviewer is finished, so the loop can end without every
@@ -69,7 +87,14 @@ impl ReviewTui {
             stage: 0,
             scroll: 0,
             show_help: false,
+            show_outline: false,
+            outline_selection: 0,
+            show_raw_source: false,
+            selected_line: None,
             selected: None,
+            selection_origin_scroll: None,
+            notice: None,
+            confirm_finish: false,
             prompt: None,
             exit: false,
         })
@@ -80,9 +105,8 @@ impl ReviewTui {
         // Bracketed paste keeps a pasted comment whole: without it the terminal
         // replays the paste as key presses, and its line breaks read as Enter.
         execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
-        // Plain terminals send the same bytes for Enter and Shift+Enter, so a
-        // newline inside a comment is only offered where the keyboard protocol
-        // can tell them apart.
+        // Enhanced terminals can distinguish Shift+Enter. Plain terminals
+        // still have Ctrl+n as the explicit newline fallback.
         let enhanced = supports_keyboard_enhancement().unwrap_or(false);
         if enhanced {
             execute!(
@@ -91,41 +115,72 @@ impl ReviewTui {
             )?;
         }
         let _guard = TerminalGuard { enhanced };
-        loop {
-            self.draw()?;
-            let Event::Key(key) = event::read()? else {
-                continue;
-            };
-            if key.kind == KeyEventKind::Release {
-                continue;
-            }
-            if key.code == KeyCode::Char('q') {
-                break;
-            }
-            self.handle(key)?;
-            if self.exit {
-                break;
+        let mut quit = false;
+        {
+            loop {
+                self.draw()?;
+                let Event::Key(key) = event::read()? else {
+                    continue;
+                };
+                if key.kind == KeyEventKind::Release {
+                    continue;
+                }
+                if key.code == KeyCode::Char('q') {
+                    quit = true;
+                    break;
+                }
+                self.handle(key)?;
+                if self.exit {
+                    break;
+                }
             }
         }
+        drop(_guard);
+        self.print_exit_summary(quit);
         Ok(())
     }
 
     fn handle(&mut self, key: KeyEvent) -> Result<()> {
+        if !is_reading_navigation(key.code) {
+            self.notice = None;
+        }
         if self.show_help {
-            if matches!(key.code, KeyCode::Esc | KeyCode::Char('?')) {
-                self.show_help = false;
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('?') => {
+                    self.show_help = false;
+                    self.scroll = 0;
+                }
+                KeyCode::PageDown => self.page_help(true),
+                KeyCode::PageUp => self.page_help(false),
+                code => self.scroll_by(code),
             }
             return Ok(());
+        }
+        if self.show_outline {
+            return self.handle_outline(key.code);
         }
         if key.code == KeyCode::Char('?') {
             self.show_help = true;
             self.scroll = 0;
             return Ok(());
         }
+        if key.code == KeyCode::Char('o') {
+            self.open_outline();
+            return Ok(());
+        }
         if self.selected.is_some() {
             return self.handle_selection(key.code);
         }
         match key.code {
+            KeyCode::Esc if self.is_summary() && self.confirm_finish => {
+                let partial_approval = self.partial_approval_pending();
+                self.confirm_finish = false;
+                self.notice = Some(if partial_approval {
+                    "Batch approval cancelled; keep reviewing or quit to preserve progress".into()
+                } else {
+                    "End cancelled; keep reviewing or quit to preserve progress".into()
+                });
+            }
             KeyCode::Enter if self.is_summary() => self.finish_review()?,
             KeyCode::Enter => self.finish_chunk()?,
             KeyCode::Char('n') | KeyCode::Right => self.next()?,
@@ -137,14 +192,27 @@ impl ReviewTui {
                 let reviewed = !self.session.reviewed.contains(&id);
                 self.record(ReviewEvent::reviewed(id, reviewed))?;
             }
-            KeyCode::Char('c') if self.chunk_index().is_some() => {
-                self.add_feedback(FeedbackKind::Note, FeedbackTarget::Code, None)?;
-            }
+            KeyCode::Char('c') if self.chunk_index().is_some() => self.comment()?,
             KeyCode::Char('!') if self.chunk_index().is_some() => {
                 self.request_change()?;
             }
             KeyCode::Char('f') if self.chunk_index().is_some() => {
                 self.select_first_feedback();
+            }
+            KeyCode::Char('v') if self.chunk_index().is_some() => {
+                self.show_raw_source = !self.show_raw_source;
+                self.scroll = 0;
+                self.notice = Some(if self.show_raw_source {
+                    "Showing raw source with line numbers".into()
+                } else {
+                    "Showing authored source presentation".into()
+                });
+            }
+            KeyCode::Char('s') if self.chunk_index().is_some() => {
+                self.scroll_to_first_source();
+            }
+            KeyCode::Char('z') if self.chunk_index().is_some() => {
+                self.scroll_to_context();
             }
             KeyCode::Char('u') if self.is_summary() => {
                 if let Some(index) = self
@@ -155,13 +223,19 @@ impl ReviewTui {
                     .position(|chunk| !self.session.reviewed.contains(&chunk.id))
                 {
                     self.stage = index + 1;
+                    self.leave_chunk();
+                    self.record(ReviewEvent::visited(self.current_chunk_id()))?;
                     self.scroll = 0;
                 }
             }
             KeyCode::Char('g') if self.is_summary() => {
-                if let Some(index) = self.first_unresolved_chunk() {
+                if let Some((index, feedback_index)) = self.first_unresolved_feedback() {
                     self.stage = index + 1;
-                    self.scroll = 0;
+                    self.leave_chunk();
+                    self.selected = Some(feedback_index);
+                    self.record(ReviewEvent::visited(self.current_chunk_id()))?;
+                    self.scroll_to_selected_feedback();
+                    self.notice = Some("Focused the first open request".into());
                 }
             }
             code => self.scroll_by(code),
@@ -174,10 +248,25 @@ impl ReviewTui {
     /// looking at.
     fn handle_selection(&mut self, code: KeyCode) -> Result<()> {
         match code {
-            KeyCode::Esc | KeyCode::Char('f') => self.selected = None,
-            KeyCode::Char('k') | KeyCode::Up => self.move_selection(-1),
-            KeyCode::Char('j') | KeyCode::Down | KeyCode::Tab => self.move_selection(1),
-            KeyCode::Char('x') => self.toggle_selected_resolved()?,
+            KeyCode::Esc | KeyCode::Char('f') => {
+                self.selected = None;
+                self.scroll = self.selection_origin_scroll.take().unwrap_or(self.scroll);
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.move_selection(-1);
+                self.scroll_to_selected_feedback();
+            }
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::Tab => {
+                self.move_selection(1);
+                self.scroll_to_selected_feedback();
+            }
+            KeyCode::Char('x')
+                if self
+                    .selected_feedback()
+                    .is_some_and(|feedback| feedback.kind == FeedbackKind::Issue) =>
+            {
+                self.toggle_selected_resolved()?;
+            }
             KeyCode::Char('t') => self.retarget_selected()?,
             KeyCode::Char('d') => self.delete_selected()?,
             code => self.scroll_by(code),
@@ -187,17 +276,14 @@ impl ReviewTui {
 
     /// Leaving a chunk by Enter: the reviewer is done with it.
     ///
-    /// Someone who read a chunk and had nothing to say should not have to also
-    /// say so, so this records what pressing on already means. It is confined to
-    /// Enter, and to a chunk they left no feedback on: `n` and `→` stay pure
-    /// navigation, because being marked reviewed decides whether the harness
-    /// generates more, and skimming a batch to get oriented must not claim work
-    /// nobody did. Feedback of any kind leaves the chunk for `r` to settle —
-    /// the reviewer said something about it, so what they meant is theirs.
+    /// Someone who read a chunk should not have to use a different completion
+    /// key merely because they also left feedback. Enter always means the same
+    /// thing: mark this chunk reviewed and continue. `n` and `→` stay pure
+    /// navigation, because skimming ahead must not claim work nobody did.
     fn finish_chunk(&mut self) -> Result<()> {
         if self.chunk_index().is_some() {
             let id = self.current_chunk_id();
-            if self.chunk_feedback().is_empty() && !self.session.reviewed.contains(&id) {
+            if !self.session.reviewed.contains(&id) {
                 self.record(ReviewEvent::reviewed(id, true))?;
             }
         }
@@ -208,9 +294,11 @@ impl ReviewTui {
     ///
     /// The decision is read off the feedback rather than picked: a reviewer who
     /// has filed a request is requesting changes, and asking them to say so
-    /// again only lets the two disagree. Nothing is confirmed and nothing is
-    /// lost — settling a review still being written says the batch is done, and
-    /// the harness carries on from there.
+    /// again only lets the two disagree. When chunks remain unreviewed, a first
+    /// press makes that incompleteness explicit and a second confirms it. An
+    /// approval while generation is pending gets the same guard even when all
+    /// chunks in the current batch were reviewed: it cannot read as approval
+    /// of source the reviewer has not been shown yet.
     ///
     /// Pressing on once it is settled leaves the review: the reviewer has
     /// nothing left to say here, and the key that carried them through the
@@ -220,7 +308,40 @@ impl ReviewTui {
             self.exit = true;
             return Ok(());
         }
+        let unreviewed = self.unreviewed_count();
+        let partial_approval = self.partial_approval_pending();
+        if (unreviewed > 0 || partial_approval) && !self.confirm_finish {
+            self.confirm_finish = true;
+            self.notice = Some(if partial_approval {
+                let progress = generation_progress(&self.review)
+                    .expect("pending generation has source coverage");
+                let unreviewed = if unreviewed > 0 {
+                    format!(" {unreviewed} generated chunk(s) are also unreviewed.")
+                } else {
+                    String::new()
+                };
+                format!(
+                    "Approve only this generated batch covering {} of {} change hunks? {}{unreviewed} Enter=approve batch · Esc=cancel",
+                    progress.covered_hunks,
+                    progress.total_hunks,
+                    pending_generation_warning(&progress),
+                )
+            } else {
+                format!("End with {unreviewed} unreviewed? Enter=end · Esc=cancel")
+            });
+            return Ok(());
+        }
+        self.confirm_finish = false;
         self.record(ReviewEvent::decision(self.outcome()))
+    }
+
+    pub(super) fn unreviewed_count(&self) -> usize {
+        self.review
+            .spec()
+            .chunks
+            .iter()
+            .filter(|chunk| !self.session.reviewed.contains(&chunk.id))
+            .count()
     }
 
     /// What the review currently amounts to.
@@ -238,7 +359,11 @@ impl ReviewTui {
 
     fn next(&mut self) -> Result<()> {
         let last = self.review.spec().chunks.len() + 1;
-        self.stage = (self.stage + 1).min(last);
+        self.stage = if self.stage == 0 {
+            self.resume_chunk_index().map_or(1, |index| index + 1)
+        } else {
+            (self.stage + 1).min(last)
+        };
         self.leave_chunk();
         if self.chunk_index().is_some() {
             self.record(ReviewEvent::visited(self.current_chunk_id()))?;
@@ -256,6 +381,45 @@ impl ReviewTui {
     fn leave_chunk(&mut self) {
         self.scroll = 0;
         self.selected = None;
+        self.selection_origin_scroll = None;
+        self.confirm_finish = false;
+    }
+
+    fn open_outline(&mut self) {
+        self.show_outline = true;
+        self.outline_selection = self.chunk_index().unwrap_or(0);
+        self.scroll = 0;
+    }
+
+    fn handle_outline(&mut self, code: KeyCode) -> Result<()> {
+        let last = self.review.spec().chunks.len().saturating_sub(1);
+        match code {
+            KeyCode::Esc | KeyCode::Char('o') => {
+                self.show_outline = false;
+                self.scroll = 0;
+            }
+            KeyCode::Char('?') => {
+                self.show_outline = false;
+                self.show_help = true;
+                self.scroll = 0;
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.outline_selection = self.outline_selection.saturating_sub(1);
+                self.scroll = self.outline_selection.saturating_sub(2);
+            }
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::Tab => {
+                self.outline_selection = (self.outline_selection + 1).min(last);
+                self.scroll = self.outline_selection.saturating_sub(2);
+            }
+            KeyCode::Enter if !self.review.spec().chunks.is_empty() => {
+                self.stage = self.outline_selection + 1;
+                self.show_outline = false;
+                self.leave_chunk();
+                self.record(ReviewEvent::visited(self.current_chunk_id()))?;
+            }
+            code => self.scroll_by(code),
+        }
+        Ok(())
     }
 
     pub(super) fn record(&mut self, event: ReviewEvent) -> Result<()> {
@@ -278,6 +442,91 @@ impl ReviewTui {
     fn is_summary(&self) -> bool {
         self.stage == self.review.spec().chunks.len() + 1
     }
+
+    pub(super) fn has_saved_progress(&self) -> bool {
+        !self.session.visited.is_empty()
+            || !self.session.reviewed.is_empty()
+            || !self.session.feedback.is_empty()
+            || self.session.decision.is_some()
+    }
+
+    fn resume_chunk_index(&self) -> Option<usize> {
+        let chunks = &self.review.spec().chunks;
+        if let Some(last) = self.session.last_visited.as_ref()
+            && let Some(index) = chunks.iter().position(|chunk| &chunk.id == last)
+            && !self.session.reviewed.contains(last)
+        {
+            return Some(index);
+        }
+        chunks
+            .iter()
+            .position(|chunk| !self.session.reviewed.contains(&chunk.id))
+            .or_else(|| {
+                self.session
+                    .last_visited
+                    .as_ref()
+                    .and_then(|last| chunks.iter().position(|chunk| &chunk.id == last))
+            })
+    }
+
+    pub(super) fn generation_pending(&self) -> bool {
+        generation_progress(&self.review).is_some()
+    }
+
+    pub(super) fn partial_approval_pending(&self) -> bool {
+        self.generation_pending() && self.outcome() == Decision::Approve
+    }
+
+    fn print_exit_summary(&self, quit: bool) {
+        let reviewed = self
+            .review
+            .spec()
+            .chunks
+            .iter()
+            .filter(|chunk| self.session.reviewed.contains(&chunk.id))
+            .count();
+        let feedback = self.session.feedback.len();
+        if quit {
+            print_terminal_message(&format!(
+                "Progress saved: {reviewed}/{} reviewed · {feedback} feedback. Run `gewu review open` to resume.",
+                self.review.spec().chunks.len()
+            ));
+        } else if let Some(decision) = self.session.decision {
+            print_terminal_message(&format!(
+                "Review recorded as {}: {reviewed}/{} reviewed · {feedback} feedback.",
+                decision.label(),
+                self.review.spec().chunks.len()
+            ));
+        }
+    }
+}
+
+fn print_terminal_message(message: &str) {
+    let width = crossterm::terminal::size().map_or(80, |(width, _)| usize::from(width));
+    let mut document = Document::new();
+    document.push(message, TextStyle::default());
+    for line in document.wrapped(width).lines {
+        println!(
+            "{}",
+            line.spans
+                .iter()
+                .map(|span| span.text.as_str())
+                .collect::<String>()
+        );
+    }
+}
+
+fn is_reading_navigation(code: KeyCode) -> bool {
+    matches!(
+        code,
+        KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::PageUp
+            | KeyCode::PageDown
+            | KeyCode::Home
+            | KeyCode::End
+            | KeyCode::Char('j' | 'k')
+    )
 }
 
 struct TerminalGuard {
@@ -298,13 +547,13 @@ impl Drop for TerminalGuard {
 mod tests {
     use crossterm::event::KeyModifiers;
     use gewu_review::{
-        Change, ChangePresentation, ChunkBlock, ChunkKind, Feedback, Overview, Quote, ReviewChunk,
-        ReviewInput, ReviewSpec, SourceIdentity,
+        Change, ChangePresentation, ChunkBlock, ChunkKind, Feedback, FeedbackTarget, Overview,
+        Quote, ReviewChunk, ReviewInput, ReviewSpec, SourceIdentity,
     };
 
     use super::{
-        Decision, EventLog, FeedbackKind, FeedbackTarget, KeyCode, KeyEvent, ReviewEvent,
-        ReviewTui, ValidatedReview,
+        Decision, EventLog, FeedbackKind, KeyCode, KeyEvent, ReviewEvent, ReviewTui,
+        ValidatedReview,
     };
 
     fn review() -> ValidatedReview {
@@ -349,6 +598,72 @@ mod tests {
         );
         ValidatedReview::validate_partial(ReviewInput::new(source, changes), spec)
             .expect("valid review")
+    }
+
+    fn review_with_context() -> ValidatedReview {
+        let source = SourceIdentity::new("base", "head", b"diff");
+        let change = Change::new("a.rs", (0, 0, 1, 1), "@@ -0,0 +1,1 @@\n+line\n");
+        let chunk = ReviewChunk {
+            id: "chunk".into(),
+            title: "A chunk".into(),
+            summary: "Summary.".into(),
+            kind: ChunkKind::Concept,
+            content: vec![ChunkBlock::Changes {
+                quotes: vec![Quote::whole(change.id.clone(), change.body_lines())],
+                presentation: ChangePresentation::AddedCode,
+            }],
+            context: Some(gewu_review::ChunkContext::Concept {
+                definition: "A definition that must remain oriented.".into(),
+                example: "example()".into(),
+                relation: "It explains this source.".into(),
+            }),
+            confidence: None,
+            oversized_reason: None,
+        };
+        let spec = ReviewSpec::new(
+            source.clone(),
+            Overview {
+                intent: "Intent.".into(),
+                changes: vec![],
+                illustration: None,
+                concepts: vec![],
+            },
+            vec![chunk],
+        );
+        ValidatedReview::validate(ReviewInput::new(source, vec![change]), spec)
+            .expect("valid review")
+    }
+
+    fn partial_review() -> ValidatedReview {
+        let source = SourceIdentity::new("base", "head", b"diff");
+        let first = Change::new("a.rs", (0, 0, 1, 1), "@@ -0,0 +1,1 @@\n+one\n");
+        let second = Change::new("b.rs", (0, 0, 1, 1), "@@ -0,0 +1,1 @@\n+two\n");
+        let chunk = ReviewChunk {
+            id: "chunk".into(),
+            title: "First batch".into(),
+            summary: "Summary.".into(),
+            kind: ChunkKind::Other,
+            content: vec![ChunkBlock::Changes {
+                quotes: vec![Quote::whole(first.id.clone(), first.body_lines())],
+                presentation: ChangePresentation::AddedCode,
+            }],
+            context: None,
+            confidence: None,
+            oversized_reason: None,
+        };
+        let spec = ReviewSpec::new(
+            source.clone(),
+            Overview {
+                intent: "Intent.".into(),
+                changes: vec![],
+                illustration: None,
+                concepts: vec![],
+            },
+            vec![chunk],
+        )
+        .with_remaining_work(1);
+        ValidatedReview::validate_partial(ReviewInput::new(source, vec![first, second]), spec)
+            .expect("valid partial review")
     }
 
     /// A reviewer at the first chunk, having read nothing else.
@@ -413,6 +728,280 @@ mod tests {
         );
     }
 
+    #[test]
+    fn help_scrolls_instead_of_swallowing_page_keys() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        tui.handle(press(KeyCode::Char('?'))).expect("open help");
+
+        tui.handle(press(KeyCode::PageDown)).expect("scroll help");
+
+        assert!(tui.show_help);
+        assert!(tui.scroll > 0, "PageDown must move overflowing help");
+    }
+
+    /// Independent review found that the context column scrolled to an
+    /// unlabeled tail after reflow. The sidebar is now a fresh, sticky document
+    /// while only the main review body owns the shared scroll offset.
+    #[test]
+    fn wide_context_is_a_sticky_sidebar_not_part_of_the_scrolled_body() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = ReviewTui::new(review_with_context(), directory.path().join("events.jsonl"))
+            .expect("open review");
+        tui.handle(press(KeyCode::Enter)).expect("leave overview");
+
+        let sidebar: String = tui
+            .sidebar_document(110)
+            .expect("wide context sidebar")
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .map(|span| span.text.as_str())
+            .collect();
+        let body: String = tui
+            .current_document(110)
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .map(|span| span.text.as_str())
+            .collect();
+
+        assert!(sidebar.starts_with("Context · New concept"), "{sidebar}");
+        assert!(sidebar.contains("In this change"), "{sidebar}");
+        assert!(!body.contains("A definition that must remain oriented."));
+    }
+
+    #[test]
+    fn narrow_context_keeps_its_identity_pinned_after_its_heading_scrolls_away() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = ReviewTui::new(review_with_context(), directory.path().join("events.jsonl"))
+            .expect("open review");
+        tui.handle(press(KeyCode::Enter)).expect("leave overview");
+        tui.scroll = usize::MAX;
+
+        let pinned: String = tui
+            .pinned_document(80)
+            .expect("chunk header")
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .map(|span| span.text.as_str())
+            .collect();
+
+        assert!(pinned.contains("CONTEXT · New concept"), "{pinned}");
+    }
+
+    #[test]
+    fn outline_jumps_directly_without_marking_skipped_chunks() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        tui.handle(press(KeyCode::Char('o'))).expect("open outline");
+        tui.handle(press(KeyCode::Down))
+            .expect("select second chunk");
+
+        tui.handle(press(KeyCode::Enter)).expect("jump");
+
+        assert_eq!(tui.stage, 2);
+        assert!(!tui.show_outline);
+        assert!(tui.session.reviewed.is_empty());
+        assert!(tui.session.visited.contains("chunk-1"));
+    }
+
+    #[test]
+    fn ending_with_unreviewed_chunks_requires_a_second_enter_and_persists() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("events.jsonl");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Char('n'))).expect("visit only");
+        }
+
+        tui.handle(press(KeyCode::Enter)).expect("warn");
+        assert_eq!(tui.session.decision, None);
+        assert!(tui.confirm_finish);
+        assert!(
+            tui.notice
+                .as_deref()
+                .is_some_and(|notice| notice.contains("unreviewed"))
+        );
+
+        tui.handle(press(KeyCode::Enter)).expect("confirm");
+        assert_eq!(tui.session.decision, Some(Decision::Approve));
+        assert_eq!(
+            EventLog::new(path).load().expect("replay").decision,
+            Some(Decision::Approve)
+        );
+    }
+
+    /// Independent review found that an approval covering only the generated
+    /// batch was durable after one Enter even though most source was pending.
+    #[test]
+    fn partial_generation_approval_requires_a_second_enter() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = ReviewTui::new(partial_review(), directory.path().join("events.jsonl"))
+            .expect("open review");
+        tui.handle(press(KeyCode::Enter)).expect("open first chunk");
+        tui.handle(press(KeyCode::Enter)).expect("review batch");
+        assert!(tui.is_summary());
+
+        tui.handle(press(KeyCode::Enter))
+            .expect("warn about partial approval");
+
+        assert_eq!(tui.session.decision, None);
+        assert!(tui.confirm_finish);
+        assert!(
+            tui.notice
+                .as_deref()
+                .is_some_and(|notice| notice.contains("1 of 2 change hunks")),
+            "{:?}",
+            tui.notice
+        );
+
+        tui.handle(press(KeyCode::Enter))
+            .expect("confirm batch approval");
+
+        assert_eq!(tui.session.decision, Some(Decision::Approve));
+    }
+
+    #[test]
+    fn returning_to_unreviewed_work_cancels_end_review_confirmation() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Char('n'))).expect("visit only");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("warn");
+        assert!(tui.confirm_finish);
+
+        tui.handle(press(KeyCode::Char('u')))
+            .expect("return to unreviewed chunk");
+
+        assert!(!tui.confirm_finish);
+        assert_eq!(tui.stage, 1);
+        assert!(tui.session.visited.contains("chunk-0"));
+        assert_eq!(
+            tui.scroll, 0,
+            "unreviewed work should reopen at its introduction"
+        );
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Char('n'))).expect("visit only");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("warn again");
+        assert_eq!(tui.session.decision, None);
+        assert!(tui.confirm_finish);
+    }
+
+    #[test]
+    fn escape_disarms_an_incomplete_review_confirmation() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Char('n'))).expect("visit only");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("warn");
+
+        tui.handle(press(KeyCode::Esc)).expect("cancel");
+
+        assert!(!tui.confirm_finish);
+        assert_eq!(tui.session.decision, None);
+        assert!(
+            tui.notice
+                .as_deref()
+                .is_some_and(|notice| notice.contains("cancelled"))
+        );
+    }
+
+    #[test]
+    fn reopening_resumes_at_the_first_unreviewed_chunk() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui =
+            ReviewTui::new(review(), directory.path().join("events.jsonl")).expect("open review");
+        tui.record(ReviewEvent::visited(String::from("chunk-0")))
+            .expect("visit first");
+        tui.record(ReviewEvent::reviewed(String::from("chunk-0"), true))
+            .expect("review first");
+
+        tui.handle(press(KeyCode::Enter)).expect("resume");
+
+        assert_eq!(tui.stage, 2, "resume should skip the reviewed first chunk");
+        assert!(tui.session.visited.contains("chunk-1"));
+    }
+
+    #[test]
+    fn open_request_jump_selects_the_request_it_names() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        tui.record(ReviewEvent::feedback(Feedback {
+            id: "later-request".into(),
+            chunk_id: "chunk-1".into(),
+            kind: FeedbackKind::Issue,
+            target: FeedbackTarget::Code,
+            body: "Fix the second chunk.".into(),
+            anchor: None,
+            resolved: false,
+        }))
+        .expect("request");
+        tui.stage = tui.review.spec().chunks.len() + 1;
+
+        tui.handle(press(KeyCode::Char('g'))).expect("jump");
+
+        assert_eq!(tui.stage, 2);
+        assert_eq!(
+            tui.selected_feedback().map(|feedback| feedback.id.as_str()),
+            Some("later-request")
+        );
+        assert!(
+            tui.notice
+                .as_deref()
+                .is_some_and(|notice| notice.contains("Focused"))
+        );
+    }
+
+    /// Independent review found that leaving a request reached with `g`
+    /// snapped back to the chunk introduction instead of keeping the request.
+    #[test]
+    fn closing_an_open_request_jump_keeps_the_request_in_view() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        tui.record(ReviewEvent::feedback(Feedback {
+            id: "later-request".into(),
+            chunk_id: "chunk-1".into(),
+            kind: FeedbackKind::Issue,
+            target: FeedbackTarget::Code,
+            body: "Fix the second chunk.".into(),
+            anchor: None,
+            resolved: false,
+        }))
+        .expect("request");
+        tui.stage = tui.review.spec().chunks.len() + 1;
+        tui.handle(press(KeyCode::Char('g'))).expect("jump");
+        let request_scroll = tui.scroll;
+        assert!(request_scroll > 0, "request should be below the chunk top");
+
+        tui.handle(press(KeyCode::Esc)).expect("close selection");
+
+        assert_eq!(tui.scroll, request_scroll);
+        assert!(tui.selected.is_none());
+    }
+
+    #[test]
+    fn closing_feedback_selection_restores_the_reading_position() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        tui.record(ReviewEvent::feedback(remark(FeedbackKind::Note)))
+            .expect("record feedback");
+        tui.scroll = 7;
+
+        tui.handle(press(KeyCode::Char('f')))
+            .expect("select feedback");
+        assert!(tui.selected.is_some());
+        tui.scroll = 19;
+        tui.handle(press(KeyCode::Esc)).expect("close selection");
+
+        assert_eq!(tui.scroll, 7);
+        assert!(tui.selected.is_none());
+    }
+
     /// Pressing on to the end of a review nobody had anything to say about is
     /// an approval; making them then pick "approve" from a list asks them to
     /// state a conclusion they have already reached by getting there.
@@ -449,6 +1038,28 @@ mod tests {
         assert!(tui.exit);
     }
 
+    #[test]
+    fn recorded_incomplete_review_advertises_revisit_controls() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+        while !tui.is_summary() {
+            tui.handle(press(KeyCode::Char('n'))).expect("advance");
+        }
+        tui.handle(press(KeyCode::Enter)).expect("warn");
+        tui.handle(press(KeyCode::Enter)).expect("record");
+
+        let footer: String = tui
+            .footer_command_document(80)
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .map(|span| span.text.as_str())
+            .collect();
+
+        assert!(footer.contains("[u] Unreviewed"), "{footer}");
+        assert!(footer.contains("[←/p] Previous"), "{footer}");
+    }
+
     /// Feedback left after the fact changes what the review amounts to, so the
     /// recorded decision no longer describes it and Enter records again.
     #[test]
@@ -479,7 +1090,10 @@ mod tests {
             tui.handle(press(KeyCode::Char('n'))).expect("advance");
         }
 
-        tui.handle(press(KeyCode::Enter)).expect("end the review");
+        tui.handle(press(KeyCode::Enter)).expect("show warning");
+        assert_eq!(tui.session.decision, None);
+        tui.handle(press(KeyCode::Enter))
+            .expect("confirm the review");
 
         assert_eq!(tui.session.decision, Some(Decision::RequestChanges));
     }
@@ -494,13 +1108,15 @@ mod tests {
             tui.handle(press(KeyCode::Char('n'))).expect("advance");
         }
 
-        tui.handle(press(KeyCode::Enter)).expect("end the review");
+        tui.handle(press(KeyCode::Enter)).expect("show warning");
+        tui.handle(press(KeyCode::Enter))
+            .expect("confirm the review");
 
         assert_eq!(tui.session.decision, Some(Decision::Comment));
     }
 
     #[test]
-    fn a_chunk_the_reviewer_remarked_on_is_left_for_them_to_settle() {
+    fn enter_marks_a_chunk_reviewed_even_when_it_has_feedback() {
         let directory = tempfile::tempdir().expect("temporary directory");
         let mut tui = opened(&directory);
         tui.record(ReviewEvent::feedback(Feedback {
@@ -516,7 +1132,51 @@ mod tests {
 
         tui.handle(press(KeyCode::Enter)).expect("advance");
 
-        assert!(!tui.session.reviewed.contains("chunk-0"));
+        assert!(tui.session.reviewed.contains("chunk-0"));
+    }
+
+    #[test]
+    fn saving_feedback_confirms_its_target_and_scrolls_it_into_view() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = opened(&directory);
+
+        tui.save_feedback(
+            FeedbackKind::Issue,
+            FeedbackTarget::Explanation,
+            None,
+            "Clarify the claim.".into(),
+        )
+        .expect("save feedback");
+
+        assert_eq!(tui.chunk_feedback().len(), 1);
+        assert_eq!(
+            tui.notice.as_deref(),
+            Some("Saved request about this explanation")
+        );
+        assert!(
+            tui.scroll > 0,
+            "new feedback should be brought to the viewport end"
+        );
+
+        tui.handle(press(KeyCode::End))
+            .expect("inspect lower content");
+        assert_eq!(
+            tui.notice.as_deref(),
+            Some("Saved request about this explanation"),
+            "scrolling should not erase the save target before it is checked"
+        );
+    }
+
+    #[test]
+    fn line_picker_offers_only_quoted_file_locations() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let tui = opened(&directory);
+
+        let anchors = tui.line_anchors();
+
+        assert_eq!(anchors.len(), 1);
+        assert_eq!(anchors[0].path, "a.rs");
+        assert_eq!(anchors[0].start_line, 1);
     }
 
     /// Advancing twice off the same chunk must not append a second event.
@@ -536,5 +1196,41 @@ mod tests {
                 .count(),
             1
         );
+    }
+    #[test]
+    fn context_and_source_jumps_are_direct_without_marking_reviewed() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = ReviewTui::new(review_with_context(), directory.path().join("events.jsonl"))
+            .expect("open");
+        tui.handle(press(KeyCode::Char('n'))).expect("chunk");
+        tui.handle(press(KeyCode::Char('z'))).expect("context");
+        assert!(tui.scroll > 0, "context should be directly reachable");
+        tui.handle(press(KeyCode::Char('s'))).expect("source");
+        let source_scroll = tui.scroll;
+        assert!(source_scroll > 0);
+        tui.handle(press(KeyCode::Home)).expect("introduction");
+        assert_eq!(tui.scroll, 0);
+        assert!(tui.session.reviewed.is_empty());
+        assert_eq!(tui.session.decision, None);
+    }
+
+    #[test]
+    fn narrow_chunk_controls_fit_one_row_and_offer_context() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let mut tui = ReviewTui::new(review_with_context(), directory.path().join("events.jsonl"))
+            .expect("open");
+        tui.handle(press(KeyCode::Char('n'))).expect("chunk");
+        let footer = tui.footer_command_document(65);
+        assert_eq!(footer.lines.len(), 1);
+        let text: String = footer
+            .lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .map(|s| s.text.as_str())
+            .collect();
+        assert!(text.contains("[s/z] Src/ctx"), "{text}");
+        assert!(text.contains("[p/n] Chunks"), "{text}");
+        assert!(text.contains("[q] Quit"), "{text}");
+        assert!(text.contains("Review+next"), "{text}");
     }
 }

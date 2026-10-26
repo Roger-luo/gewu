@@ -134,6 +134,35 @@ impl Change {
             .take(end.saturating_sub(start.saturating_sub(1)))
             .collect()
     }
+
+    /// The new-side file line represented by one 1-based hunk-body line.
+    /// Removed and metadata lines have no new-side location.
+    #[must_use]
+    pub fn new_line_at(&self, body_line: usize) -> Option<u32> {
+        let mut next = self.new_start;
+        for (index, text) in self
+            .patch
+            .lines()
+            .skip(usize::from(self.patch.starts_with("@@ ")))
+            .enumerate()
+        {
+            let current = index + 1;
+            if text.starts_with('-') {
+                if current == body_line {
+                    return None;
+                }
+                continue;
+            }
+            let line = text.starts_with(['+', ' ']).then_some(next);
+            if current == body_line {
+                return line;
+            }
+            if line.is_some() {
+                next = next.saturating_add(1);
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -195,4 +224,24 @@ impl ReviewInput {
 
 fn default_max_chunk_lines() -> usize {
     DEFAULT_MAX_CHUNK_LINES
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Change;
+
+    #[test]
+    fn maps_hunk_body_lines_to_the_new_side() {
+        let change = Change::new(
+            "src/lib.rs",
+            (10, 2, 20, 3),
+            "@@ -10,2 +20,3 @@\n context\n-removed\n+added\n+last\n",
+        );
+
+        assert_eq!(change.new_line_at(1), Some(20));
+        assert_eq!(change.new_line_at(2), None);
+        assert_eq!(change.new_line_at(3), Some(21));
+        assert_eq!(change.new_line_at(4), Some(22));
+        assert_eq!(change.new_line_at(5), None);
+    }
 }

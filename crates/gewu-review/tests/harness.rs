@@ -100,6 +100,42 @@ fn a_work_list_must_cover_the_manifest() {
 }
 
 #[test]
+fn a_multi_change_work_item_must_fit_its_expansion_budget() {
+    let input = input();
+    let mut list = work_list(&input);
+    let generated = list.items.pop().expect("generated item");
+    list.items[0].covers.extend(generated.covers);
+
+    let errors = list
+        .validate_for(&input, 1)
+        .expect_err("the combined item cannot fit one chunk")
+        .0;
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            HarnessValidationError::ImpossibleItem {
+                item,
+                chunks: 1,
+                ..
+            } if item == "behavior"
+        )),
+        "{errors:?}"
+    );
+
+    list.validate_for(&input, 4)
+        .expect("a larger expansion budget fits the combined source");
+}
+
+#[test]
+fn a_large_single_change_item_can_still_use_summary_only() {
+    let input = input();
+    let list = work_list(&input);
+
+    list.validate_for(&input, 1)
+        .expect("one generated artifact may be summarized compactly");
+}
+
+#[test]
 fn views_may_overlap_as_long_as_their_union_covers_the_item() {
     let input = input();
     let change = &input.changes[1];

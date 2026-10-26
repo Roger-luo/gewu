@@ -63,7 +63,7 @@ impl CodeHighlighter {
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
         let mut highlighter = HighlightLines::new(syntax, &self.theme);
         let mut document = Document { lines: Vec::new() };
-        for text in patch.lines() {
+        for text in patch.split('\n') {
             if text.starts_with("@@") {
                 let mut line = Line::default();
                 line.push(
@@ -106,7 +106,7 @@ impl CodeHighlighter {
     fn highlight(&self, syntax: &SyntaxReference, code: &str) -> Document {
         let mut highlighter = HighlightLines::new(syntax, &self.theme);
         let mut document = Document { lines: Vec::new() };
-        for line in code.lines() {
+        for line in code.split('\n') {
             document.lines.push(self.line(&mut highlighter, line));
         }
         if document.lines.is_empty() {
@@ -182,5 +182,13 @@ mod tests {
         assert!(spans.iter().any(|span| {
             span.text.contains("pub") && matches!(span.style.foreground, Some(Color::Rgb { .. }))
         }));
+    }
+
+    #[test]
+    fn preserves_a_quoted_trailing_blank_line() {
+        let document = CodeHighlighter::global().source("Cargo.toml", "[package]\n");
+
+        assert_eq!(document.lines.len(), 2);
+        assert_eq!(document.lines[1].width(), 0);
     }
 }

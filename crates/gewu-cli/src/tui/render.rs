@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
+use crossterm::style::Color;
 use gewu_review::{
     Change, ChangePresentation, ChunkBlock, ChunkContext, Decision, Feedback, FeedbackTarget,
-    Quote, ReviewChunk, ReviewSession, ValidatedReview,
+    LineAnchor, Quote, ReviewChunk, ReviewSession, ValidatedReview,
 };
 
 use super::{
@@ -19,10 +20,27 @@ pub struct Screen;
 
 impl Screen {
     #[must_use]
-    pub fn overview(review: &ValidatedReview) -> Document {
+    pub fn overview(review: &ValidatedReview, session: &ReviewSession) -> Document {
         let overview = &review.spec().overview;
         let mut document = document_title("PR OVERVIEW");
         document.append(Markdown::render(&overview.intent));
+        if let Some(progress) = generation_progress(review) {
+            document.push(
+                format!("Generation in progress: {}", generation_status(&progress)),
+                TextStyle {
+                    foreground: Some(Color::Yellow),
+                    bold: true,
+                    ..TextStyle::default()
+                },
+            );
+            document.newline();
+            document.newline();
+        }
+        if saved_progress(session, review) {
+            document.push(resume_status(session, review), title_style());
+            document.newline();
+            document.newline();
+        }
         heading(&mut document, "What changes");
         document.append(Markdown::render(&bullets(&overview.changes)));
         if !overview.concepts.is_empty() {
@@ -33,10 +51,23 @@ impl Screen {
             heading(&mut document, "Illustration");
             document.append(Markdown::render(&illustration(value)));
         }
-        document.push(scope(review), muted());
+        let scope = scope(review);
+        document.push(
+            scope,
+            if generation_progress(review).is_some() {
+                TextStyle {
+                    foreground: Some(Color::Yellow),
+                    bold: true,
+                    ..TextStyle::default()
+                }
+            } else {
+                muted()
+            },
+        );
         document
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn chunk(
         review: &ValidatedReview,
@@ -45,6 +76,22 @@ impl Screen {
         width: usize,
         selected: Option<&str>,
     ) -> Document {
+        let mut document = Self::chunk_header(review, session, index, width);
+        document.newline();
+        document.newline();
+        document.append(Self::chunk_content(
+            review, session, index, width, selected, false, None,
+        ));
+        document
+    }
+
+    #[must_use]
+    pub fn chunk_header(
+        review: &ValidatedReview,
+        session: &ReviewSession,
+        index: usize,
+        width: usize,
+    ) -> Document {
         let chunk = &review.spec().chunks[index];
         let status = if session.reviewed.contains(&chunk.id) {
             "reviewed"
@@ -52,24 +99,48 @@ impl Screen {
             "unreviewed"
         };
         let mut document = Document::new();
-        document.push(
-            format!(
-                "CHUNK {} OF {} · {status}",
-                index + 1,
-                review.spec().chunks.len()
-            ),
-            title_style(),
+        let status = format!(
+            "CHUNK {}/{} · {status}",
+            index + 1,
+            review.spec().chunks.len()
         );
+        document.push(&status, title_style());
+        let sources = Self::chunk_sources(review, chunk);
+        if width < 70 && !sources.is_empty() {
+            let room = width.saturating_sub(status.chars().count() + 3);
+            if room >= 8 {
+                document.push(" · ", muted());
+                document.push(compact_text(&sources, room), source_path_style());
+            }
+        }
         document.newline();
-        document.newline();
-        let main = Self::chunk_main(review, session, chunk, selected);
+        document.append(Markdown::render(&chunk.title).trim_trailing());
+        if width >= 70 && !sources.is_empty() {
+            document.push(format!(" · {sources}"), source_path_style());
+        }
+        document
+    }
+
+    #[must_use]
+    pub fn chunk_content(
+        review: &ValidatedReview,
+        session: &ReviewSession,
+        index: usize,
+        width: usize,
+        selected: Option<&str>,
+        raw_source: bool,
+        selected_line: Option<&LineAnchor>,
+    ) -> Document {
+        let chunk = &review.spec().chunks[index];
+        let main = Self::chunk_main(review, session, chunk, selected, raw_source, selected_line);
+        let mut document = Document::new();
         match chunk.context.as_ref().map(Self::context) {
             Some(context) if width >= 100 => {
                 document.append(Document::columns(main, context, width));
             }
             Some(context) => {
                 document.append(main);
-                heading(&mut document, "Context");
+                document.newline();
                 document.append(context);
             }
             None => document.append(main),
@@ -78,7 +149,40 @@ impl Screen {
     }
 
     #[must_use]
-    pub fn summary(review: &ValidatedReview, session: &ReviewSession) -> Document {
+    pub fn outline(review: &ValidatedReview, session: &ReviewSession, selected: usize) -> Document {
+        let mut document = document_title("REVIEW OUTLINE");
+        for (index, chunk) in review.spec().chunks.iter().enumerate() {
+            let marker = if index == selected { "▸" } else { " " };
+            let reviewed = if session.reviewed.contains(&chunk.id) {
+                "reviewed"
+            } else {
+                "unreviewed"
+            };
+            let feedback = session.chunk_feedback(&chunk.id).len();
+            let suffix = if feedback == 0 {
+                String::new()
+            } else {
+                format!(" · {feedback} feedback")
+            };
+            let style = if index == selected {
+                title_style()
+            } else {
+                TextStyle::default()
+            };
+            document.push(format!("{marker} {:>2}. ", index + 1), style);
+            document.append(Markdown::render(&chunk.title).trim_trailing());
+            document.push(format!(" · {reviewed}{suffix}"), style);
+            document.newline();
+        }
+        document
+    }
+
+    #[must_use]
+    pub fn summary(
+        review: &ValidatedReview,
+        session: &ReviewSession,
+        confirm_finish: bool,
+    ) -> Document {
         // Counted over the chunks the review still holds: re-planning can drop
         // a reviewed chunk, and progress must never read as more than the whole.
         let reviewed = review
@@ -91,14 +195,46 @@ impl Screen {
         let open = session
             .live_unresolved_issues(review.spec().chunks.iter().map(|chunk| &chunk.id))
             .len();
+        let comments = review
+            .spec()
+            .chunks
+            .iter()
+            .flat_map(|chunk| session.chunk_feedback(&chunk.id))
+            .filter(|feedback| feedback.kind == gewu_review::FeedbackKind::Note)
+            .count();
         let outcome = session.outcome(review.spec().chunks.iter().map(|chunk| &chunk.id));
         let mut document = document_title("REVIEW SUMMARY");
         document.append(Markdown::render(&format!(
-            "- **Reviewed:** {reviewed} / {}\n- **Unreviewed:** {unreviewed}\n\
-             - **Open requests:** {open}",
+            "- **Reviewed chunks in this batch:** {reviewed} / {}\n- **Unreviewed chunks in this batch:** {unreviewed}\n\
+             - **Open requests:** {open}\n- **Comments:** {comments}",
             review.spec().chunks.len(),
         )));
-        heading(&mut document, "Outcome");
+        let generation = generation_progress(review);
+        if let Some(progress) = &generation {
+            document.push(
+                format!("Source coverage: {}", generation_status(progress)),
+                TextStyle {
+                    foreground: Some(Color::Yellow),
+                    bold: true,
+                    ..TextStyle::default()
+                },
+            );
+            document.newline();
+            document.newline();
+        }
+        if unreviewed > 0 && !confirm_finish && session.decision.is_none() {
+            document.append(Markdown::render(&format!(
+                "**Review incomplete:** {unreviewed} chunk(s) are not marked reviewed. Press `u` to return to the first one."
+            )));
+        }
+        heading(
+            &mut document,
+            if generation.is_some() {
+                "Current batch outcome"
+            } else {
+                "Outcome"
+            },
+        );
         // Named before it is recorded, and with the reason, because the
         // reviewer never chose it: it follows from what they wrote, and they
         // are owed the chance to see that Gewu read them correctly.
@@ -107,23 +243,47 @@ impl Screen {
             outcome.label(),
             outcome_reason(outcome, open),
             match session.decision {
+                _ if confirm_finish && generation.is_some() && outcome == Decision::Approve => {
+                    let progress = generation.as_ref().expect("generation checked above");
+                    let unreviewed = if unreviewed > 0 {
+                        format!(" {unreviewed} generated chunk(s) are also unreviewed.")
+                    } else {
+                        String::new()
+                    };
+                    format!(
+                        "**WARNING:** Approve only this generated batch covering {} of {} change hunks? {}{unreviewed} Press `Enter` to approve this batch or `Esc` to keep reviewing.",
+                        progress.covered_hunks,
+                        progress.total_hunks,
+                        pending_generation_warning(progress),
+                    )
+                }
                 Some(recorded) if recorded == outcome =>
-                    "Recorded. Press `Enter` to leave the review.".to_owned(),
+                    if generation.is_some() {
+                        "Recorded for the generated batch. Press `Enter` to leave, then run `gewu review open` after generation adds the next batch. Use `u`, `g`, or `p` to revisit this batch; changing feedback updates its recorded outcome.".to_owned()
+                    } else {
+                        "Recorded. Press `Enter` to leave, or use `u`, `g`, or `p` to revisit work. Changing feedback updates the recorded outcome.".to_owned()
+                    },
                 Some(recorded) => format!(
                     "Recorded earlier as *{}*; press `Enter` to record it as it now stands.",
                     recorded.label()
                 ),
+                None if confirm_finish => format!(
+                    "**WARNING:** End with {unreviewed} unreviewed chunk(s)? Press `Enter` to confirm or `Esc` to keep reviewing."
+                ),
+                None if generation.is_some() => "Press `Enter` to record this generated batch; pending work remains and will be reviewed later.".to_owned(),
                 None => "Press `Enter` to end the review with it.".to_owned(),
             }
         )));
         document
     }
 
-    fn chunk_main(
+    pub(super) fn chunk_main(
         review: &ValidatedReview,
         session: &ReviewSession,
         chunk: &ReviewChunk,
         selected: Option<&str>,
+        raw_source: bool,
+        selected_line: Option<&LineAnchor>,
     ) -> Document {
         let by_id: HashMap<_, _> = review
             .input()
@@ -143,12 +303,13 @@ impl Screen {
             })
             .max()
             .map_or(1, |line| line.to_string().len());
-        let mut document = document_title(&chunk.title);
+        let mut document = Document::new();
         heading(&mut document, "What this does");
         document.append(Markdown::render(&chunk.summary));
         if let Some(confidence) = &chunk.confidence {
             document.append(Markdown::render(&format!("*Confidence:* {confidence}")));
         }
+        let mut shown_lines: HashMap<String, HashSet<usize>> = HashMap::new();
         for block in &chunk.content {
             match block {
                 ChunkBlock::Narrative { markdown } => {
@@ -165,7 +326,28 @@ impl Screen {
                         })
                         .collect();
                     for run in views.chunk_by(|left, right| left.1.path == right.1.path) {
-                        document.append(Self::source_block(run, *presentation, width));
+                        let earlier_omitted = run.first().is_some_and(|(quote, change)| {
+                            (1..quote.start).any(|line| {
+                                !shown_lines
+                                    .get(&change.id)
+                                    .is_some_and(|shown| shown.contains(&line))
+                                    && !source_line_is_blank(change, line)
+                            })
+                        });
+                        document.append(Self::source_block(
+                            run,
+                            *presentation,
+                            width,
+                            raw_source || selected_line.is_some(),
+                            selected_line,
+                            earlier_omitted,
+                        ));
+                        for (quote, _) in run {
+                            shown_lines
+                                .entry(quote.change_id.clone())
+                                .or_default()
+                                .extend(quote.start..=quote.end);
+                        }
                     }
                     // Prose that follows a view needs the same air as the
                     // rendered Markdown above it already leaves.
@@ -177,7 +359,11 @@ impl Screen {
         if !feedback.is_empty() {
             heading(&mut document, "Feedback");
             for item in feedback {
-                document.append(Self::feedback_item(item, selected == Some(&item.id)));
+                document.append(Self::feedback_item(
+                    review,
+                    item,
+                    selected == Some(&item.id),
+                ));
             }
         }
         document
@@ -185,36 +371,89 @@ impl Screen {
 
     /// One piece of feedback, marked when the reviewer has it selected so the
     /// actions offered below plainly belong to it.
-    fn feedback_item(item: &Feedback, selected: bool) -> Document {
+    fn feedback_item(review: &ValidatedReview, item: &Feedback, selected: bool) -> Document {
         let mut document = Document::new();
-        let style = if selected { title_style() } else { muted() };
+        let style = if selected {
+            title_style()
+        } else {
+            TextStyle {
+                bold: true,
+                ..TextStyle::default()
+            }
+        };
         document.push(if selected { "▸ " } else { "  " }, style);
         document.push(item.kind.label(), style);
-        // Only the unusual aim is named. Feedback is about the code unless the
-        // reviewer said otherwise, and labelling every item "code" would price
-        // the common case to pay for the rare one.
-        if item.target == FeedbackTarget::Explanation {
-            document.push(" · about this explanation", style);
-        }
-        document.push(
-            if item.resolved {
-                " · resolved"
-            } else {
-                " · open"
-            },
-            style,
-        );
-        if let Some(anchor) = &item.anchor {
-            document.push(format!(" · {}:{}", anchor.path, anchor.start_line), muted());
+        {
+            let target = match (item.target, item.anchor.as_ref()) {
+                (FeedbackTarget::Explanation, _) => "about this explanation".to_owned(),
+                (FeedbackTarget::Code, Some(anchor)) => {
+                    format!("about {}:{}", anchor.path, anchor.start_line)
+                }
+                (FeedbackTarget::Code, None) => "about the code".to_owned(),
+            };
+            document.push(format!(" · {target}"), style);
+            if item.kind == gewu_review::FeedbackKind::Issue {
+                document.push(
+                    if item.resolved {
+                        " · resolved"
+                    } else {
+                        " · open"
+                    },
+                    style,
+                );
+            }
         }
         document.newline();
-        // A pasted body carries its own line breaks, so it is drawn line by
-        // line rather than as one run that wrapping would reflow.
-        for line in item.body.lines() {
-            document.push("    ", muted());
-            document.push(line, TextStyle::default());
+        if let Some(anchor) = &item.anchor {
+            let excerpt = anchor_excerpt(review, anchor);
+            document.push("    ↳ ", source_path_style());
+            document.push(excerpt, TextStyle::default());
             document.newline();
         }
+        // A pasted body carries its own line breaks, so it is drawn line by
+        // line rather than as one run that wrapping would reflow.
+        let body: Vec<_> = item.body.lines().collect();
+        let visible = if selected || body.len() <= 3 {
+            body.len()
+        } else {
+            2
+        };
+        for line in body.iter().take(visible) {
+            document.push("    ", muted());
+            document.push(*line, TextStyle::default());
+            document.newline();
+        }
+        if visible < body.len() {
+            document.push("    ", muted());
+            document.push(
+                format!(
+                    "… {} more line(s); select this feedback to expand",
+                    body.len() - visible
+                ),
+                TextStyle {
+                    foreground: Some(Color::Grey),
+                    italic: true,
+                    ..TextStyle::default()
+                },
+            );
+            document.newline();
+        }
+        document
+    }
+
+    pub(super) fn selected_feedback_header(item: &Feedback) -> Document {
+        let mut document = Document::new();
+        let target = match (item.target, item.anchor.as_ref()) {
+            (FeedbackTarget::Explanation, _) => "this explanation".to_owned(),
+            (FeedbackTarget::Code, Some(anchor)) => {
+                format!("{}:{}", anchor.path, anchor.start_line)
+            }
+            (FeedbackTarget::Code, None) => "the code".to_owned(),
+        };
+        document.push(
+            format!("SELECTED: {} · {target}", item.kind.label()),
+            title_style(),
+        );
         document
     }
 
@@ -224,11 +463,22 @@ impl Screen {
         views: &[(&Quote, &Change)],
         presentation: ChangePresentation,
         width: usize,
+        raw_source: bool,
+        selected_line: Option<&LineAnchor>,
+        earlier_omitted: bool,
     ) -> Document {
         let mut document = Document::new();
         document.push(SOURCE_GUTTER, muted());
-        document.push(&views[0].1.path, source_path_style());
-        document.push(format!(" · {}", presentation_label(presentation)), muted());
+        document.push(Self::source_label(views), source_path_style());
+        let label = if selected_line.is_some() {
+            format!("{} · line picker", presentation_label(presentation))
+        } else if raw_source {
+            "raw source + lines".to_owned()
+        } else {
+            presentation_label(presentation).to_owned()
+        };
+        document.push(format!(" · {label}"), muted());
+        document.push(format!(" · {}", change_semantics(views)), muted());
         if views.len() > 1 {
             document.push(format!(" · {} views", views.len()), muted());
         }
@@ -236,17 +486,69 @@ impl Screen {
         document.push(SOURCE_GUTTER, muted());
         document.newline();
         let mut body = Document::new();
+        if earlier_omitted {
+            body.push("… earlier hunk lines not shown", muted());
+            body.newline();
+        }
         for (quote, change) in views {
             if body.lines.last().is_some_and(|line| line.width() > 0) {
                 body.newline();
-                // Two views of the same file are not contiguous code; say so.
+                // Two views are distinct selections, even if their source
+                // ranges happen to touch or overlap.
+                body.push("… next selected view", muted());
                 body.newline();
             }
-            body.append(Self::change_body(quote, change, presentation, width));
+            body.append(Self::change_body(
+                quote,
+                change,
+                presentation,
+                width,
+                raw_source,
+                selected_line,
+            ));
         }
-        document.append(body.trim_trailing().gutter(SOURCE_GUTTER, muted()));
+        if views
+            .last()
+            .is_some_and(|(quote, change)| quote.end < change.body_lines())
+        {
+            body.newline();
+            let next = views
+                .last()
+                .and_then(|(quote, change)| {
+                    (quote.end + 1..=change.body_lines()).find_map(|line| change.new_line_at(line))
+                })
+                .map_or_else(
+                    || "… later hunk lines not shown".to_owned(),
+                    |line| format!("… source continues at line {line}"),
+                );
+            body.push(next, muted());
+        }
+        document.append(body.gutter(SOURCE_GUTTER, muted()));
         document.newline();
         document
+    }
+
+    fn source_label(views: &[(&Quote, &Change)]) -> String {
+        let path = &views[0].1.path;
+        let ranges = views
+            .iter()
+            .filter_map(|(quote, change)| {
+                let lines: Vec<_> = (quote.start..=quote.end)
+                    .filter_map(|body_line| change.new_line_at(body_line))
+                    .collect();
+                match (lines.first(), lines.last()) {
+                    (Some(first), Some(last)) if first != last => Some(format!("{first}-{last}")),
+                    (Some(line), _) => Some(line.to_string()),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        if ranges.is_empty() {
+            path.clone()
+        } else {
+            format!("{path}:{ranges}")
+        }
     }
 
     fn change_body(
@@ -254,6 +556,8 @@ impl Screen {
         change: &Change,
         presentation: ChangePresentation,
         width: usize,
+        raw_source: bool,
+        selected_line: Option<&LineAnchor>,
     ) -> Document {
         // Line numbers are counted from the hunk's start, then the view is cut
         // out, so a quote of lines 40-60 is numbered as it sits in the file.
@@ -265,24 +569,41 @@ impl Screen {
             .get(quote.start..=quote.end.min(change.body_lines()))
             .unwrap_or(&[])
             .to_vec();
+        let selected = selected_line
+            .filter(|anchor| anchor.path == change.path)
+            .map(|anchor| anchor.start_line);
+        let presentation = if raw_source {
+            match presentation {
+                ChangePresentation::Diff => ChangePresentation::Diff,
+                _ => ChangePresentation::AddedCode,
+            }
+        } else {
+            presentation
+        };
         match presentation {
             ChangePresentation::Diff => numbered(
                 CodeHighlighter::global().diff(&change.path, &view),
                 &numbers,
                 width,
+                selected,
             ),
             ChangePresentation::AddedCode => numbered(
                 CodeHighlighter::global().source(&change.path, &Self::added_text(&view)),
                 &shown_line_numbers(&view, &numbers),
                 width,
+                selected,
             ),
-            ChangePresentation::RenderedMarkdown => Markdown::render(&Self::added_text(&view)),
+            ChangePresentation::RenderedMarkdown => rendered_markdown(
+                &Self::added_text(&view),
+                &shown_line_numbers(&view, &numbers),
+                width,
+            ),
             ChangePresentation::SummaryOnly => {
                 let mut document = Document::new();
                 document.push(
                     format!(
-                        "{} lines withheld as a generated artifact",
-                        change.new_lines
+                        "{} quoted source line(s) summarized by the walkthrough; press v to inspect",
+                        quote.lines()
                     ),
                     TextStyle {
                         italic: true,
@@ -309,24 +630,104 @@ impl Screen {
             .join("\n")
     }
 
-    fn context(context: &ChunkContext) -> Document {
+    pub(super) fn context(context: &ChunkContext) -> Document {
         match context {
             ChunkContext::Concept {
                 definition,
                 example,
                 relation,
-            } => Markdown::render(&format!(
-                "# New concept\n\n{definition}\n\n## Example\n\n{example}\n\n## Here\n\n{relation}"
-            )),
+            } => {
+                let mut document = document_title("Context · New concept");
+                document.append(Markdown::render(definition));
+                heading(&mut document, "Example");
+                document.append(context_code(example));
+                document.newline();
+                document.newline();
+                heading(&mut document, "In this change");
+                document.append(Markdown::render(relation));
+                document
+            }
             ChunkContext::Refactor {
                 before,
                 after,
                 reason,
-            } => Markdown::render(&format!(
-                "# Refactor\n\n## Before\n\n{before}\n\n## After\n\n{after}\n\n## Why\n\n{reason}"
-            )),
+            } => {
+                let mut document = document_title("Context · Refactor");
+                heading(&mut document, "Before");
+                document.append(context_code(before));
+                document.newline();
+                document.newline();
+                heading(&mut document, "After");
+                document.append(context_code(after));
+                document.newline();
+                document.newline();
+                heading(&mut document, "Why");
+                document.append(Markdown::render(reason));
+                document
+            }
         }
     }
+
+    pub(super) fn context_title(context: &ChunkContext) -> &'static str {
+        match context {
+            ChunkContext::Concept { .. } => "CONTEXT · New concept",
+            ChunkContext::Refactor { .. } => "CONTEXT · Refactor",
+        }
+    }
+
+    fn chunk_sources(review: &ValidatedReview, chunk: &ReviewChunk) -> String {
+        let by_id: HashMap<_, _> = review
+            .input()
+            .changes
+            .iter()
+            .map(|change| (&change.id, change))
+            .collect();
+        let views: Vec<_> = chunk
+            .quotes()
+            .filter_map(|quote| by_id.get(&quote.change_id).map(|change| (quote, *change)))
+            .collect();
+        views
+            .chunk_by(|left, right| left.1.path == right.1.path)
+            .map(Self::source_label)
+            .collect::<Vec<_>>()
+            .join(" · ")
+    }
+}
+
+fn compact_text(value: &str, limit: usize) -> String {
+    let mut text: String = value.chars().take(limit).collect();
+    if value.chars().count() > limit {
+        text.pop();
+        text.push('…');
+    }
+    text
+}
+
+/// Context examples are code fields, not Markdown documents. Authors
+/// sometimes supplied a fenced block anyway; stripping one balanced outer
+/// fence keeps the code while preventing that fence from terminating Gewu's
+/// own frame and swallowing the following relation prose.
+fn context_code(example: &str) -> Document {
+    let (language, code) = outer_fenced_code(example).unwrap_or(("text", example));
+    CodeHighlighter::global()
+        .code(language, code.trim_end_matches('\n'))
+        .gutter("│ ", muted())
+}
+
+fn outer_fenced_code(value: &str) -> Option<(&str, &str)> {
+    let first_end = value.find('\n')?;
+    let opener = value[..first_end].trim();
+    let language = opener.strip_prefix("```")?.trim();
+    let body_with_close = &value[first_end + 1..];
+    let close_start = body_with_close.rfind('\n')?;
+    (body_with_close[close_start + 1..].trim() == "```").then_some((
+        if language.is_empty() {
+            "text"
+        } else {
+            language
+        },
+        &body_with_close[..close_start],
+    ))
 }
 
 /// Why the review came out the way it did, in the reviewer's own actions. An
@@ -337,6 +738,132 @@ fn outcome_reason(outcome: Decision, open: usize) -> &'static str {
         Decision::RequestChanges => "requests are open",
         Decision::Comment => "you left remarks, and none of them ask for a change",
         Decision::Approve => "you asked for nothing and remarked on nothing",
+    }
+}
+
+pub(super) struct GenerationProgress {
+    pub(super) covered_hunks: usize,
+    pub(super) total_hunks: usize,
+    remaining_work_items: Option<usize>,
+}
+
+fn generation_status(progress: &GenerationProgress) -> String {
+    format!(
+        "{} of {} change hunks prepared{}; more review chunks will follow.",
+        progress.covered_hunks,
+        progress.total_hunks,
+        progress
+            .remaining_work_items
+            .map_or_else(String::new, |remaining| format!(
+                " · {remaining} work item(s) pending"
+            ))
+    )
+}
+
+pub(super) fn generation_progress(review: &ValidatedReview) -> Option<GenerationProgress> {
+    let covered: HashSet<_> = review
+        .spec()
+        .chunks
+        .iter()
+        .flat_map(ReviewChunk::change_ids)
+        .collect();
+    let total_hunks = review.input().changes.len();
+    let remaining_work_items = review.spec().remaining_work_items();
+    (covered.len() < total_hunks || remaining_work_items.is_some_and(|remaining| remaining > 0))
+        .then_some(GenerationProgress {
+            covered_hunks: covered.len(),
+            total_hunks,
+            remaining_work_items,
+        })
+}
+
+pub(super) fn pending_generation_warning(progress: &GenerationProgress) -> String {
+    let unprepared = progress.total_hunks.saturating_sub(progress.covered_hunks);
+    if unprepared > 0 {
+        let subject = if unprepared == 1 {
+            "change hunk is"
+        } else {
+            "change hunks are"
+        };
+        format!("The remaining {unprepared} {subject} not yet reviewable.")
+    } else {
+        "Further review chunks are not yet available.".to_owned()
+    }
+}
+
+fn saved_progress(session: &ReviewSession, review: &ValidatedReview) -> bool {
+    session.spec_id.is_some()
+        && (!session.visited.is_empty()
+            || !session.reviewed.is_empty()
+            || !session.feedback.is_empty()
+            || session.decision.is_some())
+        && !review.spec().chunks.is_empty()
+}
+
+fn resume_status(session: &ReviewSession, review: &ValidatedReview) -> String {
+    let reviewed = review
+        .spec()
+        .chunks
+        .iter()
+        .filter(|chunk| session.reviewed.contains(&chunk.id))
+        .count();
+    let feedback = review
+        .spec()
+        .chunks
+        .iter()
+        .flat_map(|chunk| session.chunk_feedback(&chunk.id))
+        .count();
+    let resume = session
+        .last_visited
+        .as_ref()
+        .and_then(|id| {
+            review
+                .spec()
+                .chunks
+                .iter()
+                .position(|chunk| &chunk.id == id)
+        })
+        .map_or_else(
+            || "the first unreviewed chunk".to_owned(),
+            |index| format!("chunk {}", index + 1),
+        );
+    format!(
+        "Resuming saved progress: {reviewed}/{} reviewed · {feedback} feedback item(s) · continue at {resume}",
+        review.spec().chunks.len()
+    )
+}
+
+fn anchor_excerpt(review: &ValidatedReview, anchor: &LineAnchor) -> String {
+    review
+        .input()
+        .changes
+        .iter()
+        .find(|change| change.id == anchor.change_id)
+        .and_then(|change| {
+            change
+                .new_side(anchor.start_line, anchor.end_line)
+                .first()
+                .copied()
+        })
+        .map(|line| line.get(1..).unwrap_or(line).trim_end())
+        .filter(|line| !line.trim().is_empty())
+        .map_or_else(|| "(blank line)".into(), ToOwned::to_owned)
+}
+
+fn source_line_is_blank(change: &Change, line: usize) -> bool {
+    change
+        .body(line, line)
+        .first()
+        .is_none_or(|text| text.get(1..).unwrap_or_default().trim().is_empty())
+}
+
+fn change_semantics(views: &[(&Quote, &Change)]) -> &'static str {
+    if views.iter().all(|(_, change)| change.old_lines == 0) {
+        "new file / added"
+    } else if views.iter().all(|(_, change)| change.new_lines == 0) {
+        "deleted"
+    } else {
+        "modified"
     }
 }
 
@@ -406,9 +933,70 @@ fn hunk_start(header: &str) -> Option<u32> {
         .ok()
 }
 
+/// Renders a changed Markdown document without losing the source map. Each
+/// source row keeps its file line number, and fenced blocks retain visible
+/// boundaries so commands remain distinguishable without color.
+fn rendered_markdown(
+    source: &str,
+    source_numbers: &[Option<u32>],
+    number_width: usize,
+) -> Document {
+    let mut document = Document { lines: Vec::new() };
+    let mut rendered_numbers = Vec::new();
+    let mut fence: Option<String> = None;
+
+    for (index, source_line) in source.split('\n').enumerate() {
+        let number = source_numbers.get(index).copied().flatten();
+        let trimmed = source_line.trim_start();
+        let rendered = if let Some(marker) = trimmed.strip_prefix("```") {
+            let mut boundary = Document::new();
+            if fence.is_some() {
+                boundary.push("└─ end code block", muted());
+                fence = None;
+            } else {
+                let language = marker.trim();
+                boundary.push(
+                    if language.is_empty() {
+                        "┌─ code block".to_owned()
+                    } else {
+                        format!("┌─ {language} code block")
+                    },
+                    muted(),
+                );
+                fence = Some(language.to_owned());
+            }
+            boundary
+        } else if let Some(language) = fence.as_deref() {
+            CodeHighlighter::global()
+                .code(language, source_line)
+                .gutter("│ ", muted())
+        } else if source_line.trim().is_empty() {
+            Document::new()
+        } else {
+            Markdown::render(source_line).trim_trailing()
+        };
+
+        let mut lines = rendered.lines;
+        if lines.is_empty() {
+            lines.push(Line::default());
+        }
+        for (rendered_index, line) in lines.into_iter().enumerate() {
+            document.lines.push(line);
+            rendered_numbers.push((rendered_index == 0).then_some(number).flatten());
+        }
+    }
+
+    numbered(document, &rendered_numbers, number_width, None)
+}
+
 /// Prefixes each line with its file line number, right-aligned so the code
 /// edge stays straight.
-fn numbered(document: Document, numbers: &[Option<u32>], width: usize) -> Document {
+fn numbered(
+    document: Document,
+    numbers: &[Option<u32>],
+    width: usize,
+    selected: Option<u32>,
+) -> Document {
     Document {
         lines: document
             .lines
@@ -420,6 +1008,12 @@ fn numbered(document: Document, numbers: &[Option<u32>], width: usize) -> Docume
                     None => " ".repeat(width + 1),
                 };
                 let mut numbered = Line::default();
+                let is_selected =
+                    selected.is_some() && numbers.get(index).copied().flatten() == selected;
+                numbered.push(
+                    if is_selected { "▶ " } else { "  " },
+                    if is_selected { title_style() } else { muted() },
+                );
                 numbered.push(label, muted());
                 numbered.spans.extend(line.spans);
                 numbered
@@ -431,9 +1025,9 @@ fn numbered(document: Document, numbers: &[Option<u32>], width: usize) -> Docume
 #[cfg(test)]
 mod tests {
     use gewu_review::{
-        Change, ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, Feedback, FeedbackKind,
-        FeedbackTarget, Overview, Quote, ReviewChunk, ReviewEvent, ReviewInput, ReviewSession,
-        ReviewSpec, SourceIdentity, ValidatedReview,
+        Change, ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, Decision, Feedback,
+        FeedbackKind, FeedbackTarget, Overview, Quote, ReviewChunk, ReviewEvent, ReviewInput,
+        ReviewSession, ReviewSpec, SourceIdentity, ValidatedReview,
     };
 
     use super::{super::style::Line, SOURCE_GUTTER, Screen};
@@ -484,8 +1078,99 @@ mod tests {
             .filter(|line| line.contains(" · document"))
             .collect();
         assert_eq!(headers.len(), 2, "{headers:#?}");
-        assert!(headers[0].starts_with("▏ docs/design.md · document · 2 views"));
-        assert!(headers[1].starts_with("▏ README.md · document"));
+        assert!(
+            headers[0].starts_with("▏ docs/design.md:1,2 · document · new file / added · 2 views")
+        );
+        assert!(headers[1].starts_with("▏ README.md:3 · document · new file / added"));
+    }
+
+    #[test]
+    fn rendered_markdown_header_keeps_its_source_location() {
+        let review = review(
+            &[("AGENTS.md", "A documented rule")],
+            ChangePresentation::RenderedMarkdown,
+        );
+
+        let rendered = lines(&Screen::chunk(
+            &review,
+            &ReviewSession::default(),
+            0,
+            80,
+            None,
+        ));
+
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line.starts_with("▏ AGENTS.md:1 · document")),
+            "{rendered:#?}"
+        );
+    }
+
+    #[test]
+    fn rendered_markdown_keeps_line_numbers_and_code_boundaries() {
+        let change = Change::new(
+            "AGENTS.md",
+            (0, 0, 13, 4),
+            "@@ -0,0 +13,4 @@\n+## Tooling\n+```bash\n+mise install\n+```\n",
+        );
+        let quote = Quote::whole(change.id.clone(), change.body_lines());
+
+        let rendered = lines(&Screen::change_body(
+            &quote,
+            &change,
+            ChangePresentation::RenderedMarkdown,
+            2,
+            false,
+            None,
+        ));
+
+        assert!(
+            rendered.iter().any(|line| line.contains("13 Tooling")),
+            "{rendered:#?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line.contains("14 ┌─ bash code block")),
+            "{rendered:#?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line.contains("15 │ mise install")),
+            "{rendered:#?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line.contains("16 └─ end code block")),
+            "{rendered:#?}"
+        );
+    }
+
+    #[test]
+    fn chunk_titles_render_inline_code_instead_of_backticks() {
+        let review = review_with_title(
+            &[("a.rs", "one")],
+            ChangePresentation::AddedCode,
+            "The `Runtime` type",
+        );
+
+        let document = Screen::chunk(&review, &ReviewSession::default(), 0, 80, None);
+        let rendered = lines(&document).join("\n");
+
+        assert!(!rendered.contains('`'), "{rendered}");
+        assert!(
+            document
+                .lines
+                .iter()
+                .flat_map(|line| &line.spans)
+                .any(|span| {
+                    span.text == "Runtime"
+                        && span.style.foreground == Some(crossterm::style::Color::Yellow)
+                })
+        );
     }
 
     #[test]
@@ -500,9 +1185,49 @@ mod tests {
         assert!(
             lines(&document)
                 .iter()
-                .any(|line| line.contains("1 lines withheld as a generated artifact")),
+                .any(|line| line.contains("1 quoted source line(s) summarized")),
             "{:#?}",
             lines(&document)
+        );
+    }
+
+    #[test]
+    fn source_views_only_mark_meaningful_omitted_leading_lines() {
+        let change = Change::new(
+            "src/lib.rs",
+            (0, 0, 1, 3),
+            "@@ -0,0 +1,3 @@\n+first\n+second\n+third\n",
+        );
+        let quote = Quote {
+            change_id: change.id.clone(),
+            start: 2,
+            end: 3,
+        };
+        let views = [(&quote, &change)];
+
+        let marked = lines(&Screen::source_block(
+            &views,
+            ChangePresentation::AddedCode,
+            1,
+            false,
+            None,
+            true,
+        ))
+        .join("\n");
+        let continuous = lines(&Screen::source_block(
+            &views,
+            ChangePresentation::AddedCode,
+            1,
+            false,
+            None,
+            false,
+        ))
+        .join("\n");
+
+        assert!(marked.contains("earlier hunk lines not shown"), "{marked}");
+        assert!(
+            !continuous.contains("earlier hunk lines not shown"),
+            "{continuous}"
         );
     }
 
@@ -664,10 +1389,16 @@ mod tests {
         // A chunk re-planning has since dropped, still marked reviewed.
         session.apply(&ReviewEvent::reviewed(String::from("chunk-removed"), true));
 
-        let rendered = lines(&Screen::summary(&review, &session)).join("\n");
+        let rendered = lines(&Screen::summary(&review, &session, false)).join("\n");
 
-        assert!(rendered.contains("Reviewed: 1 / 1"), "{rendered}");
-        assert!(rendered.contains("Unreviewed: 0"), "{rendered}");
+        assert!(
+            rendered.contains("Reviewed chunks in this batch: 1 / 1"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("Unreviewed chunks in this batch: 0"),
+            "{rendered}"
+        );
         // The outcome reads as prose, and says what it followed from: the
         // reviewer never picked it, so it has to account for itself.
         assert!(rendered.contains("approve"), "{rendered}");
@@ -689,11 +1420,46 @@ mod tests {
         issue.kind = FeedbackKind::Issue;
         session.apply(&ReviewEvent::feedback(issue));
 
-        let rendered = lines(&Screen::summary(&review, &session)).join("\n");
+        let rendered = lines(&Screen::summary(&review, &session, false)).join("\n");
 
         assert!(rendered.contains("Open requests: 1"), "{rendered}");
         assert!(rendered.contains("request changes"), "{rendered}");
         assert!(rendered.contains("one request is open"), "{rendered}");
+    }
+
+    #[test]
+    fn summary_counts_comments_and_calls_out_unreviewed_work() {
+        let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::feedback(feedback("note", "A note.")));
+
+        let rendered = lines(&Screen::summary(&review, &session, false)).join("\n");
+
+        assert!(rendered.contains("Comments: 1"), "{rendered}");
+        assert!(rendered.contains("Review incomplete"), "{rendered}");
+        assert!(rendered.contains("Press u"), "{rendered}");
+    }
+
+    #[test]
+    fn requests_always_name_their_target_while_comments_have_no_open_state() {
+        let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::feedback(feedback("note", "A note.")));
+        let mut issue = feedback("issue", "A request.");
+        issue.kind = FeedbackKind::Issue;
+        session.apply(&ReviewEvent::feedback(issue));
+
+        let rendered = lines(&Screen::chunk(&review, &session, 0, 80, None)).join("\n");
+
+        assert!(
+            rendered.contains("Comment · about the code\n"),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("Comment · open"), "{rendered}");
+        assert!(
+            rendered.contains("Request change · about the code · open"),
+            "{rendered}"
+        );
     }
 
     #[test]
@@ -705,9 +1471,41 @@ mod tests {
         );
 
         let quote = Quote::whole(change.id.clone(), change.body_lines());
-        let document = Screen::change_body(&quote, &change, ChangePresentation::AddedCode, 3);
+        let document = Screen::change_body(
+            &quote,
+            &change,
+            ChangePresentation::AddedCode,
+            3,
+            false,
+            None,
+        );
 
-        assert_eq!(lines(&document), vec![" 98 one", " 99 two", "100 three"]);
+        assert_eq!(
+            lines(&document),
+            vec!["   98 one", "   99 two", "  100 three"]
+        );
+    }
+
+    #[test]
+    fn numbered_source_keeps_trailing_blank_lines_inside_the_labelled_range() {
+        let change = Change::new(
+            "Cargo.toml",
+            (0, 0, 1, 2),
+            "@@ -0,0 +1,2 @@\n+[workspace]\n+\n",
+        );
+        let quote = Quote::whole(change.id.clone(), change.body_lines());
+
+        let rendered = lines(&Screen::change_body(
+            &quote,
+            &change,
+            ChangePresentation::AddedCode,
+            1,
+            false,
+            None,
+        ));
+
+        assert_eq!(rendered.len(), 2, "{rendered:#?}");
+        assert!(rendered[1].starts_with("  2 "), "{rendered:#?}");
     }
 
     #[test]
@@ -719,13 +1517,14 @@ mod tests {
         );
 
         let quote = Quote::whole(change.id.clone(), change.body_lines());
-        let document = Screen::change_body(&quote, &change, ChangePresentation::Diff, 1);
+        let document =
+            Screen::change_body(&quote, &change, ChangePresentation::Diff, 1, false, None);
 
         // The hunk header and the removed line name no new-side line.
         // The gutter numbers say where the view sits, so no hunk header is drawn.
         assert_eq!(
             lines(&document),
-            vec!["7  context", "  -removed", "8 +added"]
+            vec!["  7  context", "    -removed", "  8 +added"]
         );
     }
 
@@ -782,6 +1581,60 @@ mod tests {
     }
 
     #[test]
+    fn later_blocks_do_not_claim_already_shown_source_was_omitted() {
+        let source = SourceIdentity::new("base", "head", b"diff");
+        let change = Change::new(
+            "a.rs",
+            (0, 0, 1, 3),
+            "@@ -0,0 +1,3 @@\n+first\n+second\n+third\n",
+        );
+        let quote = |start, end| Quote {
+            change_id: change.id.clone(),
+            start,
+            end,
+        };
+        let chunk = ReviewChunk {
+            id: "chunk".into(),
+            title: "Chunk".into(),
+            summary: "Summary.".into(),
+            kind: ChunkKind::Other,
+            content: vec![
+                ChunkBlock::Changes {
+                    quotes: vec![quote(1, 1)],
+                    presentation: ChangePresentation::AddedCode,
+                },
+                ChunkBlock::Narrative {
+                    markdown: "Then continue.".into(),
+                },
+                ChunkBlock::Changes {
+                    quotes: vec![quote(2, 3)],
+                    presentation: ChangePresentation::AddedCode,
+                },
+            ],
+            context: None,
+            confidence: None,
+            oversized_reason: None,
+        };
+        let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]);
+        let review = ValidatedReview::validate(ReviewInput::new(source, vec![change]), spec)
+            .expect("valid review");
+
+        let rendered = lines(&Screen::chunk(
+            &review,
+            &ReviewSession::default(),
+            0,
+            80,
+            None,
+        ))
+        .join("\n");
+
+        assert!(
+            !rendered.contains("earlier hunk lines not shown"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
     fn marks_the_feedback_the_reviewer_has_selected() {
         let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
         let mut session = ReviewSession::default();
@@ -790,14 +1643,31 @@ mod tests {
 
         let rendered = lines(&Screen::chunk(&review, &session, 0, 80, Some("second")));
 
-        assert!(rendered.iter().any(|line| line == "  Comment · open"));
-        assert!(rendered.iter().any(|line| line == "▸ Comment · open"));
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line == "  Comment · about the code")
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line == "▸ Comment · about the code")
+        );
         // Each body sits under the item it belongs to.
         let selected = rendered
             .iter()
-            .position(|line| line == "▸ Comment · open")
+            .position(|line| line == "▸ Comment · about the code")
             .expect("selected item");
         assert_eq!(rendered[selected + 1], "    Second.");
+
+        let pinned = lines(&Screen::selected_feedback_header(
+            session
+                .chunk_feedback("chunk")
+                .into_iter()
+                .find(|feedback| feedback.id == "second")
+                .expect("selected feedback"),
+        ));
+        assert_eq!(pinned, vec!["SELECTED: Comment · the code"]);
     }
 
     #[test]
@@ -810,6 +1680,197 @@ mod tests {
 
         assert!(rendered.iter().any(|line| line == "    First."));
         assert!(rendered.iter().any(|line| line == "    Second."));
+    }
+
+    /// A partially generated review used to say "approve" and "3/3" without
+    /// disclosing that most planned work had not been written yet.
+    #[test]
+    fn summary_scopes_an_outcome_to_the_generated_batch() {
+        let review = partial_review();
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::reviewed(String::from("chunk"), true));
+
+        let rendered = lines(&Screen::summary(&review, &session, false)).join("\n");
+
+        assert!(rendered.contains("Source coverage"), "{rendered}");
+        assert!(rendered.contains("1 work item(s) pending"), "{rendered}");
+        assert!(rendered.contains("Current batch outcome"), "{rendered}");
+        assert!(
+            rendered.contains("record this generated batch"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn partial_approval_confirmation_names_its_exact_source_scope() {
+        let review = partial_review();
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::reviewed(String::from("chunk"), true));
+
+        let rendered = lines(&Screen::summary(&review, &session, true)).join("\n");
+
+        assert!(
+            rendered.contains("Approve only this generated batch"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("1 of 2 change hunks"), "{rendered}");
+        assert!(rendered.contains("not yet reviewable"), "{rendered}");
+
+        session.apply(&ReviewEvent::feedback(feedback("withdrawn", "A note.")));
+        session.apply(&ReviewEvent::decision(Decision::Comment));
+        session.apply(&ReviewEvent::deleted("withdrawn"));
+        let stale_decision = lines(&Screen::summary(&review, &session, true)).join("\n");
+        assert!(
+            stale_decision.contains("Approve only this generated batch"),
+            "{stale_decision}"
+        );
+    }
+
+    #[test]
+    fn overview_discloses_pending_generation_before_the_change_list() {
+        let review = partial_review();
+        let rendered = lines(&Screen::overview(&review, &ReviewSession::default()));
+        let generation = rendered
+            .iter()
+            .position(|line| line.contains("Generation in progress"))
+            .expect("generation banner");
+        let changes = rendered
+            .iter()
+            .position(|line| line == "What changes")
+            .expect("change list");
+
+        assert!(generation < changes, "{rendered:#?}");
+    }
+
+    #[test]
+    fn recorded_summary_replaces_the_stale_unreviewed_instruction() {
+        let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::decision(Decision::Approve));
+
+        let rendered = lines(&Screen::summary(&review, &session, false)).join("\n");
+
+        assert!(!rendered.contains("Press u to return"), "{rendered}");
+        assert!(rendered.contains("use u, g, or p"), "{rendered}");
+    }
+
+    #[test]
+    fn overview_orients_a_resumed_reviewer() {
+        let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::started(review.spec().session_key()));
+        session.apply(&ReviewEvent::visited(String::from("chunk")));
+        session.apply(&ReviewEvent::reviewed(String::from("chunk"), true));
+
+        let rendered = lines(&Screen::overview(&review, &session)).join("\n");
+
+        assert!(rendered.contains("Resuming saved progress"), "{rendered}");
+        assert!(rendered.contains("1/1 reviewed"), "{rendered}");
+        assert!(rendered.contains("continue at chunk 1"), "{rendered}");
+    }
+
+    #[test]
+    fn raw_source_marks_the_line_picker_selection() {
+        let change = Change::new(
+            "docs/guide.md",
+            (0, 0, 10, 2),
+            "@@ -0,0 +10,2 @@\n+# Guide\n+Details\n",
+        );
+        let quote = Quote::whole(change.id.clone(), change.body_lines());
+        let anchor = gewu_review::LineAnchor {
+            change_id: change.id.clone(),
+            path: change.path.clone(),
+            side: "new".into(),
+            start_line: 11,
+            end_line: 11,
+            patch_sha256: change.patch_sha256(),
+        };
+
+        let rendered = lines(&Screen::change_body(
+            &quote,
+            &change,
+            ChangePresentation::RenderedMarkdown,
+            2,
+            true,
+            Some(&anchor),
+        ));
+
+        assert!(
+            rendered.iter().any(|line| line.contains("▶ 11 Details")),
+            "{rendered:#?}"
+        );
+    }
+
+    #[test]
+    fn anchored_feedback_repeats_the_source_excerpt() {
+        let review = review(&[("a.rs", "named line")], ChangePresentation::AddedCode);
+        let change = &review.input().changes[0];
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::feedback(Feedback {
+            id: "anchored".into(),
+            chunk_id: "chunk".into(),
+            kind: FeedbackKind::Issue,
+            target: FeedbackTarget::Code,
+            body: "Change this.".into(),
+            anchor: Some(gewu_review::LineAnchor {
+                change_id: change.id.clone(),
+                path: change.path.clone(),
+                side: "new".into(),
+                start_line: 1,
+                end_line: 1,
+                patch_sha256: change.patch_sha256(),
+            }),
+            resolved: false,
+        }));
+
+        let rendered = lines(&Screen::chunk(&review, &session, 0, 80, None)).join("\n");
+
+        assert!(rendered.contains("about a.rs:1"), "{rendered}");
+        assert!(rendered.contains("↳ named line"), "{rendered}");
+    }
+
+    #[test]
+    fn long_feedback_is_compact_until_selected() {
+        let review = review(&[("a.rs", "one")], ChangePresentation::AddedCode);
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::feedback(feedback(
+            "long",
+            "one\ntwo\nthree\nfour\nfive",
+        )));
+
+        let compact = lines(&Screen::chunk(&review, &session, 0, 65, None)).join("\n");
+        let expanded = lines(&Screen::chunk(&review, &session, 0, 65, Some("long"))).join("\n");
+
+        assert!(compact.contains("3 more line(s)"), "{compact}");
+        assert!(!compact.contains("    five"), "{compact}");
+        assert!(expanded.contains("    five"), "{expanded}");
+    }
+
+    #[test]
+    fn context_examples_preserve_code_lines() {
+        let context = ChunkContext::Concept {
+            definition: "A facade re-exports public APIs.".into(),
+            example: "pub use first as one;\npub use second as two;".into(),
+            relation: "This crate is the facade.".into(),
+        };
+
+        let rendered = lines(&Screen::context(&context));
+
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line == "│ pub use first as one;")
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line == "│ pub use second as two;")
+        );
+        assert!(
+            !rendered
+                .iter()
+                .any(|line| { line.contains("pub use first") && line.contains("pub use second") })
+        );
     }
 
     #[test]
@@ -855,6 +1916,14 @@ mod tests {
     }
 
     fn review(units: &[(&str, &str)], presentation: ChangePresentation) -> ValidatedReview {
+        review_with_title(units, presentation, "Chunk")
+    }
+
+    fn review_with_title(
+        units: &[(&str, &str)],
+        presentation: ChangePresentation,
+        title: &str,
+    ) -> ValidatedReview {
         let source = SourceIdentity::new("base", "head", b"diff");
         let changes: Vec<_> = units
             .iter()
@@ -870,7 +1939,7 @@ mod tests {
             .collect();
         let chunk = ReviewChunk {
             id: "chunk".into(),
-            title: "Chunk".into(),
+            title: title.into(),
             summary: "Summary.".into(),
             kind: ChunkKind::Concept,
             content: vec![ChunkBlock::Changes {
@@ -886,5 +1955,49 @@ mod tests {
         };
         let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]);
         ValidatedReview::validate(ReviewInput::new(source, changes), spec).expect("valid review")
+    }
+
+    fn partial_review() -> ValidatedReview {
+        let source = SourceIdentity::new("base", "head", b"diff");
+        let first = Change::new("a.rs", (0, 0, 1, 1), "@@ -0,0 +1,1 @@\n+one\n");
+        let second = Change::new("b.rs", (0, 0, 1, 1), "@@ -0,0 +1,1 @@\n+two\n");
+        let chunk = ReviewChunk {
+            id: "chunk".into(),
+            title: "First batch".into(),
+            summary: "Summary.".into(),
+            kind: ChunkKind::Other,
+            content: vec![ChunkBlock::Changes {
+                quotes: vec![Quote::whole(first.id.clone(), first.body_lines())],
+                presentation: ChangePresentation::AddedCode,
+            }],
+            context: None,
+            confidence: None,
+            oversized_reason: None,
+        };
+        let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]).with_remaining_work(1);
+        ValidatedReview::validate_partial(ReviewInput::new(source, vec![first, second]), spec)
+            .expect("valid partial review")
+    }
+    #[test]
+    fn context_examples_accept_an_outer_fence_without_leaking_markdown() {
+        let context = ChunkContext::Concept {
+            definition: "A workspace shares package fields.".into(),
+            example: "```toml\n[package]\nversion.workspace = true\n```".into(),
+            relation: "This manifest opts into the shared field.".into(),
+        };
+
+        let rendered = lines(&Screen::context(&context));
+
+        assert!(
+            !rendered.iter().any(|line| line.contains("```")),
+            "{rendered:#?}"
+        );
+        assert!(rendered.iter().any(|line| line == "In this change"));
+        assert!(
+            rendered
+                .iter()
+                .any(|line| line == "This manifest opts into the shared field."),
+            "{rendered:#?}"
+        );
     }
 }

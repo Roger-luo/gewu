@@ -14,8 +14,11 @@ Re-investigate only what is uncovered — the manifest at
 `.gewu/harness/investigation.json` for that remainder. Findings for changes
 already covered by surviving chunks are not needed.
 
-When the investigation is complete, run:
+When working directly in the CLI, continue with:
 
 ```bash
 gewu harness next
 ```
+
+When a driver asked for the JSON as your response, return only that checkpoint;
+the driver writes it, validates it, and runs the continuation command.

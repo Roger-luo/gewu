@@ -55,7 +55,7 @@ priority = 30
 [[repos.hooks]]
 id = "conventional-commit"
 name = "conventional commit message"
-entry = '''sh -c 'message=$(awk "NR == 1 { print; exit }" "$1"); echo "$message" | grep -Eq "^(feat|fix|docs|test|ci|refactor|perf|build|chore)(\([[:alnum:]_.\/-]+\))?!?: .+"' --'''
+entry = '''sh -c 'message=$(awk "NR == 1 { print; exit }" "$1"); echo "$message" | grep -Eq "^(feat|fix|docs|test|ci|refactor|perf|build|chore)(\([[:alnum:]_./-]+\))?!?: .+"' --'''
 language = "system"
 stages = ["commit-msg"]
 always_run = true
