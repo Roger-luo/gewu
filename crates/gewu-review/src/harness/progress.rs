@@ -45,12 +45,27 @@ pub fn next_step(
     previous: &ReviewInput,
     force: bool,
 ) -> Verdict {
-    // Approving or commenting ends the review. Requesting changes does not: it
-    // is the reviewer handing work back, and the requests below say what it is.
-    if matches!(
-        session.decision,
-        Some(Decision::Approve | Decision::Comment)
-    ) {
+    // Approving or commenting settles what the reviewer has read, and settles
+    // the review itself only once there is nothing left to read. On a review
+    // still being written, "I am done here" means the batch: it is the same
+    // gesture either way, and taking it for the whole review would end one that
+    // has covered a fraction of the change set. Nothing has to say stop —
+    // the harness only ever runs because somebody ran it.
+    let written: HashSet<_> = spec
+        .chunks
+        .iter()
+        .flat_map(ReviewChunk::change_ids)
+        .collect();
+    let whole = current
+        .changes
+        .iter()
+        .all(|change| written.contains(&change.id));
+    if whole
+        && matches!(
+            session.decision,
+            Some(Decision::Approve | Decision::Comment)
+        )
+    {
         return Verdict::Complete;
     }
 
@@ -61,15 +76,10 @@ pub fn next_step(
         .filter(|chunk| chunk.change_ids().any(|id| !carried.contains(id)))
         .map(|chunk| chunk.id.clone())
         .collect();
-    let expanded: HashSet<_> = spec
-        .chunks
-        .iter()
-        .flat_map(ReviewChunk::change_ids)
-        .collect();
     let drifted_beyond_expansion = current
         .changes
         .iter()
-        .any(|change| !carried.contains(&change.id) && !expanded.contains(&change.id));
+        .any(|change| !carried.contains(&change.id) && !written.contains(&change.id));
 
     // Requests come before re-planning, but only where the code they are about
     // has held still. Re-planning keeps chunks that survived the drift, so
@@ -104,6 +114,10 @@ pub fn next_step(
         return Verdict::Replan { stale_chunks };
     }
 
+    // A decision settles what the reviewer had read when they made it, and
+    // says nothing about a batch written since. It must not stand in for
+    // reading one: this is the gate the whole design rests on, and letting a
+    // decision retire it would let an agent write the entire plan unread.
     let unreviewed = spec
         .chunks
         .iter()
@@ -374,7 +388,43 @@ mod tests {
     }
 
     #[test]
-    fn a_recorded_decision_ends_the_review() {
+    fn a_recorded_decision_ends_a_review_that_covers_everything() {
+        let only = change("a.rs", "one");
+        let (spec, work, input) = fixture(vec![only.clone()], std::slice::from_ref(&only.id));
+        let mut session = reviewed(&spec);
+        session.apply(&ReviewEvent::decision(Decision::Approve));
+
+        let verdict = next_step(&spec, &session, &work, &input, &input, false);
+
+        assert_eq!(verdict, Verdict::Complete);
+    }
+
+    /// A decision settles the batch it was made about, not the one written
+    /// afterwards. Without this the first approval would retire the waiting
+    /// gate for good, and an agent could write all ninety-four items unread.
+    #[test]
+    fn a_settled_review_still_waits_for_a_batch_written_since() {
+        let first = change("a.rs", "one");
+        let (spec, work, input) = fixture(
+            vec![first.clone(), change("b.rs", "two")],
+            std::slice::from_ref(&first.id),
+        );
+        // Settled, and then a batch arrived that the reviewer has not read.
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::decision(Decision::Approve));
+
+        assert_eq!(
+            next_step(&spec, &session, &work, &input, &input, false),
+            Verdict::Wait { unreviewed: 1 }
+        );
+    }
+
+    /// Found by using Gewu on itself: a reviewer pressed on from the summary of
+    /// the first batch of ninety-four and approved, which read as a finished
+    /// review of one change in sixty-two. "I am done here" is the same gesture
+    /// for a batch and for the whole thing; only the second can end it.
+    #[test]
+    fn approving_a_review_still_being_written_settles_the_batch_not_the_review() {
         let first = change("a.rs", "one");
         let (spec, work, input) = fixture(
             vec![first.clone(), change("b.rs", "two")],
@@ -385,7 +435,31 @@ mod tests {
 
         let verdict = next_step(&spec, &session, &work, &input, &input, false);
 
-        assert_eq!(verdict, Verdict::Complete);
+        assert_eq!(verdict, Verdict::Expand);
+    }
+
+    /// The requests still route: settling the batch says nothing about them.
+    #[test]
+    fn approving_a_partial_review_does_not_bury_an_open_request() {
+        let first = change("a.rs", "one");
+        let (spec, work, input) = fixture(
+            vec![first.clone(), change("b.rs", "two")],
+            std::slice::from_ref(&first.id),
+        );
+        let mut session = reviewed(&spec);
+        session.apply(&ReviewEvent::feedback(request(
+            "feedback-1",
+            "chunk-0",
+            FeedbackTarget::Code,
+        )));
+        session.apply(&ReviewEvent::decision(Decision::Comment));
+
+        assert_eq!(
+            next_step(&spec, &session, &work, &input, &input, false),
+            Verdict::Handover {
+                feedback_ids: vec!["feedback-1".into()]
+            }
+        );
     }
 
     #[test]

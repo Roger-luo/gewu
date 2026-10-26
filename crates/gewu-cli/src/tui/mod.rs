@@ -204,34 +204,23 @@ impl ReviewTui {
         self.next()
     }
 
-    /// Ending the review, from the summary.
+    /// Settling the review, from the summary.
     ///
     /// The decision is read off the feedback rather than picked: a reviewer who
     /// has filed a request is requesting changes, and asking them to say so
-    /// again only lets the two disagree. Ending it stops generation, so where
-    /// work remains unwritten the reviewer is asked once — pressing on through
-    /// a batch must not close a review by momentum.
+    /// again only lets the two disagree. Nothing is confirmed and nothing is
+    /// lost — settling a review still being written says the batch is done, and
+    /// the harness carries on from there.
     ///
-    /// Pressing on once the review is already ended leaves it: the reviewer has
-    /// nothing left to say here, and the same key that carried them through the
+    /// Pressing on once it is settled leaves the review: the reviewer has
+    /// nothing left to say here, and the key that carried them through the
     /// walkthrough should not go dead on the last screen.
     fn finish_review(&mut self) -> Result<()> {
         if self.ended() {
             self.exit = true;
             return Ok(());
         }
-        let decision = self.outcome();
-        let unwritten = self.unwritten();
-        if unwritten > 0
-            && !self.confirm(&format!(
-                "End the review as \"{}\"? {unwritten} change(s) have not been written into it \
-                 yet, and ending it stops them being written.",
-                decision.label(),
-            ))?
-        {
-            return Ok(());
-        }
-        self.record(ReviewEvent::decision(decision))
+        self.record(ReviewEvent::decision(self.outcome()))
     }
 
     /// What the review currently amounts to.
@@ -245,25 +234,6 @@ impl ReviewTui {
     /// recorded decision would be describing a review that has moved on.
     pub(super) fn ended(&self) -> bool {
         self.session.decision == Some(self.outcome())
-    }
-
-    /// Changes of the diff that no chunk shows yet. A review opened while the
-    /// harness is still expanding covers only part of its manifest, and the
-    /// reviewer cannot see from the summary how much is still coming.
-    pub(super) fn unwritten(&self) -> usize {
-        let shown: std::collections::HashSet<_> = self
-            .review
-            .spec()
-            .chunks
-            .iter()
-            .flat_map(gewu_review::ReviewChunk::change_ids)
-            .collect();
-        self.review
-            .input()
-            .changes
-            .iter()
-            .filter(|change| !shown.contains(&change.id))
-            .count()
     }
 
     fn next(&mut self) -> Result<()> {
@@ -527,17 +497,6 @@ mod tests {
         tui.handle(press(KeyCode::Enter)).expect("end the review");
 
         assert_eq!(tui.session.decision, Some(Decision::Comment));
-    }
-
-    /// Ending a review stops the rest of it being written, so momentum through
-    /// a batch must not do it silently. Every chunk here is expanded, so there
-    /// is nothing to lose and nothing to ask about.
-    #[test]
-    fn a_fully_written_review_ends_without_a_question() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let tui = opened(&directory);
-
-        assert_eq!(tui.unwritten(), 0);
     }
 
     #[test]

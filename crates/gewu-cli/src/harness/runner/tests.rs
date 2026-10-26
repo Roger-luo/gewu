@@ -427,10 +427,29 @@ fn a_rejected_expansion_leaves_the_spec_untouched() {
     assert_eq!(state.stage, HarnessStage::Repair);
 }
 
+/// Found by using Gewu on itself: settling the first batch of ninety-four read
+/// as a finished review of one change in sixty-two.
 #[test]
-fn a_decision_completes_the_review_even_with_items_left() {
+fn settling_a_review_with_items_left_expands_the_next_one() {
     let fixture = fixture();
     fixture.expand_first();
+    fixture.record(&ReviewEvent::reviewed(String::from("chunk-item-0"), true));
+    fixture.record(&ReviewEvent::decision(gewu_review::Decision::Approve));
+
+    let prompt = fixture.runner.next().expect("gate");
+
+    assert!(prompt.contains("expand `item-1`"), "{prompt}");
+}
+
+#[test]
+fn a_decision_completes_a_review_that_covers_everything() {
+    let fixture = fixture();
+    let list = fixture.expand_first();
+    fixture.record(&ReviewEvent::reviewed(String::from("chunk-item-0"), true));
+    fixture.runner.next().expect("gate opens");
+    fixture.stage_expansion(&list.items[1]);
+    fixture.runner.next().expect("append the last expansion");
+    fixture.record(&ReviewEvent::reviewed(String::from("chunk-item-1"), true));
     fixture.record(&ReviewEvent::decision(gewu_review::Decision::Approve));
 
     let complete = fixture.runner.next().expect("gate");
