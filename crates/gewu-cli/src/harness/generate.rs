@@ -15,6 +15,8 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
 use sha2::{Digest, Sha256};
 
+use crate::git::Repository;
+
 use super::{
     DEFAULT_MAX_CHUNKS, StartArgs,
     estimate::{self, Estimate, Usage},
@@ -47,6 +49,13 @@ pub struct GenerateArgs {
     head: Option<String>,
     #[arg(long, requires = "base")]
     working_tree: bool,
+    /// Review this GitHub pull request: its head is fetched, and its base is
+    /// where it branched off its target. Running it again continues.
+    #[arg(long, conflicts_with_all = ["base", "working_tree"])]
+    pr: Option<u64>,
+    /// The remote a pull request is fetched from.
+    #[arg(long, default_value = "origin")]
+    remote: String,
     #[arg(long)]
     model: Option<String>,
     /// Print how many batches are left and roughly what they will cost,
@@ -59,15 +68,28 @@ pub struct GenerateArgs {
 }
 
 impl GenerateArgs {
+    /// `gewu review pr <number>`: the same command with the request named.
+    #[must_use]
+    pub fn for_pull_request(mut self, number: u64) -> Self {
+        self.pr = Some(number);
+        self
+    }
+
     pub fn run(self) -> Result<()> {
         let runner = HarnessRunner::new(DEFAULT_MAX_CHUNKS, false);
+        let requested = self.requested()?;
         if self.estimate {
-            return self.print_estimate();
+            return self.print_estimate(requested);
         }
-        if let Some(base) = &self.base {
-            let start = StartArgs::new(base.clone(), self.head.clone(), self.working_tree);
+        if let Some(start) = requested {
             let (review_id, input, origin) = start.begin()?;
-            runner.start(review_id, input, origin)?;
+            // Asking again for the review in progress continues it: a
+            // reviewer re-runs the same command after reading each batch.
+            if Self::in_progress(&input, origin.working_tree) {
+                println!("Continuing the review already started for this range.");
+            } else {
+                runner.start(review_id, input, origin)?;
+            }
         }
         let mut prompt = runner
             .status()
@@ -207,9 +229,54 @@ impl GenerateArgs {
 
     /// The estimate before a run: for a range not yet started, from its diff
     /// alone; for the current review, from its plan and recorded batches.
-    fn print_estimate(&self) -> Result<()> {
-        let estimate = if let Some(base) = &self.base {
-            let start = StartArgs::new(base.clone(), self.head.clone(), self.working_tree);
+    /// The range the reviewer named, if any, with a pull request resolved.
+    fn requested(&self) -> Result<Option<StartArgs>> {
+        if let Some(number) = self.pr {
+            let request = Repository::new(Path::new(".")).pull_request(&self.remote, number)?;
+            let title = request
+                .title
+                .as_deref()
+                .map_or_else(String::new, |title| format!(" “{title}”"));
+            println!(
+                "Pull request #{number}{title}: {} into {}, from merge base {}.",
+                &request.head[..request.head.len().min(12)],
+                request.target,
+                &request.base[..request.base.len().min(12)]
+            );
+            return Ok(Some(StartArgs::new(
+                request.base,
+                Some(request.head),
+                false,
+            )));
+        }
+        Ok(self
+            .base
+            .clone()
+            .map(|base| StartArgs::new(base, self.head.clone(), self.working_tree)))
+    }
+
+    /// Whether the review in `.gewu/` is already of this range. A working-tree
+    /// review re-diffs as the reviewer edits, so its base is what matters.
+    fn in_progress(input: &gewu_review::ReviewInput, working_tree: bool) -> bool {
+        let Ok(bytes) = std::fs::read(".gewu/review-input.json") else {
+            return false;
+        };
+        let Ok(current) = serde_json::from_slice::<gewu_review::ReviewInput>(&bytes) else {
+            return false;
+        };
+        let state_working_tree = std::fs::read(".gewu/harness/state.json")
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .is_some_and(|state| state["origin"]["working_tree"] == true);
+        if working_tree {
+            state_working_tree && current.source.base == input.source.base
+        } else {
+            !state_working_tree && current.source == input.source
+        }
+    }
+
+    fn print_estimate(&self, requested: Option<StartArgs>) -> Result<()> {
+        let estimate = if let Some(start) = requested {
             let (_, input, _) = start.begin()?;
             Estimate::new(&input, None, &[], self.priced())
         } else {

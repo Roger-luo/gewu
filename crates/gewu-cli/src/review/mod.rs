@@ -38,6 +38,8 @@ pub enum ReviewCommand {
     Fallback(FallbackArgs),
     /// Have an agent write the walkthrough, stopping at each reviewer gate.
     Generate(crate::harness::GenerateArgs),
+    /// Review a GitHub pull request: `gewu review pr 123 --agent claude`.
+    Pr(PullRequestArgs),
     /// Open a validated review in the terminal UI.
     Open(OpenArgs),
     /// Render every page of a review headlessly and check what a machine can.
@@ -62,6 +64,7 @@ impl ReviewCommand {
             Self::Audit(args) => args.run(),
             Self::Fallback(args) => args.run(),
             Self::Generate(args) => args.run(),
+            Self::Pr(args) => args.generate.for_pull_request(args.number).run(),
             Self::Open(args) => args.run(),
             Self::Frames(args) => args.run(),
             Self::Handover(args) => args.run(),
@@ -69,6 +72,14 @@ impl ReviewCommand {
             Self::Retarget(args) => args.run(),
         }
     }
+}
+
+#[derive(Debug, Args)]
+pub struct PullRequestArgs {
+    /// The pull request's number.
+    number: u64,
+    #[command(flatten)]
+    generate: crate::harness::GenerateArgs,
 }
 
 #[derive(Debug, Args)]

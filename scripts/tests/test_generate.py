@@ -1,4 +1,5 @@
 """`gewu review generate` with stand-in agents: no model is called."""
+import json
 import os
 from pathlib import Path
 import stat
@@ -13,7 +14,10 @@ class GenerateTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory(prefix="gewu-generate-")
         self.addCleanup(directory.cleanup)
-        self.root = Path(directory.name)
+        # One level down, so the stand-in agents, origin, and clones the tests
+        # make beside the repository stay inside this test's directory.
+        self.root = Path(directory.name) / "repository"
+        self.root.mkdir()
         for args in (["init", "-q"], ["config", "user.email", "fixture@example.invalid"],
                      ["config", "user.name", "Fixture"]):
             self.git(*args)
@@ -100,6 +104,37 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("first batch · investigating the change", result.stderr)
         self.assertIn("left", result.stderr)
+
+    def test_a_pull_request_is_reviewed_from_its_merge_base_and_continued(self):
+        # A reviewer asked for one command to review a PR by number.
+        origin = self.root.parent / "origin.git"
+        subprocess.run(["git", "clone", "-q", "--bare", str(self.root), str(origin)], check=True)
+        self.git("switch", "-q", "-c", "feature", "HEAD^")
+        (self.root / "b.rs").write_text("const OTHER: u32 = 1;\n")
+        self.git("add", "b.rs")
+        self.git("commit", "-qm", "test: feature")
+        self.git("push", "-q", str(origin), "feature:refs/pull/1/head")
+        merge_base = subprocess.run(["git", "rev-parse", "HEAD^"], cwd=self.root, capture_output=True,
+                                    text=True, check=True).stdout.strip()
+        reviewer = self.root.parent / "reviewer"
+        subprocess.run(["git", "clone", "-q", str(origin), str(reviewer)], check=True)
+        idle = self.agent("exit 0")
+
+        def review(*extra):
+            return subprocess.run([str(BINARY), "review", "pr", "1", "--agent", "claude",
+                                   "--agent-program", str(idle), *extra],
+                                  cwd=reviewer, capture_output=True, text=True)
+
+        estimate = review("--estimate")
+        self.assertEqual(estimate.returncode, 0, estimate.stderr)
+        self.assertIn(f"into main, from merge base {merge_base[:12]}", estimate.stdout)
+        first = review()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        manifest = json.loads((reviewer / ".gewu/review-input.json").read_text())
+        self.assertEqual(manifest["source"]["base"], merge_base, "main's newer commit is not the base")
+        self.assertEqual([change["path"] for change in manifest["changes"]], ["b.rs"])
+        again = review()
+        self.assertIn("Continuing the review already started", again.stdout)
 
     def test_nothing_to_continue_and_no_provider_are_refused(self):
         idle = self.agent("exit 0")

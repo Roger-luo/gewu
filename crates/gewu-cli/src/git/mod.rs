@@ -12,6 +12,7 @@ const EXCLUDE_STATE: &str = ":(exclude,top).gewu";
 use gewu_review::{ReviewInput, SourceIdentity};
 
 mod diff;
+mod pull_request;
 mod tree;
 
 use diff::DiffParser;
