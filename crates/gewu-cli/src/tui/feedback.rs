@@ -351,9 +351,20 @@ impl ReviewTui {
             KeyCode::Up => self.scroll = self.scroll.saturating_sub(1),
             KeyCode::Down => self.scroll = self.scroll.saturating_add(1),
             KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(self.page_step()),
-            KeyCode::PageDown => self.scroll = self.scroll.saturating_add(self.page_step()),
-            KeyCode::Home => self.scroll = 0,
-            KeyCode::End => self.scroll_to_end(),
+            // A page whose only new row would be one already shown is no page.
+            KeyCode::PageDown if self.showing_last_content() => {}
+            KeyCode::PageDown => {
+                self.paged_past_end = true;
+                self.scroll = self.scroll.saturating_add(self.page_step());
+            }
+            KeyCode::Home => {
+                self.paged_past_end = false;
+                self.scroll = 0;
+            }
+            KeyCode::End => {
+                self.paged_past_end = false;
+                self.scroll_to_end();
+            }
             _ => {}
         }
     }

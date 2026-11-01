@@ -15,10 +15,22 @@ Order the parts by comprehension dependency:
 4. Tests and supporting changes.
 
 Each item is one sitting: what a reviewer would read in one go and react to as a
-whole. An item names the spans of the diff it walks through. A large hunk will
+whole. Its title becomes the section name shown above every chunk written for
+it and listed on the overview, so name the part of the change's map it covers,
+in the reviewer's words, and order items the way the map reads. If the
+reviewer needs definitions before the flow that uses them, put those items
+first anyway; the first chunk will say where on the map the walkthrough starts
+and why, so a top-down map and a bottom-up walkthrough do not leave the
+reviewer guessing. It is also one batch: after an item is written, the reviewer reads it
+before the next is, because their feedback may change the code under the rest
+of the plan. An item names the spans of the diff it walks through. A large hunk will
 usually need several items — split it where the story changes subject, not where
 a line count runs out. Do not split a sentence, declaration, or other semantic
-unit across item boundaries merely to meet the estimate.
+unit across item boundaries merely to meet the estimate. Lines that open the
+next unit — its attribute, doc comment, or the blank line before it — belong to
+the item that walks through that unit, so no chunk has to quote a fragment of
+the next one to cover its span.
+Exempt edge context may be in an item's spans or left out; either validates.
 
 Keep mechanically repeated configuration together when it supports one review
 decision. Settings that differ only by a command name, label, or priority are
@@ -50,9 +62,11 @@ that has since moved.
 `start` and `end` are inclusive line numbers within a change's hunk body — the
 lines after its `@@` header, numbered from 1. Each change carries `body_lines`;
 use it. Do not use `new_lines`, which counts the new side only and is smaller
-whenever the hunk removes anything.
+whenever the hunk removes anything. `gewu harness context source --change-id
+<id> --start 1 --end <body_lines> --numbered` prints a body with these numbers.
 
-**Every line of every change must be covered by at least one item.** Items may
+**Every line of every change must be covered by at least one item**, except
+blank lines and the unchanged context at a hunk's edges, which Gewu exempts. Items may
 overlap where the story needs the same lines twice; nothing may be left out.
 
 An item becomes at most {{max_chunks}} chunks, and a chunk holds about

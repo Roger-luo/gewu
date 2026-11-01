@@ -1,0 +1,77 @@
+{
+ "input": {
+  "schema_version": 4,
+  "source": {
+   "base": "418da82721b6dcfdb5e82d0116781af5b540c176",
+   "head": "b5acc0a8667709bd2333298348b09de0ae24e117",
+   "diff_sha256": "c17d8c8759d73208c07c1ecde00dc16bace3059e424506a8613531a4ae6a0551"
+  },
+  "max_chunk_lines": 40,
+  "changes": [
+   {
+    "id": "change-fc4c2dd8588488e7",
+    "path": ".agents/skills/gewu-dogfood/SKILL.md",
+    "old_start": 0,
+    "old_lines": 0,
+    "new_start": 1,
+    "new_lines": 147,
+    "body_lines": 147,
+    "patch": "@@ -0,0 +1,147 @@\n+---\n+name: gewu-dogfood\n+description: Runs Gewu against its own repository to find defects in the harness, putting a subagent in the generating agent's chair and treating its friction log as the deliverable. Use when changing the harness, the prompts, the verdict gates, or the review TUI, and before trusting that such a change works.\n+allowed-tools: Bash, Read, Write, Edit, Agent\n+---\n+\n+# Gewu Dogfood\n+\n+## Overview\n+\n+Gewu's hardest defects are not on the code paths a unit test reaches. They are\n+in the round trip: a prompt that asks for something validation forbids, a gate\n+ordered so the reviewer's point waits behind work they never asked about, a\n+budget that silently rules out what a reviewer requested. None of these fail a\n+test. They cost an agent a wasted cycle, and they surface only when an agent\n+that does not know the implementation is made to follow the prompts literally.\n+\n+So put a subagent in the generating agent's chair, make it obey the harness, and\n+collect what went wrong. **The friction log is the deliverable.** Whatever\n+walkthrough it writes is a by-product.\n+\n+## When to use\n+\n+Use before trusting any change to `crates/gewu-review/src/harness/`,\n+`crates/gewu-cli/src/harness/`, `harness/prompts/*.md`, the verdict gates in\n+`progress.rs`, or the feedback flow in `crates/gewu-cli/src/tui/`. Use also when\n+a review holds real human feedback nobody has acted on yet, to check the\n+handover actually carries it.\n+\n+Do not use for changes confined to rendering, highlighting, or Git parsing.\n+Those have honest unit tests, and a dogfood run tells you nothing new.\n+\n+## Process\n+\n+### 1. Fix the ground before you start\n+\n+A working-tree review re-diffs on every `harness next`. Editing any source file\n+while one is open changes hunk ids, and the harness correctly concludes the plan\n+is stale. Every wasted run in this tool's first dogfood came from exactly that.\n+\n+Prefer a committed range, which cannot move:\n+\n+```bash\n+gewu harness start --base <commit> --head <commit>\n+```\n+\n+If you must dogfood a working-tree review — replaying a session a human already\n+left feedback in, say — snapshot the repository and work entirely in the copy:\n+\n+```bash\n+rsync -a --exclude target /path/to/gewu/ /tmp/gewu-dogfood/\n+```\n+\n+The copy keeps `.git` and `.gewu`, so the manifest still describes its own\n+working tree. Build the binary in the real repository and call it by absolute\n+path from the copy, so your implementation changes never touch the tree under\n+review.\n+\n+### 2. Get the feedback into the shape the harness routes\n+\n+```bash\n+gewu review handover                # what the reviewer left, with the code it names\n+gewu review handover --format json  # the same, for scripting the ids out\n+```\n+\n+Feedback recorded before a target existed reads as `code`. Where it is plainly\n+about the walkthrough, say so, or the harness sends the agent to edit source\n+that was never at fault:\n+\n+```bash\n+gewu review retarget --id <feedback-id> --target explanation\n+```\n+\n+Classifying someone else's feedback is a judgement about what they meant. Do it\n+only where the wording leaves no doubt, and say in your report that you did.\n+\n+### 3. Put a subagent in the generating agent's chair\n+\n+Give it the working directory, the absolute path to the binary, and the\n+instruction to start from `gewu harness status` and follow each printed prompt\n+exactly. Then, in order of how much they matter:\n+\n+- **Forbid writing anything outside `.gewu/harness/`.** No formatting, no\n+  fixing what it notices in passing, no command that writes to the repository.\n+  One stray edit invalidates the manifest and the run is over.\n+- **Demand a friction log with exact commands and exact output**: every\n+  confusing error, everything it had to guess, every instruction it could not\n+  follow, every validation message that did not say how to fix the problem.\n+  Without this the agent reports success and the defects go unrecorded.\n+- **Tell it to stop where the harness stops.** When a prompt says it is waiting\n+  for the reviewer, that is the end of its work.\n+- Give it what it cannot infer: which crate is which, that a reviewer will check\n+  its claims against the code, and what the last reviewer rejected.\n+\n+### 4. Triage the log against the source\n+\n+Take nothing on faith. A subagent reports what it experienced, and some of it\n+will be wrong — in the first run, one reported gap was already answered by a\n+line in the prompt it had read. For each item find the code or prompt line that\n+explains it, then sort:\n+\n+- **Ordering and routing defects** — the harness asked for the wrong thing, or\n+  in the wrong order. These are the valuable ones; they live in `progress.rs`\n+  or the runner.\n+- **Impossible instructions** — a prompt asks for something validation rejects\n+  or a budget forbids. Fix whichever is wrong. Do not paper over it in prose.\n+- **Misleading messages** — a prompt claiming a cause it cannot know, or stating\n+  a bound that differs from the check. Cheap, and each one taxes every run.\n+- **Noise** — output that buries the answer. Fix it if it is in an inner loop.\n+\n+### 5. Land each fix with a test that names its origin\n+\n+A dogfood finding is a regression waiting to happen, because nothing else\n+exercises it. Put the test where the defect lives — verdict ordering in\n+`progress.rs`, stage transitions in `runner/tests.rs`, key handling in\n+`tui/mod.rs` — and say in the doc comment that dogfooding found it, so the next\n+reader does not delete it as redundant.\n+\n+### 6. Verify the whole loop by hand, then `mise run check`\n+\n+Rebuild, restore a pristine copy of the session, and drive the round trip with\n+the fixed binary rather than trusting the unit tests:\n+\n+```\n+handover -> retarget -> harness next -> write the checkpoint\n+         -> harness status (measure) -> harness next (accept)\n+         -> harness next (still gated) -> review resolve -> harness next (moves on)\n+```\n+\n+The gate must still hold before the feedback is resolved. That step is the one\n+worth checking by hand: it separates a loop that closes from one that merely\n+runs.\n+\n+## Guidelines\n+\n+- The friction log is the point. A run that produced a beautiful walkthrough and\n+  no findings has told you nothing.\n+- Never let a fix to the harness be validated only by the harness. Every finding\n+  needs a test that fails without the fix.\n+- Two subagents in parallel work well when one drives the loop and the other\n+  makes a systemic fix the feedback asked for; they touch different files.\n+- Back up `.gewu` before anything destructive. `gewu harness reset` deletes\n+  `.gewu/reviews/` outright, and a session is the only record of what a human\n+  concluded.\n+- Report honestly which findings you fixed, which you judged mistaken, and which\n+  you left. A dogfood report claiming everything is now fine is the one failure\n+  mode that makes the next run pointless.\n"
+   }
+  ]
+ },
+ "spec": {
+  "schema_version": 4,
+  "review_id": "review-18e3b49807f04588",
+  "source": {
+   "base": "418da82721b6dcfdb5e82d0116781af5b540c176",
+   "head": "b5acc0a8667709bd2333298348b09de0ae24e117",
+   "diff_sha256": "c17d8c8759d73208c07c1ecde00dc16bace3059e424506a8613531a4ae6a0551"
+  },
+  "overview": {
+   "intent": "Adds a `gewu-dogfood` agent skill that tells a developer how to test Gewu's harness by having a subagent follow its prompts literally and log friction, and registers that skill with the Ion skill manager.",
+   "changes": [
+    "A new skill document, `.agents/skills/gewu-dogfood/SKILL.md`, describes a six-step process: freeze the review input, route reviewer feedback with `gewu review handover` and `gewu review retarget`, put a subagent in the generating agent's chair, triage its friction log, land each fix with a test, and verify the loop by hand. It is prose only; no code or test runs it.",
+    "`Ion.toml` declares `gewu-dogfood` as a local skill whose source path is `.agents/skills/gewu-dogfood`.",
+    "`Ion.lock` gains entries for four local skills (`agents-update`, `gewu-dogfood`, `gewu-review`, `ion-cli`). Three of them were already declared in `Ion.toml` before this commit, so the lock was previously out of date, not just missing the new skill. The checksums could not be reproduced from the repository.",
+    "`.gitignore` ignores three Ion-managed skill links (`.agents/skills/gewu-review`, `.claude/skills/gewu-review`, `.claude/skills/gewu-dogfood`). It deliberately leaves `.agents/skills/gewu-dogfood` tracked, because that directory is the skill's real source."
+   ],
+   "concepts": [
+    "Ion: the skill manager configured by `Ion.toml` and pinned by `Ion.lock`. It installs agent skills and, per the `[options.targets]` table, targets `.claude/skills`. The repository shows its configuration but not its implementation, so how Ion computes checksums or creates links is stated in comments, not established by code here.",
+    "Agent skill: a `SKILL.md` file with YAML front matter (`name`, `description`, `allowed-tools`) that an agent loads as instructions for a task.",
+    "Dogfooding: running Gewu's harness on Gewu's own repository with a subagent as the generating agent, so the friction log, not the walkthrough, is the deliverable."
+   ]
+  },
+  "chunks": [
+   {
+    "id": "dogfood-retarget",
+    "title": "Retargeting feedback to the explanation",
+    "summary": "Old feedback defaults to being about the code; `gewu review retarget` re-aims it at the walkthrough so the harness does not send an agent to edit source.",
+    "kind": "other",
+    "content": [
+     {
+      "type": "narrative",
+      "markdown": "Line 71 matches `RetargetArgs` in crates/gewu-cli/src/review/feedback.rs: `--id` may repeat, and `--target` takes `code` or `explanation`. It appends a retargeted event to the session log and leaves the original feedback in place."
+     },
+     {
+      "type": "changes",
+      "quotes": [
+       {
+        "change_id": "change-fc4c2dd8588488e7",
+        "start": 65,
+        "end": 75
+       }
+      ],
+      "presentation": "rendered_markdown"
+     }
+    ],
+    "context": {
+     "kind": "concept",
+     "definition": "`FeedbackTarget` in crates/gewu-review/src/session/model.rs (unchanged) says whether a request is about the code or about the generated walkthrough.",
+     "example": "#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]\npub enum FeedbackTarget {\n    #[default]\n    Code,\n    Explanation,\n}\n\n// on the feedback record\n#[serde(default)]\npub target: FeedbackTarget,",
+     "relation": "`#[serde(default)]` plus the `Code` default is why feedback recorded before the field existed reads as `code`."
+    }
+   }
+  ]
+ }
+}

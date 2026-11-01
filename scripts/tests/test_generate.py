@@ -1,0 +1,113 @@
+"""`gewu review generate` with stand-in agents: no model is called."""
+import os
+from pathlib import Path
+import stat
+import subprocess
+import tempfile
+import unittest
+
+from test_research_cli import BINARY
+
+
+class GenerateTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(prefix="gewu-generate-")
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        for args in (["init", "-q"], ["config", "user.email", "fixture@example.invalid"],
+                     ["config", "user.name", "Fixture"]):
+            self.git(*args)
+        (self.root / "a.rs").write_text("const VALUE: u32 = 1;\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "test: base")
+        (self.root / "a.rs").write_text("const VALUE: u32 = 2;\n")
+        self.git("commit", "-qam", "test: head")
+
+    def git(self, *args):
+        subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+
+    def agent(self, body):
+        path = self.root.parent / f"agent-{abs(hash(body))}.sh"
+        path.write_text("#!/bin/sh\n" + body + "\n")
+        path.chmod(path.stat().st_mode | stat.S_IEXEC)
+        return path
+
+    def generate(self, agent, *extra):
+        return subprocess.run([str(BINARY), "review", "generate", "--agent", "claude",
+                               "--agent-program", str(agent), *extra],
+                              cwd=self.root, capture_output=True, text=True)
+
+    def test_an_agent_that_stops_early_is_reported_with_the_stage(self):
+        idle = self.agent("exit 0")
+        result = self.generate(idle, "--base", "HEAD^", "--head", "HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("stopped before the reviewer gate", result.stdout)
+        self.assertIn("investigate", result.stdout)
+        # Continuing needs no range: the started review is picked up.
+        again = self.generate(idle)
+        self.assertEqual(again.returncode, 0, again.stderr)
+
+    def test_an_agent_that_edits_the_project_is_refused(self):
+        meddler = self.agent('echo "// edited" >> a.rs')
+        result = self.generate(meddler, "--base", "HEAD^", "--head", "HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("changed files outside `.gewu/`", result.stderr)
+
+    def test_the_agent_receives_the_brief_and_restricted_tools(self):
+        recorder = self.agent('printf "%s\\n" "$@" > "$(dirname "$0")/argv.txt"')
+        self.generate(recorder, "--base", "HEAD^", "--head", "HEAD")
+        argv = (self.root.parent / "argv.txt").read_text()
+        self.assertIn(f"{BINARY.resolve()} harness status", argv)
+        self.assertIn("dontAsk", argv)
+        self.assertIn("Write(.gewu/harness/**)", argv)
+        self.assertNotIn("\nBash\n", argv, "unrestricted shell must not be granted")
+        self.assertIn("Bash(gewu harness:*)", argv, "a bare `gewu` is a spelling agents use")
+
+    def test_a_refused_tool_call_is_named_not_mistaken_for_an_early_stop(self):
+        denied = self.agent(
+            'echo \'{"result": "Could not run it.", "permission_denials": '
+            '[{"tool_name": "Bash", "tool_input": {"command": "gewu harness status"}}]}\'')
+        result = self.generate(denied, "--base", "HEAD^", "--head", "HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("after being refused", result.stderr)
+        self.assertIn("Bash: gewu harness status", result.stderr)
+
+    def test_the_estimate_comes_first_and_each_batch_reports_what_it_cost(self):
+        # A reviewer asked to know what generation will spend before it runs.
+        before = subprocess.run([str(BINARY), "review", "generate", "--agent", "claude", "--estimate",
+                                 "--base", "HEAD^", "--head", "HEAD"], cwd=self.root,
+                                capture_output=True, text=True)
+        self.assertEqual(before.returncode, 0, before.stderr)
+        self.assertIn("batch(es) left", before.stdout)
+        self.assertIn("Gewu's own measured runs", before.stdout)
+        self.assertFalse((self.root / ".gewu/harness/state.json").exists(), "estimating starts nothing")
+        reporting = self.agent(
+            'echo \'{"result": "Wrote a batch.", "total_cost_usd": 0.5, "duration_ms": 90000, "usage": {"input_tokens": 1000, '
+            '"output_tokens": 2000, "cache_creation_input_tokens": 3000, "cache_read_input_tokens": 94000}}\'')
+        result = self.generate(reporting, "--base", "HEAD^", "--head", "HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Estimate:", result.stdout)
+        self.assertIn("This batch took 1m 30s and used 100k tokens ($0.50)", result.stdout)
+        again = self.generate(reporting)
+        self.assertIn("this review's batches so far", again.stdout)
+        self.assertIn("about 1m 30s a batch", again.stdout)
+        self.assertIn("this review so far: 200k tokens ($1.00)", again.stdout)
+
+    def test_a_slow_agent_shows_progress_while_it_runs(self):
+        # A reviewer could not tell whether a minutes-long run was working.
+        slow = self.agent("sleep 2")
+        result = self.generate(slow, "--base", "HEAD^", "--head", "HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("first batch · investigating the change", result.stderr)
+        self.assertIn("left", result.stderr)
+
+    def test_nothing_to_continue_and_no_provider_are_refused(self):
+        idle = self.agent("exit 0")
+        self.assertNotEqual(self.generate(idle).returncode, 0, "no review was started")
+        missing = subprocess.run([str(BINARY), "review", "generate"], cwd=self.root,
+                                 capture_output=True, text=True)
+        self.assertIn("--agent", missing.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

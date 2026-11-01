@@ -53,6 +53,15 @@ pass_filenames = false
 priority = 30
 
 [[repos.hooks]]
+id = "research-cli-tests"
+name = "research CLI scenarios (Python 3)"
+entry = "sh -c 'cargo build --bin gewu && python3 -m unittest discover -s scripts/tests -v'"
+language = "system"
+types_or = ["rust", "python"]
+pass_filenames = false
+priority = 40
+
+[[repos.hooks]]
 id = "conventional-commit"
 name = "conventional commit message"
 entry = '''sh -c 'message=$(awk "NR == 1 { print; exit }" "$1"); echo "$message" | grep -Eq "^(feat|fix|docs|test|ci|refactor|perf|build|chore)(\([[:alnum:]_./-]+\))?!?: .+"' --'''

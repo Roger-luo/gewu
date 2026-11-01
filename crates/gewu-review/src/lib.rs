@@ -1,15 +1,18 @@
 //! Domain primitives for human-guided code and design review.
 
+pub mod audit;
+pub mod context;
 pub mod handover;
 pub mod harness;
 mod height;
 mod input;
+pub mod research;
 mod session;
 mod spec;
 mod validation;
 
 pub use handover::Handover;
-pub use height::{CHUNK_HEIGHT_GUIDANCE, chunk_height, pane_height};
+pub use height::{CHUNK_HEIGHT_GUIDANCE, HeightBreakdown, chunk_height, pane_height};
 pub use input::{Change, ReviewInput, SourceIdentity};
 pub use session::{
     Decision, EventLog, Feedback, FeedbackKind, FeedbackTarget, LineAnchor, ReviewEvent,

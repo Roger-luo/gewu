@@ -70,6 +70,7 @@ fn chunk(id: &str, quotes: Vec<Quote>, presentation: ChangePresentation) -> Revi
         context: None,
         confidence: None,
         oversized_reason: None,
+        section: None,
     }
 }
 
@@ -363,7 +364,9 @@ fn investigation_must_account_for_every_change() {
         intent: "Change behavior.".into(),
         changes: vec!["Behavior changes.".into()],
         concepts: vec![],
+        illustration: None,
         findings: vec![InvestigationFinding {
+            evidence_spans: vec![],
             change_ids: input
                 .changes
                 .iter()

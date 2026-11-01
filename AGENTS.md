@@ -54,6 +54,9 @@ run `mise run check`, which executes:
 2. `cargo check --workspace --all-targets --all-features`
 3. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 4. `cargo test --workspace --all-features`
+5. `cargo build --bin gewu`
+6. `python3 -m unittest discover -s scripts/tests -v` (offline CLI scenarios;
+   requires Python 3, makes no model calls)
 
 Never suppress lint failures merely to pass these checks.
 

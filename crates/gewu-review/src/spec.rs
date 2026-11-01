@@ -6,9 +6,22 @@ use crate::{SCHEMA_VERSION, SourceIdentity};
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Illustration {
-    BeforeAfter { before: String, after: String },
-    Flow { steps: Vec<String> },
-    Example { input: String, output: String },
+    BeforeAfter {
+        before: String,
+        after: String,
+    },
+    Flow {
+        steps: Vec<String>,
+    },
+    Example {
+        input: String,
+        output: String,
+    },
+    /// A small ASCII drawing of how the parts of the change connect, shown
+    /// verbatim on the overview.
+    Diagram {
+        text: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -148,6 +161,11 @@ pub struct ReviewChunk {
     /// where a view begins and ends: a view can almost always be made smaller.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oversized_reason: Option<String>,
+    /// The part of the walkthrough this chunk belongs to: the title of the
+    /// work item it was written for. It ties a chunk to the overview's map, so
+    /// a reviewer knows where they are without reading every chunk before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
 }
 
 impl ReviewChunk {

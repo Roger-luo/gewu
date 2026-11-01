@@ -1,5 +1,6 @@
 mod entry;
 mod feedback;
+mod frame;
 mod help;
 mod highlight;
 mod markdown;
@@ -54,6 +55,16 @@ pub struct ReviewTui {
     pub(super) selected: Option<usize>,
     /// The viewport before feedback selection expanded the document.
     pub(super) selection_origin_scroll: Option<usize>,
+    /// Rows the last drawn page showed. Paging advances by no more than this,
+    /// because a page shortened to keep a label with its content would
+    /// otherwise skip the rows it held back.
+    pub(super) shown_rows: Option<usize>,
+    /// PageDown may leave the last page short instead of snapping back to a
+    /// full one: the self-review UI judge found the snap re-showing most of
+    /// the previous page as a near-duplicate.
+    pub(super) paged_past_end: bool,
+    /// The last row of the current document with content, from the last draw.
+    pub(super) last_content_row: Option<usize>,
     /// A one-key-lived confirmation or result shown after an action.
     pub(super) notice: Option<String>,
     /// Ending with unreviewed chunks takes a deliberate second Enter.
@@ -93,6 +104,9 @@ impl ReviewTui {
             selected_line: None,
             selected: None,
             selection_origin_scroll: None,
+            shown_rows: None,
+            paged_past_end: false,
+            last_content_row: None,
             notice: None,
             confirm_finish: false,
             prompt: None,
@@ -380,6 +394,7 @@ impl ReviewTui {
     /// survive leaving that chunk.
     fn leave_chunk(&mut self) {
         self.scroll = 0;
+        self.paged_past_end = false;
         self.selected = None;
         self.selection_origin_scroll = None;
         self.confirm_finish = false;
@@ -584,6 +599,7 @@ mod tests {
                 context: None,
                 confidence: None,
                 oversized_reason: None,
+                section: None,
             })
             .collect();
         let spec = ReviewSpec::new(
@@ -619,6 +635,7 @@ mod tests {
             }),
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(
             source.clone(),
@@ -650,6 +667,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(
             source.clone(),
@@ -751,7 +769,7 @@ mod tests {
         tui.handle(press(KeyCode::Enter)).expect("leave overview");
 
         let sidebar: String = tui
-            .sidebar_document(110)
+            .sidebar_document(150)
             .expect("wide context sidebar")
             .lines
             .iter()
@@ -759,7 +777,7 @@ mod tests {
             .map(|span| span.text.as_str())
             .collect();
         let body: String = tui
-            .current_document(110)
+            .current_document(150)
             .lines
             .iter()
             .flat_map(|line| &line.spans)

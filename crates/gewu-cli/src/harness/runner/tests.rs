@@ -83,7 +83,9 @@ impl Fixture {
             intent: "Add two modules.".into(),
             changes: vec!["Two modules appear.".into()],
             concepts: vec![],
+            illustration: None,
             findings: vec![InvestigationFinding {
+                evidence_spans: vec![],
                 change_ids: self
                     .input
                     .changes
@@ -133,6 +135,7 @@ impl Fixture {
                 context: None,
                 confidence: None,
                 oversized_reason: None,
+                section: None,
             }],
         };
         artifacts::write(self.runner.store.expansion_path(), &expansion).expect("write expansion");
@@ -249,6 +252,13 @@ fn expands_the_next_item_once_the_batch_is_reviewed() {
         expand.starts_with("# Gewu harness: expand `item-1`"),
         "{expand}"
     );
+    // Self-review authors could not tell "no feedback" from "ignored".
+    assert!(expand.contains("left no feedback"), "{expand}");
+    // Each chunk names the part of the walkthrough it was written for.
+    assert_eq!(
+        fixture.spec().chunks[0].section.as_deref(),
+        Some(list.items[0].title.as_str())
+    );
     fixture.stage_expansion(&list.items[1]);
     fixture.runner.next().expect("append second expansion");
     let spec = fixture.spec();
@@ -293,6 +303,10 @@ fn measuring_an_expansion_reports_heights_without_repeating_the_prompt() {
 
     assert!(measured.starts_with("Measured heights:"), "{measured}");
     assert!(measured.contains("chunk-item-0"), "{measured}");
+    // Self-review found authors guessing whether "40 of 40" passes.
+    assert!(measured.contains("rows, fits"), "{measured}");
+    assert!(measured.contains("wrapped source"), "{measured}");
+    assert!(measured.contains("blanks after prose"), "{measured}");
     assert!(measured.contains("measure again"), "{measured}");
     assert!(
         !measured.contains("Spans this item covers"),
@@ -494,6 +508,7 @@ fn a_rejected_expansion_leaves_the_spec_untouched() {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         }],
     };
     wrong.chunks[0].content = vec![ChunkBlock::Changes {

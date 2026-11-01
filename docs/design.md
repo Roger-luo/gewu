@@ -95,7 +95,7 @@ The generated spec chooses the presentation that best supports review:
 
 A chunk is the unit the user comments on, so it is sized to be worth one
 comment: closely related edits only, small enough that the reviewer reacts to
-the whole thing rather than to a line buried inside it. It must fit one
+the whole thing rather than to a line buried inside it. It should fit one
 terminal viewport without paging.
 
 Generation holds chunks to a row budget measured against how the review UI
@@ -111,7 +111,9 @@ by prose saying what to look for.
 Views may overlap. Showing lines 1-25, then lines 10-50, repeats the middle on
 purpose, because the reader needs the earlier context again to follow what
 comes next. The rule is not that each line appears once — it is that the union
-of everything shown covers the whole diff, so nothing goes unreviewed.
+of everything shown covers the whole diff, so nothing goes unreviewed. Blank
+lines and the unchanged context Git adds at a hunk's edges are exempt: they
+belong to the code around the change, not to it.
 
 If one semantic unit is too large, it is split at a logical boundary. Split
 chunks retain a shared title and show their relationship, for example:
@@ -119,7 +121,17 @@ chunks retain a shared title and show their relationship, for example:
 > Request validation · 1 of 2
 
 Splitting must not separate a definition from the minimum context needed to
-understand it. Unrelated edits must not be combined merely to fill the
+understand it. A unit that is read as a whole — a single test, a function with
+its doc comment, a table — stays one chunk even when it exceeds the budget,
+with an `oversized_reason` naming the unit. The reader then pages through it,
+so the terminal UI must keep them oriented: every page shows where it is in the
+chunk, every row is reachable by paging, no page ends on a label whose content
+is on the next, and a page that opens on code pins the first sentence of the
+paragraph that introduced it.
+
+The reference terminal is 120×40, where a chunk within budget fits one screen.
+80×24 is supported as a degraded mode: a chunk pages, and the pinned sentence
+keeps its explanation in view. Unrelated edits must not be combined merely to fill the
 viewport.
 
 ##### Refactors

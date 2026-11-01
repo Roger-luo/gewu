@@ -6,6 +6,11 @@ use super::style::{Document, TextStyle};
 /// Marks every line that belongs to the reviewed source rather than to Gewu.
 pub(super) const SOURCE_GUTTER: &str = "▏ ";
 
+/// The narrowest terminal that shows a context pane beside the code. Below it
+/// the pane goes under the chunk: self-review's UI judge found a side pane at
+/// 120 columns wrapping every comment of the code it explained.
+pub(super) const SIDE_PANE_MIN_WIDTH: usize = 140;
+
 pub(super) fn document_title(title: &str) -> Document {
     let mut document = Document::new();
     document.push(title, title_style());
@@ -75,9 +80,16 @@ pub(super) fn illustration(illustration: &Illustration) -> String {
         Illustration::BeforeAfter { before, after } => {
             format!("**Before:** {before}\n\n**After:** {after}")
         }
-        Illustration::Flow { steps } => steps.join(" → "),
+        // One step per row, so a map of several parts stays readable.
+        Illustration::Flow { steps } => steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| format!("{}. {step}", index + 1))
+            .collect::<Vec<_>>()
+            .join("\n"),
         Illustration::Example { input, output } => {
             format!("`{input}` → `{output}`")
         }
+        Illustration::Diagram { text } => format!("```text\n{}\n```", text.trim_end()),
     }
 }

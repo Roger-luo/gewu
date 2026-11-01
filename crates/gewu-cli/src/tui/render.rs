@@ -10,8 +10,8 @@ use super::{
     highlight::CodeHighlighter,
     markdown::Markdown,
     render_support::{
-        SOURCE_GUTTER, bullets, document_title, heading, illustration, muted, presentation_label,
-        source_path_style, title_style,
+        SIDE_PANE_MIN_WIDTH, SOURCE_GUTTER, bullets, document_title, heading, illustration, muted,
+        presentation_label, source_path_style, title_style,
     },
     style::{Document, Line, TextStyle},
 };
@@ -43,13 +43,20 @@ impl Screen {
         }
         heading(&mut document, "What changes");
         document.append(Markdown::render(&bullets(&overview.changes)));
+        // The map and the contents are the review's shape; they come before
+        // vocabulary so the first screen shows it (a UI judge found the
+        // contents pushed alone onto the overview's second page).
+        if let Some(value) = &overview.illustration {
+            heading(&mut document, "How it fits together");
+            document.append(Markdown::render(&illustration(value)));
+        }
+        if let Some(contents) = Self::contents(review) {
+            heading(&mut document, "Walkthrough");
+            document.append(Markdown::render(&contents));
+        }
         if !overview.concepts.is_empty() {
             heading(&mut document, "New concepts");
             document.append(Markdown::render(&bullets(&overview.concepts)));
-        }
-        if let Some(value) = &overview.illustration {
-            heading(&mut document, "Illustration");
-            document.append(Markdown::render(&illustration(value)));
         }
         let scope = scope(review);
         document.push(
@@ -99,11 +106,21 @@ impl Screen {
             "unreviewed"
         };
         let mut document = Document::new();
-        let status = format!(
-            "CHUNK {}/{} · {status}",
-            index + 1,
-            review.spec().chunks.len()
-        );
+        // The section names which part of the overview's map this is, so a
+        // reviewer never has to reconstruct where they are (self-review found
+        // chunks reading as isolated notes).
+        let status = match &chunk.section {
+            Some(section) => format!(
+                "CHUNK {}/{} · {section} · {status}",
+                index + 1,
+                review.spec().chunks.len()
+            ),
+            None => format!(
+                "CHUNK {}/{} · {status}",
+                index + 1,
+                review.spec().chunks.len()
+            ),
+        };
         document.push(&status, title_style());
         let sources = Self::chunk_sources(review, chunk);
         if width < 70 && !sources.is_empty() {
@@ -135,7 +152,7 @@ impl Screen {
         let main = Self::chunk_main(review, session, chunk, selected, raw_source, selected_line);
         let mut document = Document::new();
         match chunk.context.as_ref().map(Self::context) {
-            Some(context) if width >= 100 => {
+            Some(context) if width >= SIDE_PANE_MIN_WIDTH => {
                 document.append(Document::columns(main, context, width));
             }
             Some(context) => {
@@ -146,6 +163,34 @@ impl Screen {
             None => document.append(main),
         }
         document
+    }
+
+    /// The walkthrough's sections in order, with how many chunks each holds:
+    /// a table of contents on the first screen instead of behind a key.
+    fn contents(review: &ValidatedReview) -> Option<String> {
+        let mut sections: Vec<(&str, usize)> = Vec::new();
+        for chunk in &review.spec().chunks {
+            let section = chunk.section.as_deref()?;
+            match sections.last_mut() {
+                Some((last, count)) if *last == section => *count += 1,
+                _ => sections.push((section, 1)),
+            }
+        }
+        if sections.is_empty() {
+            return None;
+        }
+        let mut lines: Vec<String> = sections
+            .iter()
+            .enumerate()
+            .map(|(index, (section, count))| {
+                let chunks = if *count == 1 { "chunk" } else { "chunks" };
+                format!("{}. {section} — {count} {chunks}", index + 1)
+            })
+            .collect();
+        if let Some(remaining) = review.spec().remaining_work_items().filter(|n| *n > 0) {
+            lines.push(format!("…and {remaining} more part(s) still to be written"));
+        }
+        Some(lines.join("\n"))
     }
 
     #[must_use]
@@ -241,7 +286,7 @@ impl Screen {
         document.append(Markdown::render(&format!(
             "**{}** — {}\n\n{}",
             outcome.label(),
-            outcome_reason(outcome, open),
+            outcome_reason(outcome, open, reviewed),
             match session.decision {
                 _ if confirm_finish && generation.is_some() && outcome == Decision::Approve => {
                     let progress = generation.as_ref().expect("generation checked above");
@@ -732,11 +777,16 @@ fn outer_fenced_code(value: &str) -> Option<(&str, &str)> {
 
 /// Why the review came out the way it did, in the reviewer's own actions. An
 /// outcome nobody chose has to explain itself, or it reads as Gewu deciding.
-fn outcome_reason(outcome: Decision, open: usize) -> &'static str {
+fn outcome_reason(outcome: Decision, open: usize, reviewed: usize) -> &'static str {
     match outcome {
         Decision::RequestChanges if open == 1 => "one request is open",
         Decision::RequestChanges => "requests are open",
         Decision::Comment => "you left remarks, and none of them ask for a change",
+        // Found by self-review's UI judge: with nothing read, "you asked for
+        // nothing" read as an endorsement of a review nobody had looked at.
+        Decision::Approve if reviewed == 0 => {
+            "only because you have not read or remarked on anything yet"
+        }
         Decision::Approve => "you asked for nothing and remarked on nothing",
     }
 }
@@ -1033,6 +1083,14 @@ mod tests {
     use super::{super::style::Line, SOURCE_GUTTER, Screen};
 
     #[test]
+    fn an_untouched_review_does_not_read_as_endorsed() {
+        let untouched = super::outcome_reason(Decision::Approve, 0, 0);
+        assert!(untouched.contains("not read"), "{untouched}");
+        let read = super::outcome_reason(Decision::Approve, 0, 3);
+        assert!(read.contains("asked for nothing"), "{read}");
+    }
+
+    #[test]
     fn extracts_added_markdown_without_diff_markers() {
         let patch = "@@ -0,0 +1,3 @@\n+## Flow\n+\n+`input` → `output`\n";
 
@@ -1259,6 +1317,7 @@ mod tests {
             }),
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let input = ReviewInput::new(source.clone(), vec![change.clone()]);
         let spec = ReviewSpec::new(source, overview(), vec![chunk.clone()]);
@@ -1353,6 +1412,7 @@ mod tests {
                 context: None,
                 confidence: Some("Unsure whether this was deliberate.".into()),
                 oversized_reason: None,
+                section: None,
             };
             let input = ReviewInput::new(source.clone(), vec![first.clone(), second.clone()]);
             let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk.clone()]);
@@ -1552,6 +1612,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]);
         let review = ValidatedReview::validate(ReviewInput::new(source, vec![change]), spec)
@@ -1614,6 +1675,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]);
         let review = ValidatedReview::validate(ReviewInput::new(source, vec![change]), spec)
@@ -1740,6 +1802,47 @@ mod tests {
             .expect("change list");
 
         assert!(generation < changes, "{rendered:#?}");
+    }
+
+    /// A reviewer found no big picture before the first chunk: the overview
+    /// now draws the map and lists the walkthrough's sections, and each
+    /// chunk's header names its section.
+    #[test]
+    fn overview_maps_the_change_and_lists_the_sections() {
+        let review = review(
+            &[("a.rs", "one"), ("b.rs", "two")],
+            ChangePresentation::AddedCode,
+        );
+        let mut spec = review.spec().clone();
+        spec.overview.illustration = Some(gewu_review::Illustration::Diagram {
+            text: "parser ──▶ manifest".into(),
+        });
+        let mut second = spec.chunks[0].clone();
+        second.id = "second".into();
+        spec.chunks[0].section = Some("Parsing the diff".into());
+        second.section = Some("Building the manifest".into());
+        spec.chunks.push(second);
+        let review =
+            ValidatedReview::validate_partial(review.input().clone(), spec).expect("valid");
+
+        let rendered = lines(&Screen::overview(&review, &ReviewSession::default())).join("\n");
+        assert!(rendered.contains("How it fits together"), "{rendered}");
+        assert!(rendered.contains("parser ──▶ manifest"), "{rendered}");
+        assert!(
+            rendered.contains("1. Parsing the diff — 1 chunk"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("2. Building the manifest — 1 chunk"),
+            "{rendered}"
+        );
+        let header = lines(&Screen::chunk_header(
+            &review,
+            &ReviewSession::default(),
+            1,
+            120,
+        ));
+        assert!(header[0].contains("Building the manifest"), "{header:?}");
     }
 
     #[test]
@@ -1952,6 +2055,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]);
         ValidatedReview::validate(ReviewInput::new(source, changes), spec).expect("valid review")
@@ -1973,6 +2077,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         };
         let spec = ReviewSpec::new(source.clone(), overview(), vec![chunk]).with_remaining_work(1);
         ValidatedReview::validate_partial(ReviewInput::new(source, vec![first, second]), spec)

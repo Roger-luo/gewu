@@ -92,10 +92,33 @@ impl Line {
         let mut current: Vec<(char, TextStyle)> = Vec::new();
         let mut current_width = 0;
         let mut breakpoint = None;
+        // Where code without spaces can break without cutting a name: after
+        // a separator such as `.`, `::`, `(`, or `,`.
+        let mut soft = None;
+        // Only source rows break at separators. In prose and headers a space
+        // is always the right break, and a path must not split at its `:`.
+        let code = characters
+            .first()
+            .is_some_and(|(character, _)| *character == '▏');
         for entry in characters {
             let entry_width = entry.0.width().unwrap_or(0);
             if current_width + entry_width > width {
-                match breakpoint.filter(|at| *at > current.len().min(indent.len())) {
+                let floor = current.len().min(indent.len());
+                // Spaces are the natural break. A separator wins only when the
+                // last space would leave this row less than half full, as a
+                // space right after `fn` would before a long identifier.
+                let space = breakpoint.filter(|at| *at > floor);
+                let separator = soft.filter(|at| *at > floor);
+                let at = match (space, separator) {
+                    (Some(space), Some(separator))
+                        if space * 2 < current.len() && separator > space =>
+                    {
+                        Some(separator)
+                    }
+                    (Some(space), _) => Some(space),
+                    (None, separator) => separator,
+                };
+                match at {
                     Some(at) => {
                         let rest: Vec<_> = current.split_off(at);
                         lines.push(Self::from_characters(&current));
@@ -110,12 +133,19 @@ impl Line {
                 }
                 current_width = display_width(&current);
                 breakpoint = None;
+                soft = None;
             }
             if entry.0 == ' ' && current.len() > indent.len() {
                 breakpoint = Some(current.len());
             }
             current_width += entry_width;
             current.push(entry);
+            if code
+                && matches!(entry.0, '.' | ':' | '(' | ',' | '[' | '{' | '_')
+                && current.len() > indent.len()
+            {
+                soft = Some(current.len());
+            }
         }
         if current.iter().any(|(character, _)| *character != ' ') || lines.is_empty() {
             lines.push(Self::from_characters(&current));
@@ -135,10 +165,13 @@ impl Line {
         let mut rest = characters.iter();
         let mut pending = Vec::new();
         for (character, style) in rest.by_ref() {
-            if character.is_whitespace() || *character == '▏' {
+            // `▏` is the source gutter and `│` a context example's bar: both
+            // must continue onto a wrapped row, or the code reads as broken.
+            if character.is_whitespace() || matches!(character, '▏' | '│') {
                 indent.append(&mut pending);
                 indent.push((*character, *style));
-            } else if character.is_ascii_digit() || matches!(character, '•' | '-' | '*' | '.' | ')')
+            } else if character.is_ascii_digit()
+                || matches!(character, '•' | '-' | '+' | '*' | '.' | ')' | '↳')
             {
                 pending.push((' ', *style));
             } else {
@@ -328,7 +361,11 @@ impl Document {
 
 #[cfg(test)]
 mod tests {
-    use super::{Document, TextStyle};
+    use super::{Document, Line, TextStyle};
+
+    fn line_text(line: &Line) -> String {
+        line.spans.iter().map(|span| span.text.as_str()).collect()
+    }
 
     #[test]
     fn wraps_prose_at_word_boundaries_instead_of_dropping_it() {
@@ -382,6 +419,77 @@ mod tests {
             "{:?}",
             wrapped.lines
         );
+    }
+
+    /// Self-review's terminal judge found wrapped added rows continuing under
+    /// the diff marker while removed rows continued under the code.
+    #[test]
+    fn added_and_removed_rows_continue_under_the_code() {
+        let wrap = |marker: &str| {
+            let mut document = Document::new();
+            document.push(
+                format!("▏   48 {marker}    // a comment that runs past the edge of it"),
+                TextStyle::default(),
+            );
+            let wrapped = document.wrapped(40);
+            line_text(&wrapped.lines[1])
+        };
+        assert_eq!(wrap("+"), wrap("-"));
+        assert!(wrap("+").starts_with("▏           "), "{:?}", wrap("+"));
+    }
+
+    /// Found by self-review's UI judge: a header split `progress.rs:` from
+    /// its line range once separators broke prose rows too.
+    #[test]
+    fn prose_and_headers_break_only_at_spaces() {
+        let mut document = Document::new();
+        document.push(
+            "A title long enough to wrap · crates/gewu-review/src/harness/progress.rs:76-85",
+            TextStyle::default(),
+        );
+        let rows: Vec<_> = document.wrapped(60).lines.iter().map(line_text).collect();
+        assert!(
+            rows.iter().any(|row| row.contains("progress.rs:76-85")),
+            "{rows:?}"
+        );
+    }
+
+    /// A context example's bar continues onto wrapped rows.
+    #[test]
+    fn a_context_example_keeps_its_bar_when_wrapped() {
+        let mut document = Document::new();
+        document.push(
+            "│ pub enum Verdict { Replan { stale_chunks: Vec<String> }, Expand }",
+            TextStyle::default(),
+        );
+        let rows: Vec<_> = document.wrapped(40).lines.iter().map(line_text).collect();
+        assert!(rows.iter().all(|row| row.starts_with('│')), "{rows:?}");
+    }
+
+    /// A long test name has no separator but its underscores.
+    #[test]
+    fn a_long_snake_case_name_breaks_at_an_underscore() {
+        let mut document = Document::new();
+        document.push(
+            "▏ fn approving_a_review_still_being_written_settles_the_batch_not_the_review() {",
+            TextStyle::default(),
+        );
+        let rows: Vec<_> = document.wrapped(60).lines.iter().map(line_text).collect();
+        assert!(rows[0].ends_with('_'), "{rows:?}");
+    }
+
+    /// The same judge found `Decision::Approve` cut to `Approv` / `e));`.
+    #[test]
+    fn code_without_spaces_breaks_after_a_separator_not_inside_a_name() {
+        let mut document = Document::new();
+        document.push(
+            "▏ record(&ReviewEvent::decision(gewu_review::Decision::Approve));",
+            TextStyle::default(),
+        );
+        let wrapped = document.wrapped(50);
+        let rows: Vec<_> = wrapped.lines.iter().map(line_text).collect();
+        assert_eq!(rows[0], "▏ record(&ReviewEvent::decision(gewu_review::");
+        assert_eq!(rows[1], "▏ Decision::Approve));");
     }
 
     #[test]

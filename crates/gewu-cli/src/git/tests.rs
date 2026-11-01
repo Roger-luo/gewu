@@ -278,3 +278,47 @@ fn git(root: &Path, args: &[&str]) {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// The audit compares the manifest against an independent listing of the same
+/// diff, so the two must agree on deletions, binaries, and worktree trees.
+#[test]
+fn audit_scope_and_symbols_read_the_reviewed_tree() {
+    let directory = tempfile::tempdir().expect("temporary repository");
+    git(directory.path(), &["init"]);
+    fs::create_dir(directory.path().join("src")).expect("create source directory");
+    fs::write(directory.path().join("src/kept.rs"), "fn kept() {}\n").expect("write kept file");
+    fs::write(directory.path().join("gone.rs"), "fn gone() {}\n").expect("write doomed file");
+    git(directory.path(), &["add", "."]);
+    commit(directory.path(), "initial");
+    fs::write(directory.path().join("src/kept.rs"), "fn edited() {}\n").expect("edit kept file");
+    fs::remove_file(directory.path().join("gone.rs")).expect("delete file");
+    fs::write(directory.path().join("logo.png"), [0u8, 1, 2, 0, 255, 0])
+        .expect("write binary file");
+    let repository = Repository::new(directory.path());
+    let input = repository
+        .worktree_input("HEAD", BUDGET)
+        .expect("capture worktree");
+    let (base, head) = (&input.source.base, &input.source.head);
+
+    let mut scope = repository
+        .changed_paths(base, head, &[])
+        .expect("list changed paths");
+    scope.sort();
+    let mut manifest: Vec<_> = input.changes.iter().map(|c| c.path.clone()).collect();
+    manifest.sort();
+    assert_eq!(scope, manifest);
+    assert_eq!(
+        repository
+            .changed_paths(base, head, &["src".into()])
+            .expect("list scoped paths"),
+        ["src/kept.rs"]
+    );
+
+    let words = repository.tree_words(head).expect("read tree words");
+    assert!(words.iter().any(|word| word == "edited"), "{words:?}");
+    assert!(!words.iter().any(|word| word == "gone"), "{words:?}");
+    assert_eq!(
+        repository.tree_paths(head).expect("list tree paths"),
+        ["logo.png", "src/kept.rs"]
+    );
+}

@@ -33,6 +33,7 @@ fn fixture() -> (ReviewInput, ReviewSpec) {
                 context: None,
                 confidence: None,
                 oversized_reason: None,
+                section: None,
             },
             ReviewChunk {
                 id: "tests".into(),
@@ -46,6 +47,7 @@ fn fixture() -> (ReviewInput, ReviewSpec) {
                 context: None,
                 confidence: None,
                 oversized_reason: None,
+                section: None,
             },
         ],
     );
@@ -74,6 +76,7 @@ fn accepts_different_agent_groupings() {
         context: None,
         confidence: Some("Grouping chosen by another agent".into()),
         oversized_reason: None,
+        section: None,
     }];
 
     ValidatedReview::validate(input, alternative).expect("second agent spec");
@@ -156,6 +159,7 @@ fn a_spec_may_show_the_same_lines_in_more_than_one_view() {
         context: None,
         confidence: None,
         oversized_reason: None,
+        section: None,
     };
     let spec = |chunks| {
         ReviewSpec::new(

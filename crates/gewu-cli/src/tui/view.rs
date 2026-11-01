@@ -12,16 +12,50 @@ use gewu_review::{FeedbackKind, FeedbackTarget};
 
 use super::{
     ReviewTui,
+    frame::Frame,
     help::HelpScreen,
     render::Screen,
-    render_support::{SOURCE_GUTTER, muted},
+    render_support::{SIDE_PANE_MIN_WIDTH, SOURCE_GUTTER, muted},
     style::{Document, TextStyle},
 };
 
 impl ReviewTui {
     pub(super) fn draw(&mut self) -> Result<()> {
         let (width, height) = size()?;
-        let (width, height) = (usize::from(width), usize::from(height));
+        let frame = self.compose(usize::from(width), usize::from(height));
+        execute!(io::stdout(), MoveTo(0, 0), Clear(ClearType::All))?;
+        if let Some(pinned) = &frame.pinned {
+            execute!(
+                io::stdout(),
+                MoveTo(0, 0),
+                Print(pinned.ansi_window(frame.width, pinned.lines.len(), 0))
+            )?;
+        }
+        execute!(
+            io::stdout(),
+            MoveTo(0, u16::try_from(frame.body_top).unwrap_or(u16::MAX)),
+            Print(frame.body.ansi_window(frame.width, frame.visible_height, 0))
+        )?;
+        match (&frame.panel, &frame.footer) {
+            (Some(panel), _) => self.draw_prompt(
+                panel,
+                u16::try_from(frame.width).unwrap_or(u16::MAX),
+                u16::try_from(frame.body_bottom).unwrap_or(u16::MAX),
+            )?,
+            (None, Some(footer)) => execute!(
+                io::stdout(),
+                MoveTo(0, u16::try_from(frame.body_bottom).unwrap_or(u16::MAX)),
+                Print(footer.ansi_window(frame.width, footer.lines.len(), 0))
+            )?,
+            (None, None) => {}
+        }
+        io::stdout().flush()?;
+        Ok(())
+    }
+
+    /// Lays out one screen without touching the terminal, so the same frame
+    /// the reviewer sees can be rendered headlessly and checked.
+    pub(super) fn compose(&mut self, width: usize, height: usize) -> Frame {
         let panel = self.prompt_panel();
         let sidebar = self.sidebar_document(width);
         let content_width = if sidebar.is_some() {
@@ -29,84 +63,129 @@ impl ReviewTui {
         } else {
             width
         };
-        let pinned = self
-            .pinned_document(width)
-            .map(|document| document.wrapped(width));
-        let pinned_rows = pinned.as_ref().map_or(0, |document| document.lines.len());
-
         let content = self.current_document(width).wrapped(content_width);
         let command_rows = self.footer_command_document(width).lines.len();
-        let footer_rows = if let Some(panel) = &panel {
-            panel.lines.len()
-        } else {
-            let room_without_status = height.saturating_sub(command_rows + pinned_rows);
-            command_rows
-                + usize::from(self.notice.is_some() || content.lines.len() > room_without_status)
+        // The pinned header depends on the scroll position (its lead row), and
+        // the scroll limit depends on the header's height, so settle the two
+        // together; otherwise the last page is sized for a header it lacks.
+        let layout = |tui: &Self| {
+            let pinned = tui
+                .pinned_document(width)
+                .map(|document| document.wrapped(width));
+            let pinned_rows = pinned.as_ref().map_or(0, |document| document.lines.len());
+            let footer_rows = if let Some(panel) = &panel {
+                panel.lines.len()
+            } else {
+                let room_without_status = height.saturating_sub(command_rows + pinned_rows);
+                command_rows
+                    + usize::from(tui.notice.is_some() || content.lines.len() > room_without_status)
+            };
+            let body_top = pinned_rows.min(height);
+            let body_bottom = height.saturating_sub(footer_rows).max(body_top);
+            (pinned, body_top, body_bottom)
         };
-        let body_top = pinned_rows.min(height);
-        let body_bottom = height.saturating_sub(footer_rows).max(body_top);
+        // An elision marker is not content: a page holding only "… source
+        // continues" gives the reader nothing.
+        let last_content = content
+            .lines
+            .iter()
+            .rposition(|line| !is_content_free(line))
+            .unwrap_or(0);
+        self.last_content_row = Some(last_content);
+        let (mut pinned, mut body_top, mut body_bottom) = layout(self);
+        for _ in 0..3 {
+            // Past the end, but never onto a page of nothing: the last
+            // non-blank row bounds how far PageDown may go.
+            let full = content
+                .lines
+                .len()
+                .saturating_sub(body_bottom.saturating_sub(body_top));
+            // Past the end, but never onto a page of nothing: the last
+            // non-blank row bounds how far PageDown may go.
+            let max_scroll = if self.paged_past_end {
+                last_content.max(full)
+            } else {
+                full
+            };
+            if self.scroll <= max_scroll {
+                break;
+            }
+            self.scroll = max_scroll;
+            (pinned, body_top, body_bottom) = layout(self);
+        }
         let body_height = body_bottom.saturating_sub(body_top);
-        let max_scroll = content.lines.len().saturating_sub(body_height);
-        self.scroll = self.scroll.min(max_scroll);
         let mut visible_height = if self.show_help {
             help_page_height(&content, body_height, self.scroll)
         } else {
             body_height
         };
         visible_height = avoid_orphaned_source_header(&content, visible_height, self.scroll);
-        let visible = match sidebar {
-            Some(sidebar) => {
-                let left = Document {
-                    lines: content
-                        .lines
-                        .iter()
-                        .skip(self.scroll)
-                        .take(visible_height)
-                        .cloned()
-                        .collect(),
-                };
-                let columns = Document::columns(left, sidebar, width);
-                columns.ansi_window(width, visible_height, 0)
-            }
-            None => content.ansi_window(width, visible_height, self.scroll),
+        if !self.show_help {
+            visible_height = avoid_split_paragraph(&content, visible_height, self.scroll);
+        }
+        self.shown_rows = Some(visible_height);
+        let window = Document {
+            lines: content
+                .lines
+                .iter()
+                .skip(self.scroll)
+                .take(visible_height)
+                .cloned()
+                .collect(),
         };
-
-        execute!(io::stdout(), MoveTo(0, 0), Clear(ClearType::All))?;
-        if let Some(pinned) = &pinned {
-            execute!(
-                io::stdout(),
-                MoveTo(0, 0),
-                Print(pinned.ansi_window(width, pinned.lines.len(), 0))
-            )?;
-        }
-        execute!(
-            io::stdout(),
-            MoveTo(0, u16::try_from(body_top).unwrap_or(u16::MAX)),
-            Print(visible)
-        )?;
-        match &panel {
-            Some(panel) => self.draw_prompt(
-                panel,
-                u16::try_from(width).unwrap_or(u16::MAX),
-                u16::try_from(body_bottom).unwrap_or(u16::MAX),
-            )?,
-            None => {
-                let footer = self.footer_document(width, content.lines.len(), visible_height);
-                execute!(
-                    io::stdout(),
-                    MoveTo(0, u16::try_from(body_bottom).unwrap_or(u16::MAX)),
-                    Print(footer.ansi_window(width, footer.lines.len(), 0))
-                )?;
+        let mut overflow = Frame::overflowing(&window, content_width);
+        let body = match sidebar {
+            Some(sidebar) => {
+                let right_width = width.saturating_sub(content_width + 3);
+                let sidebar = sidebar.wrapped(right_width);
+                overflow.extend(Frame::overflowing(&sidebar, right_width));
+                Document::columns(window, sidebar, width)
             }
+            None => window,
+        };
+        let footer = panel
+            .is_none()
+            .then(|| self.footer_document(width, content.lines.len(), visible_height));
+        Frame {
+            width,
+            pinned,
+            body_top,
+            body,
+            body_bottom,
+            footer,
+            panel,
+            scroll: self.scroll,
+            visible_height,
+            total: content.lines.len(),
+            overflow,
         }
-        io::stdout().flush()?;
-        Ok(())
     }
 
     pub(super) fn page_step(&self) -> usize {
-        size()
+        let step = size()
             .map(|(_, height)| page_step_for(usize::from(height)))
-            .unwrap_or(10)
+            .unwrap_or(10);
+        self.bounded_step(step)
+    }
+
+    /// Self-review's frame check found a row PageDown never showed: the page
+    /// had been shortened to keep a source label with its code, and the next
+    /// page started a fixed step further on. Its UI judge then found pages
+    /// without a pinned header repeating six rows, because that fixed step was
+    /// sized for chunk pages. A page now advances by what it showed.
+    /// Whether the page last drawn already shows the last row with content,
+    /// so PageDown has nothing new to show.
+    pub(super) fn showing_last_content(&self) -> bool {
+        matches!(
+            (self.last_content_row, self.shown_rows),
+            (Some(last), Some(shown)) if self.scroll + shown > last
+        )
+    }
+
+    pub(super) fn bounded_step(&self, step: usize) -> usize {
+        // One row of overlap keeps the reader's place; more repeats the page.
+        self.shown_rows
+            .map_or(step, |shown| shown.saturating_sub(1).max(1))
     }
 
     /// Move help by a complete semantic page. Help is prose rather than source,
@@ -186,16 +265,16 @@ impl ReviewTui {
 
     pub(super) fn scroll_to_context(&mut self) {
         let width = size().map_or(80, |(width, _)| usize::from(width));
-        if width >= 100 {
+        if width >= SIDE_PANE_MIN_WIDTH {
             self.notice = Some("Context is visible in the sidebar".into());
             return;
         }
         let document = self.current_document(width).wrapped(width);
-        if let Some(row) = document
-            .lines
-            .iter()
-            .position(|line| line_text(line).starts_with("Context ·"))
-        {
+        if let Some(row) = document.lines.iter().position(|line| {
+            line_text(line)
+                .to_ascii_lowercase()
+                .starts_with("context ·")
+        }) {
             self.scroll = row;
         }
     }
@@ -211,7 +290,7 @@ impl ReviewTui {
             document.append(Screen::selected_feedback_header(feedback));
         }
         let chunk = &self.review.spec().chunks[index];
-        if width < 100
+        if width < SIDE_PANE_MIN_WIDTH
             && let Some(context) = &chunk.context
         {
             let selected = self
@@ -240,8 +319,88 @@ impl ReviewTui {
                 );
             }
         }
+        if let Some(lead) = self.lead(width) {
+            document.newline();
+            document.push(lead, muted());
+        }
         document.newline();
         Some(document)
+    }
+
+    /// The opening of the paragraph that introduces the code at the top of
+    /// this page, when that paragraph has scrolled off. On a short terminal a
+    /// chunk's prose and its code land on different pages; one pinned row
+    /// keeps the reason for reading the code in view.
+    fn lead(&self, width: usize) -> Option<String> {
+        if self.scroll == 0 || self.show_raw_source || self.selected_feedback().is_some() {
+            return None;
+        }
+        let content = self
+            .current_document(width)
+            .wrapped(self.content_width(width));
+        let rows: Vec<String> = content.lines.iter().map(line_text).collect();
+        let source = |row: &String| row.starts_with(SOURCE_GUTTER.trim_end());
+        // A heading is not part of the paragraph under it: the judge found
+        // "What this does" run into the pinned sentence.
+        let heading = |index: usize| {
+            let line = &content.lines[index];
+            line.width() > 0 && line.spans.iter().all(|span| span.style.bold)
+        };
+        let prose_at = |index: usize| {
+            !rows[index].trim().is_empty() && !source(&rows[index]) && !heading(index)
+        };
+        let top = self.scroll.min(rows.len().saturating_sub(1));
+        let end = (0..self.scroll.min(rows.len()))
+            .rev()
+            .find(|&index| prose_at(index))?;
+        // Code between that paragraph and the top of the page, the blank row
+        // after a view included, is what the paragraph introduces. Deciding on
+        // the top row alone would make the header height flicker at a view's
+        // end and leave the last row out of reach.
+        let opens_on_code = (top..rows.len())
+            .find(|&index| !rows[index].trim().is_empty())
+            .is_some_and(|index| source(&rows[index]));
+        if !opens_on_code && !(end + 1..=top).any(|index| source(&rows[index])) {
+            return None;
+        }
+        let start = (0..=end)
+            .rev()
+            .take_while(|&index| prose_at(index))
+            .last()?;
+        let paragraph = rows[start..=end]
+            .iter()
+            .map(|row| row.trim())
+            .collect::<Vec<_>>()
+            .join(" ");
+        // The last sentence sits right above the code and is where prose says
+        // what to look for or asks its question; two UI judges found the first
+        // sentence pinned while that question scrolled away.
+        let trimmed = paragraph.trim_end();
+        let boundary_before = |end: usize| {
+            [". ", "? ", "! "]
+                .iter()
+                .filter_map(|boundary| trimmed[..end].rfind(boundary).map(|at| at + boundary.len()))
+                .max()
+                .unwrap_or(0)
+        };
+        let mut start = boundary_before(trimmed.len());
+        // A short closing question ("Should they change?") needs the
+        // sentence before it to say what it is about.
+        if trimmed[start..].split_whitespace().count() < 10 && start > 0 {
+            start = boundary_before(start.saturating_sub(1));
+        }
+        let sentence = trimmed[start..].trim();
+        // Three rows at most: one cut the question the reader was meant to
+        // check, and two lost its end to word-wrapping slack.
+        let limit = width.saturating_mul(3).saturating_sub(12);
+        let mut lead = format!("↳ {sentence}");
+        if lead.chars().count() > limit {
+            // Cut at a word, not inside one ("ori…" read as a typo).
+            let kept: String = lead.chars().take(limit.saturating_sub(1)).collect();
+            let at = kept.rfind(' ').unwrap_or(kept.len());
+            lead = kept[..at].trim_end().to_owned() + " …";
+        }
+        Some(lead)
     }
 
     pub(super) fn current_document(&self, width: usize) -> Document {
@@ -262,7 +421,7 @@ impl ReviewTui {
     }
 
     fn chunk_document(&self, index: usize, width: usize, selected: Option<&str>) -> Document {
-        if width >= 100 && self.review.spec().chunks[index].context.is_some() {
+        if width >= SIDE_PANE_MIN_WIDTH && self.review.spec().chunks[index].context.is_some() {
             Screen::chunk_main(
                 &self.review,
                 &self.session,
@@ -285,7 +444,7 @@ impl ReviewTui {
     }
 
     pub(super) fn sidebar_document(&self, width: usize) -> Option<Document> {
-        if width < 100 || self.show_help || self.show_outline {
+        if width < SIDE_PANE_MIN_WIDTH || self.show_help || self.show_outline {
             return None;
         }
         let index = self.chunk_index()?;
@@ -309,22 +468,33 @@ impl ReviewTui {
             let document = self
                 .current_document(width)
                 .wrapped(self.content_width(width));
-            let context = document
-                .lines
-                .iter()
-                .position(|line| line_text(line).starts_with("Context ·"));
+            let context = document.lines.iter().position(|line| {
+                line_text(line)
+                    .to_ascii_lowercase()
+                    .starts_with("context ·")
+            });
             let source = document.lines.iter().position(is_source_header);
-            let section = if context.is_some_and(|row| self.scroll >= row) {
+            // Labelled by the middle of the page, not its top: a page that
+            // opens on one overlap row of code and then shows a context pane
+            // is a context page (found by self-review's UI judge).
+            let middle = self.scroll + body_height / 2;
+            let section = if context.is_some_and(|row| middle >= row) {
                 "Context"
-            } else if source.is_some_and(|row| self.scroll >= row) {
+            } else if source.is_some_and(|row| middle >= row) {
                 "Source"
             } else {
                 "Explanation"
             };
+            // Rows after the last content row are never paged to, so the
+            // cue must not promise them (self-review's UI judge found
+            // "1–18 / 21" on a chunk's only page).
+            let owed = self
+                .last_content_row
+                .map_or(total_lines, |last| (last + 1).min(total_lines));
             format!(
-                "{section} · view {}–{} / {total_lines}",
+                "{section} · view {}–{} / {owed}",
                 self.scroll + 1,
-                (self.scroll + body_height).min(total_lines)
+                (self.scroll + body_height).min(owed)
             )
         } else {
             String::new()
@@ -570,12 +740,30 @@ impl ReviewTui {
     }
 }
 
-fn is_source_header(line: &super::style::Line) -> bool {
+/// A row that introduces what follows it: a bold heading, or a context
+/// pane's title. Self-review found the title ending a page alone, because it
+/// is styled as a title rather than bold.
+pub(super) fn is_heading(line: &super::style::Line) -> bool {
+    (line.width() > 0 && line.spans.iter().all(|span| span.style.bold))
+        || line_text(line)
+            .to_ascii_lowercase()
+            .starts_with("context ·")
+}
+
+/// A row that shows the reader nothing: blank, a bare source gutter, or an
+/// elision marker.
+pub(super) fn is_content_free(line: &super::style::Line) -> bool {
+    let text = line_text(line);
+    let body = text.strip_prefix(SOURCE_GUTTER).unwrap_or(&text).trim();
+    body.is_empty() || body == SOURCE_GUTTER.trim() || body.starts_with('…')
+}
+
+pub(super) fn is_source_header(line: &super::style::Line) -> bool {
     let text = line_text(line);
     text.starts_with(SOURCE_GUTTER) && text.contains(" · ")
 }
 
-fn page_step_for(terminal_height: usize) -> usize {
+pub(super) fn page_step_for(terminal_height: usize) -> usize {
     terminal_height.saturating_sub(8).max(1)
 }
 
@@ -586,13 +774,57 @@ fn avoid_orphaned_source_header(document: &Document, maximum: usize, offset: usi
     let end = offset.saturating_add(maximum).min(document.lines.len());
     let orphan = (offset..end).find(|&index| {
         let line = &document.lines[index];
-        let heading = line.width() > 0 && line.spans.iter().all(|span| span.style.bold);
-        (is_source_header(line) && index + 2 >= end) || (heading && index + 1 >= end)
+        // Nothing but empty rows after a label leaves it as alone as being
+        // last: a blank row, a bare gutter, or an elision marker.
+        let only_empty_after =
+            (index + 1..end).all(|after| is_content_free(&document.lines[after]));
+        (is_source_header(line) || is_heading(line)) && only_empty_after
     });
     orphan
         .map(|index| index.saturating_sub(offset))
         .filter(|height| *height > 0)
         .unwrap_or(maximum)
+}
+
+/// Rows a page may give up to keep a prose paragraph whole on the next page.
+const PARAGRAPH_SLACK: usize = 8;
+
+/// Ends a page before a prose paragraph it would otherwise cut, when that
+/// costs few rows. A UI judge found a page stopping at "Commands that read"
+/// with the rest of the sentence alone on a near-empty next page. Code rows
+/// are left alone: their line numbers already say where the reader is.
+fn avoid_split_paragraph(document: &Document, maximum: usize, offset: usize) -> usize {
+    let end = offset.saturating_add(maximum);
+    // A context pane that would fit whole on the next page starts it, rather
+    // than leaving its definition here and its example on a near-empty page.
+    let pane = (offset + 1..end.min(document.lines.len())).find(|&index| {
+        line_text(&document.lines[index])
+            .to_ascii_lowercase()
+            .starts_with("context ·")
+    });
+    // Never at the cost of most of this page: a pane title just below the
+    // top would otherwise leave a page of one overlap row (found at 80x24).
+    if let Some(start) = pane
+        && end < document.lines.len()
+        && document.lines.len() - start <= maximum
+        && (start - offset) * 3 >= maximum
+    {
+        return start - offset;
+    }
+    let prose = |index: usize| {
+        document.lines.get(index).is_some_and(|line| {
+            let text = line_text(line);
+            !text.trim().is_empty() && !text.starts_with(SOURCE_GUTTER.trim_end())
+        })
+    };
+    if end >= document.lines.len() || !prose(end - 1) || !prose(end) {
+        return maximum;
+    }
+    let start = (offset..end).rev().take_while(|&index| prose(index)).last();
+    match start {
+        Some(start) if start > offset && end - start <= PARAGRAPH_SLACK => start - offset,
+        _ => maximum,
+    }
 }
 
 fn help_page_height(document: &Document, maximum: usize, offset: usize) -> usize {
@@ -734,7 +966,7 @@ fn retarget_action(target: FeedbackTarget) -> &'static str {
     }
 }
 
-fn line_text(line: &super::style::Line) -> String {
+pub(super) fn line_text(line: &super::style::Line) -> String {
     line.spans.iter().map(|span| span.text.as_str()).collect()
 }
 

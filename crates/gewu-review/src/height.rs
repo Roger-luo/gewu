@@ -54,61 +54,108 @@ fn quote_indent(change: &Change) -> usize {
 /// estimate that errs slightly high rather than an exact row count.
 #[must_use]
 pub fn chunk_height(chunk: &ReviewChunk, changes: &HashMap<&String, &Change>) -> usize {
-    let mut height = CHUNK_CHROME
-        + wrapped_rows(&chunk.title, REFERENCE_WIDTH).saturating_sub(1)
-        + prose_height(&chunk.summary, REFERENCE_WIDTH);
-    if let Some(confidence) = &chunk.confidence {
-        height += CONFIDENCE_CHROME
-            + prose_height(&format!("*Confidence:* {confidence}"), REFERENCE_WIDTH);
+    HeightBreakdown::of(chunk, changes).total()
+}
+
+/// Where a chunk's rows go, so an author over budget knows what to cut: prose,
+/// source lines, or the extra rows long source lines take when they wrap.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct HeightBreakdown {
+    /// Headings, blanks, source headers, and elision markers: the sum of
+    /// `fixed`, `frames`, `elisions`, and `closings`.
+    pub chrome: usize,
+    /// The 8 rows every chunk costs, plus wrapped title rows.
+    pub fixed: usize,
+    /// Source headers and the blanks around each run of views of one file.
+    pub frames: usize,
+    /// "… lines not shown" markers between and around views.
+    pub elisions: usize,
+    /// The blank row after each narrative block and confidence note.
+    pub closings: usize,
+    /// Summary, narrative, and confidence text as wrapped.
+    pub prose: usize,
+    /// One row per quoted source line.
+    pub source: usize,
+    /// Rows added by source lines too wide for the reference width.
+    pub wrapping: usize,
+}
+
+impl HeightBreakdown {
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.chrome + self.prose + self.source + self.wrapping
     }
-    // The renderer sizes one gutter for the whole chunk, so every view loses
-    // the same columns to it.
-    let indent = chunk
-        .quotes()
-        .filter_map(|quote| changes.get(&quote.change_id))
-        .map(|change| quote_indent(change))
-        .max()
-        .unwrap_or(4);
-    for block in &chunk.content {
-        height += match block {
-            ChunkBlock::Narrative { markdown } => prose_height(markdown, REFERENCE_WIDTH) + 1,
-            ChunkBlock::Changes {
-                quotes,
-                presentation,
-            } => {
-                let resolved: Vec<_> = quotes
-                    .iter()
-                    .filter_map(|quote| {
-                        changes.get(&quote.change_id).map(|change| (quote, *change))
-                    })
-                    .collect();
-                let rows: usize = resolved
-                    .iter()
-                    .map(|(quote, change)| quoted_height(quote, change, *presentation, indent))
-                    .sum();
-                // Elision markers make omitted material and separate views
-                // explicit. Each file run can carry one at either edge, and
-                // every later view carries one before it.
-                let elisions = resolved
-                    .chunk_by(|left, right| left.1.path == right.1.path)
-                    .map(|run| {
-                        usize::from(run[0].0.start > 1)
-                            + run.len().saturating_sub(1)
-                            + usize::from(
-                                run.last()
-                                    .is_some_and(|(quote, change)| quote.end < change.body_lines()),
-                            )
-                    })
-                    .sum::<usize>();
-                let files: Vec<_> = resolved.iter().map(|(_, change)| *change).collect();
-                BLOCK_CHROME * file_runs(&files).max(1)
-                    + header_rows(&resolved, *presentation)
-                    + elisions
-                    + rows
-            }
+
+    #[must_use]
+    pub fn of(chunk: &ReviewChunk, changes: &HashMap<&String, &Change>) -> Self {
+        let mut parts = Self {
+            fixed: CHUNK_CHROME + wrapped_rows(&chunk.title, REFERENCE_WIDTH).saturating_sub(1),
+            prose: prose_height(&chunk.summary, REFERENCE_WIDTH),
+            ..Self::default()
         };
+        if let Some(confidence) = &chunk.confidence {
+            parts.closings += CONFIDENCE_CHROME;
+            parts.prose += prose_height(&format!("*Confidence:* {confidence}"), REFERENCE_WIDTH);
+        }
+        // The renderer sizes one gutter for the whole chunk, so every view
+        // loses the same columns to it.
+        let indent = chunk
+            .quotes()
+            .filter_map(|quote| changes.get(&quote.change_id))
+            .map(|change| quote_indent(change))
+            .max()
+            .unwrap_or(4);
+        for block in &chunk.content {
+            match block {
+                ChunkBlock::Narrative { markdown } => {
+                    parts.prose += prose_height(markdown, REFERENCE_WIDTH);
+                    parts.closings += 1;
+                }
+                ChunkBlock::Changes {
+                    quotes,
+                    presentation,
+                } => {
+                    let resolved: Vec<_> = quotes
+                        .iter()
+                        .filter_map(|quote| {
+                            changes.get(&quote.change_id).map(|change| (quote, *change))
+                        })
+                        .collect();
+                    for (quote, change) in &resolved {
+                        let rows = quoted_height(quote, change, *presentation, indent);
+                        let lines = match presentation {
+                            ChangePresentation::Diff | ChangePresentation::AddedCode => {
+                                quote.lines()
+                            }
+                            _ => rows,
+                        };
+                        parts.source += lines.min(rows);
+                        parts.wrapping += rows.saturating_sub(lines);
+                    }
+                    // Elision markers make omitted material and separate views
+                    // explicit. Each file run can carry one at either edge, and
+                    // every later view carries one before it.
+                    let elisions =
+                        resolved
+                            .chunk_by(|left, right| left.1.path == right.1.path)
+                            .map(|run| {
+                                usize::from(run[0].0.start > 1)
+                                    + run.len().saturating_sub(1)
+                                    + usize::from(run.last().is_some_and(|(quote, change)| {
+                                        quote.end < change.body_lines()
+                                    }))
+                            })
+                            .sum::<usize>();
+                    let files: Vec<_> = resolved.iter().map(|(_, change)| *change).collect();
+                    parts.frames += BLOCK_CHROME * file_runs(&files).max(1)
+                        + header_rows(&resolved, *presentation);
+                    parts.elisions += elisions;
+                }
+            }
+        }
+        parts.chrome = parts.fixed + parts.frames + parts.elisions + parts.closings;
+        parts
     }
-    height
 }
 
 /// What a chunk's `context` pane costs, measured apart from the review work it
@@ -325,6 +372,23 @@ mod tests {
 
     use super::{BLOCK_CHROME, CHUNK_CHROME, CHUNK_HEIGHT_GUIDANCE, chunk_height};
 
+    /// The breakdown must add up to what validation charges, or an author
+    /// trimming by it would cut the wrong thing.
+    #[test]
+    fn the_breakdown_sums_to_the_height_and_names_wrapping() {
+        let long = format!("@@ -0,0 +1,2 @@\n+{}\n+short\n", "x".repeat(150));
+        let change = change("a.rs", &long, 2);
+        let chunk = chunk(vec![ChunkBlock::Changes {
+            quotes: vec![Quote::whole(change.id.clone(), 2)],
+            presentation: ChangePresentation::AddedCode,
+        }]);
+        let known = HashMap::from([(&change.id, &change)]);
+        let parts = super::HeightBreakdown::of(&chunk, &known);
+        assert_eq!(parts.total(), chunk_height(&chunk, &known));
+        assert_eq!(parts.source, 2);
+        assert!(parts.wrapping >= 1, "{parts:?}");
+    }
+
     /// Prompt drift once made authors undercount every rendered document.
     #[test]
     fn public_guidance_names_the_rendered_markdown_closing_row() {
@@ -348,6 +412,7 @@ mod tests {
             context: None,
             confidence: None,
             oversized_reason: None,
+            section: None,
         }
     }
 

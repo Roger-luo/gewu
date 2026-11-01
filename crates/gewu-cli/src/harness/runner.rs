@@ -31,6 +31,58 @@ pub struct HarnessRunner {
 }
 
 impl HarnessRunner {
+    pub fn expansion_guide(&self) -> Result<String> {
+        let run = self.run()?;
+        ensure!(
+            matches!(run.state.stage, HarnessStage::Expand | HarnessStage::Repair),
+            "not expanding a work item"
+        );
+        let work = self.work_list()?;
+        let item = work.next_item().context("no pending work item")?;
+        Ok(prompts::expand(
+            item,
+            &run.input,
+            None,
+            run.input.max_chunk_lines,
+            self.max_chunks,
+        ))
+    }
+
+    pub fn measure_expansion(&self, path: &Path) -> Result<serde_json::Value> {
+        let run = self.run()?;
+        ensure!(
+            matches!(run.state.stage, HarnessStage::Expand | HarnessStage::Repair),
+            "not expanding a work item"
+        );
+        let work = self.work_list()?;
+        let item = work.next_item().context("no pending work item")?;
+        let expansion: gewu_review::harness::Expansion = artifacts::read(path)?;
+        ensure!(
+            expansion.item_id == item.id,
+            "candidate names a different work item"
+        );
+        let mut errors = expansion
+            .validate(&run.input, item, self.max_chunks)
+            .err()
+            .map_or_else(Vec::new, |errors| error_strings(errors.0));
+        let mut spec = self.spec_so_far(&run)?;
+        spec.chunks.extend(expansion.chunks.clone());
+        if let Err(invalid) = ValidatedReview::validate_partial(run.input.clone(), spec) {
+            errors.extend(error_strings(invalid.0));
+        }
+        let known = run
+            .input
+            .changes
+            .iter()
+            .map(|change| (&change.id, change))
+            .collect();
+        let chunks: Vec<_> = expansion.chunks.iter().map(|chunk| serde_json::json!({
+            "id": chunk.id, "rows": gewu_review::chunk_height(chunk, &known),
+            "context_rows": gewu_review::pane_height(chunk), "limit": run.input.max_chunk_lines
+        })).collect();
+        Ok(serde_json::json!({"valid": errors.is_empty(), "errors": errors, "chunks": chunks}))
+    }
+
     #[must_use]
     pub fn new(max_chunks: usize, force: bool) -> Self {
         Self {
@@ -91,17 +143,54 @@ impl HarnessRunner {
     pub fn status(&self) -> Result<String> {
         let run = self.run()?;
         match run.state.stage {
-            HarnessStage::Investigate => Ok(prompts::investigate()),
+            HarnessStage::Investigate => Ok(self.investigation_prompt(&run)),
             HarnessStage::Plan => Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks)),
             HarnessStage::Expand | HarnessStage::Repair => {
-                let prompt = self.prompt_expand(&run, &self.work_list()?)?;
-                // Measuring a draft should not require failing first.
-                match self.store.expansion() {
-                    Ok(Some(expansion)) => Ok(format!(
-                        "{}\nRevise `.gewu/harness/expansion.json` if needed, measure again, then \
-                         run `gewu harness next`.\n",
-                        prompts::measured(&expansion.chunks, &run.input)
-                    )),
+                let work = self.work_list()?;
+                let prompt = self.prompt_expand(&run, &work)?;
+                // Measuring a draft should not require failing first, and
+                // neither should checking it: self-review authors could learn
+                // whether their spans were covered only by advancing.
+                match (self.store.expansion(), work.next_item()) {
+                    (Ok(Some(expansion)), Some(item)) => {
+                        let verdict = match expansion.validate(&run.input, item, self.max_chunks) {
+                            Ok(()) => "The draft validates; `gewu harness next` will accept it.\n"
+                                .to_owned(),
+                            Err(errors) => format!(
+                                "`gewu harness next` would reject the draft:\n\n{}\n",
+                                error_strings(errors.0)
+                                    .iter()
+                                    .map(|error| format!("- {error}"))
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                            ),
+                        };
+                        // Advisory: a trimmed view can strand a citation, but
+                        // an anchor to an earlier chunk is not a defect.
+                        let cited: Vec<_> = expansion
+                            .chunks
+                            .iter()
+                            .flat_map(|chunk| {
+                                gewu_review::audit::invisible_in(chunk, &run.input.changes)
+                                    .into_iter()
+                                    .map(|citation| format!("- `{}` cites {citation}", chunk.id))
+                            })
+                            .collect();
+                        let cited = if cited.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                "\nCited lines no view of the chunk shows; fine for an earlier \
+                                 chunk or code outside the diff, otherwise quote them:\n\n{}\n",
+                                cited.join("\n")
+                            )
+                        };
+                        Ok(format!(
+                            "{}\n{verdict}{cited}\nRevise `.gewu/harness/expansion.json` if \
+                             needed, measure again, then run `gewu harness next`.\n",
+                            prompts::measured(&expansion.chunks, &run.input)
+                        ))
+                    }
                     _ => Ok(prompt),
                 }
             }
@@ -144,7 +233,7 @@ impl HarnessRunner {
     fn finish_investigation(&self, run: &mut Run) -> Result<String> {
         let checkpoint = match self.store.investigation() {
             Ok(Some(checkpoint)) => checkpoint,
-            Ok(None) => return Ok(prompts::investigate()),
+            Ok(None) => return Ok(self.investigation_prompt(run)),
             Err(error) => {
                 return Ok(prompts::checkpoint_retry(
                     ".gewu/harness/investigation.json",
@@ -158,8 +247,27 @@ impl HarnessRunner {
                 &error_strings(errors.0),
             ));
         }
+        if let Err(error) = super::research_state::validate_checkpoint(
+            self.store.root(),
+            &run.input,
+            &checkpoint,
+            run.state.research_required,
+        ) {
+            return Ok(prompts::checkpoint_retry(
+                ".gewu/harness/investigation.json",
+                &[error.to_string()],
+            ));
+        }
         self.advance(&mut run.state, HarnessStage::Plan)?;
         Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks))
+    }
+
+    fn investigation_prompt(&self, run: &Run) -> String {
+        if run.state.research_required {
+            super::research_state::prompt()
+        } else {
+            prompts::investigate()
+        }
     }
 
     fn finish_plan(&self, run: &mut Run) -> Result<String> {
@@ -187,8 +295,10 @@ impl HarnessRunner {
     fn finish_expansion(&self, run: &mut Run) -> Result<String> {
         let mut work = self.work_list()?;
         let Some(item) = work.next_item().cloned() else {
-            self.advance(&mut run.state, HarnessStage::Complete)?;
-            return Ok(prompts::complete(&run.state.review_id));
+            let spec = self.spec_so_far(run)?;
+            artifacts::write(&self.spec_path, &spec)?;
+            self.advance(&mut run.state, HarnessStage::Await)?;
+            return self.evaluate(run);
         };
         let expansion = match self.store.expansion() {
             Ok(Some(expansion)) => expansion,
@@ -203,12 +313,25 @@ impl HarnessRunner {
             return self.repair(run, &item, &[mismatch]);
         }
         if let Err(errors) = expansion.validate(&run.input, &item, self.max_chunks) {
-            let mut reported = error_strings(errors.0);
-            reported.push(prompts::measured(&expansion.chunks, &run.input));
-            return self.repair(run, &item, &reported);
+            // The draft exists, so the errors and its measurement are what the
+            // agent needs; reprinting the whole stage prompt buried them (found
+            // by self-review).
+            if run.state.stage != HarnessStage::Repair {
+                self.advance(&mut run.state, HarnessStage::Repair)?;
+            }
+            return Ok(prompts::draft_retry(
+                &error_strings(errors.0),
+                &prompts::measured(&expansion.chunks, &run.input),
+            ));
         }
         let mut spec = self.spec_so_far(run)?;
-        spec.chunks.extend(expansion.chunks);
+        // Each chunk carries the item it was written for, so the reviewer can
+        // see which part of the walkthrough they are in.
+        spec.chunks
+            .extend(expansion.chunks.into_iter().map(|chunk| ReviewChunk {
+                section: Some(item.title.clone()),
+                ..chunk
+            }));
         work.mark_expanded(&item.id);
         spec = spec.with_remaining_work(work.remaining());
         if let Err(errors) = ValidatedReview::validate_partial(run.input.clone(), spec.clone()) {
@@ -232,7 +355,16 @@ impl HarnessRunner {
             }
             Verdict::Expand => {
                 self.advance(&mut run.state, HarnessStage::Expand)?;
-                self.prompt_expand(run, &work)
+                // Say what the reviewer left, so "no feedback" is not mistaken
+                // for "feedback ignored" (found by self-review).
+                let spec = self.spec()?;
+                let left = self.session(&spec)?.feedback.len();
+                let prompt = self.prompt_expand(run, &work)?;
+                let (heading, body) = prompt.split_once("\n\n").unwrap_or((&prompt, ""));
+                Ok(format!(
+                    "{heading}\n\n{}{body}",
+                    prompts::reviewer_read(left)
+                ))
             }
             Verdict::Replan { stale_chunks } => {
                 let current = self.current_manifest(run)?;
@@ -311,7 +443,10 @@ impl HarnessRunner {
         let mut rewritten = revision.chunks;
         for chunk in &mut spec.chunks {
             if let Some(position) = rewritten.iter().position(|other| other.id == chunk.id) {
+                // A rewrite changes how a chunk reads, not where it belongs.
+                let section = chunk.section.take();
                 *chunk = rewritten.remove(position);
+                chunk.section = section;
             }
         }
         if let Err(errors) = ValidatedReview::validate_partial(run.input.clone(), spec.clone()) {
@@ -372,6 +507,7 @@ impl HarnessRunner {
             .iter()
             .filter(|change| !covered.contains(&change.id))
             .count();
+        super::research_state::archive(self.store.root(), run.state.revision, &run.input)?;
         artifacts::write(&self.input_path, &current)?;
         artifacts::write(&self.spec_path, &spec)?;
         self.store.save_work_list(&work)?;
@@ -379,6 +515,13 @@ impl HarnessRunner {
         run.state.source = current.source.clone();
         run.input = current;
         self.advance(&mut run.state, HarnessStage::Investigate)?;
+        if run.state.research_required {
+            return Ok(format!(
+                "# Gewu harness: the plan is stale\n\n{} stale chunk(s) were removed; {remainder} change(s) are uncovered. Surviving chunks and feedback were kept. Previous research was archived.\n\n{}",
+                stale.len(),
+                super::research_state::prompt()
+            ));
+        }
         Ok(prompts::replan(stale, remainder))
     }
 
@@ -455,7 +598,7 @@ impl HarnessRunner {
             |checkpoint| Overview {
                 intent: checkpoint.intent,
                 changes: checkpoint.changes,
-                illustration: None,
+                illustration: checkpoint.illustration,
                 concepts: checkpoint.concepts,
             },
         );

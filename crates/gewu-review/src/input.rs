@@ -124,6 +124,30 @@ impl Change {
         found
     }
 
+    /// Whether coverage must show this body line. Blank lines carry nothing
+    /// to review, and neither does the unchanged context Git puts at a hunk's
+    /// edges: it belongs to the code around the change, and requiring it made
+    /// authors quote the next, unrelated test's attribute (found by
+    /// self-review). Context between two edits stays, because it is read with
+    /// them.
+    #[must_use]
+    pub fn needs_review(&self, line: usize) -> bool {
+        let lines: Vec<_> = self.body(1, self.body_lines());
+        let Some(text) = lines.get(line.wrapping_sub(1)) else {
+            return true;
+        };
+        if text.get(1..).unwrap_or_default().trim().is_empty() {
+            return false;
+        }
+        if !self.patch.starts_with("@@ ") || !text.starts_with(' ') {
+            return true;
+        }
+        let edited = |text: &&str| text.starts_with(['+', '-']);
+        let first = lines.iter().position(edited);
+        let last = lines.iter().rposition(edited);
+        matches!((first, last), (Some(first), Some(last)) if line > first && line <= last + 1)
+    }
+
     /// The body lines a quote names, 1-based and inclusive.
     #[must_use]
     pub fn body(&self, start: usize, end: usize) -> Vec<&str> {
@@ -243,5 +267,20 @@ mod tests {
         assert_eq!(change.new_line_at(3), Some(21));
         assert_eq!(change.new_line_at(4), Some(22));
         assert_eq!(change.new_line_at(5), None);
+    }
+
+    /// Found by self-review: coverage made an author quote the `#[test]`
+    /// line of the next, unchanged test, which Git includes as context.
+    #[test]
+    fn edge_context_needs_no_review_but_context_between_edits_does() {
+        let change = Change::new(
+            "a.rs",
+            (1, 6, 1, 6),
+            "@@ -1,6 +1,6 @@\n before\n-old\n+new\n between\n+more\n\n #[test]\n",
+        );
+        let needed: Vec<_> = (1..=change.body_lines())
+            .filter(|line| change.needs_review(*line))
+            .collect();
+        assert_eq!(needed, [2, 3, 4, 5]);
     }
 }

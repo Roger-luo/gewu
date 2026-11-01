@@ -1,0 +1,73 @@
+{
+ "input": {
+  "schema_version": 4,
+  "source": {
+   "base": "3ead6c1aba5ccda07b2eda52769412bf87339b8a",
+   "head": "c37d2942e69dcc657f8cf9aff7b8bcc3f1ed8e2f",
+   "diff_sha256": "3848a3f4b3cfde7d7a493830f428a527edaa9ce3e8e6ee57300130659de8035f"
+  },
+  "max_chunk_lines": 40,
+  "changes": [
+   {
+    "id": "change-46d3de0a4bda3dcb",
+    "path": "crates/gewu-review/src/harness/progress.rs",
+    "old_start": 104,
+    "old_lines": 6,
+    "new_start": 114,
+    "new_lines": 10,
+    "body_lines": 10,
+    "patch": "@@ -104,6 +114,10 @@ pub fn next_step(\n         return Verdict::Replan { stale_chunks };\n     }\n \n+    // A decision settles what the reviewer had read when they made it, and\n+    // says nothing about a batch written since. It must not stand in for\n+    // reading one: this is the gate the whole design rests on, and letting a\n+    // decision retire it would let an agent write the entire plan unread.\n     let unreviewed = spec\n         .chunks\n         .iter()\n"
+   }
+  ]
+ },
+ "spec": {
+  "schema_version": 4,
+  "review_id": "review-18e3afc36fedc3b0",
+  "source": {
+   "base": "3ead6c1aba5ccda07b2eda52769412bf87339b8a",
+   "head": "c37d2942e69dcc657f8cf9aff7b8bcc3f1ed8e2f",
+   "diff_sha256": "3848a3f4b3cfde7d7a493830f428a527edaa9ce3e8e6ee57300130659de8035f"
+  },
+  "overview": {
+   "intent": "Stop an approve or comment decision from ending a harness review that has not yet written every change into a chunk, so settling one batch lets the harness carry on to the next instead of completing.",
+   "changes": [
+    "In `next_step` (crates/gewu-review/src/harness/progress.rs), an Approve or Comment decision returns `Verdict::Complete` up front only when every change in the current manifest already appears in some chunk of the spec; otherwise the decision is ignored at that point and the remaining gates (requests, re-plan, waiting for unread chunks, expand) run as usual.",
+    "The set of written change IDs is now computed once at the top of `next_step` as `written` and reused by the drift check, replacing the later `expanded` set with identical contents.",
+    "The review TUI's summary screen no longer asks for confirmation when unwritten changes remain: `finish_review` records the derived outcome directly, and the `unwritten()` helper and its test are deleted. The footer and summary text that still say \"End the review\" were not changed by this diff.",
+    "New domain tests cover: completion when everything is written, waiting for an unread batch despite a decision, expanding after approving a partial review, and a Code request still routing to handover after a Comment decision. Runner tests are split the same way. These tests were read, not executed, in this investigation."
+   ],
+   "concepts": [
+    "Batch: the chunks the harness has appended to the spec since the reviewer last read; the harness writes the review a work item at a time and waits between batches.",
+    "Verdict / `next_step`: the pure domain function that decides what `gewu harness next` does — Expand, Wait, Replan, Handover, Revise, or Complete — from the spec, the reviewer's session, the work list, and the current and previous manifests.",
+    "Decision: the session's recorded Approve, Comment, or RequestChanges, derived in the TUI from the reviewer's feedback (`ReviewSession::outcome`) rather than chosen; it persists in the session event log until another decision event overwrites it.",
+    "Written (formerly `expanded`): the set of manifest change IDs that some chunk in the spec already quotes."
+   ]
+  },
+  "chunks": [
+   {
+    "id": "gate-wait-comment",
+    "title": "The wait gate is documented as outranking a decision",
+    "summary": "Only a comment is added above the unreviewed-chunk count; the count itself is unchanged. It states that a decision must not substitute for reading a batch written after it.",
+    "kind": "other",
+    "content": [
+     {
+      "type": "narrative",
+      "markdown": "Check this comment against the early return in “Completion now also requires every change to be written”. `ReviewSession::apply` overwrites `decision` only on another `DecisionSet` event, and the harness keys the session by `review_id`, so an Approve from batch 1 is still recorded when later batches arrive. Once the final item is appended, `whole` becomes true: does `gewu harness next` then return Complete before this count is reached, leaving the last batch unread?"
+     },
+     {
+      "type": "changes",
+      "quotes": [
+       {
+        "change_id": "change-46d3de0a4bda3dcb",
+        "start": 1,
+        "end": 10
+       }
+      ],
+      "presentation": "diff"
+     }
+    ],
+    "confidence": "Read from source only; no test or run here exercises a decision recorded before the final batch is written."
+   }
+  ]
+ }
+}

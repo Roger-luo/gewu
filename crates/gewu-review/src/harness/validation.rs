@@ -419,10 +419,7 @@ impl CheckpointValidator {
     }
 
     fn is_blank(change: &Change, line: usize) -> bool {
-        change
-            .body(line, line)
-            .first()
-            .is_none_or(|text| text.get(1..).unwrap_or_default().trim().is_empty())
+        !change.needs_review(line)
     }
 
     /// Spans of the item that no chunk walks through.

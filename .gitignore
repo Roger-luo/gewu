@@ -1,5 +1,6 @@
 /target
 /.gewu
+__pycache__/
 
 # Managed by ion
 .agents/skills/ion-cli
@@ -14,8 +15,10 @@ CLAUDE.md
 .claude/skills/rust-best-practices
 
 # Managed by ion: links `ion add` regenerates from Ion.toml. The skills
-# themselves are tracked at .agents/skills/gewu-dogfood and
+# themselves are tracked at .agents/skills/gewu-dogfood,
+# .agents/skills/gewu-self-review, and
 # harness/skills/gewu-review.
 .agents/skills/gewu-review
 .claude/skills/gewu-review
 .claude/skills/gewu-dogfood
+.claude/skills/gewu-self-review

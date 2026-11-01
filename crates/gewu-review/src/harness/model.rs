@@ -41,6 +41,10 @@ pub struct HarnessState {
     pub origin: ReviewOrigin,
     pub stage: HarnessStage,
     pub revision: u32,
+    /// Once enabled, missing research artifacts cannot silently select the
+    /// legacy investigation path, including after a source-driven replan.
+    #[serde(default)]
+    pub research_required: bool,
     /// Chunks the reviewer asked to have rewritten, while the `Revise` stage
     /// runs. A rewrite must replace exactly these, so the harness remembers
     /// what it asked for rather than re-deriving it from a session that the
@@ -59,6 +63,7 @@ impl HarnessState {
             origin,
             stage: HarnessStage::Investigate,
             revision: 0,
+            research_required: false,
             revising: Vec::new(),
         }
     }
@@ -82,6 +87,9 @@ impl HarnessState {
 pub struct InvestigationFinding {
     pub change_ids: Vec<String>,
     pub summary: String,
+    /// Exact original body spans backing this finding; empty for legacy notes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_spans: Vec<Quote>,
     #[serde(default)]
     pub evidence: Vec<String>,
 }
@@ -96,6 +104,9 @@ pub struct InvestigationCheckpoint {
     pub changes: Vec<String>,
     #[serde(default)]
     pub concepts: Vec<String>,
+    /// A map of how the parts of the change connect, for the overview.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub illustration: Option<crate::Illustration>,
     pub findings: Vec<InvestigationFinding>,
 }
 
@@ -133,6 +144,42 @@ pub struct WorkList {
 }
 
 impl WorkList {
+    /// Validate an independently authored subset without rebasing any source
+    /// IDs or line coordinates. A merged plan still requires full validation.
+    pub fn validate_scope(
+        &self,
+        input: &ReviewInput,
+        change_ids: &[String],
+        max_chunks: usize,
+    ) -> Result<(), HarnessValidationErrors> {
+        use super::HarnessValidationError;
+        if change_ids.is_empty() {
+            return Err(HarnessValidationErrors(vec![
+                HarnessValidationError::Empty("planning scope"),
+            ]));
+        }
+        let unknown: Vec<_> = change_ids
+            .iter()
+            .filter(|id| !input.changes.iter().any(|change| &change.id == *id))
+            .map(|id| HarnessValidationError::UnknownChange(id.clone()))
+            .collect();
+        if !unknown.is_empty() {
+            return Err(HarnessValidationErrors(unknown));
+        }
+        let subset = ReviewInput {
+            schema_version: input.schema_version,
+            source: input.source.clone(),
+            max_chunk_lines: input.max_chunk_lines,
+            changes: input
+                .changes
+                .iter()
+                .filter(|change| change_ids.contains(&change.id))
+                .cloned()
+                .collect(),
+        };
+        self.validate_for(&subset, max_chunks)
+    }
+
     pub fn validate(&self, input: &ReviewInput) -> Result<(), HarnessValidationErrors> {
         CheckpointValidator::work_list(self, input)
     }

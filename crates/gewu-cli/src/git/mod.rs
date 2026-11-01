@@ -12,6 +12,7 @@ const EXCLUDE_STATE: &str = ":(exclude,top).gewu";
 use gewu_review::{ReviewInput, SourceIdentity};
 
 mod diff;
+mod tree;
 
 use diff::DiffParser;
 
@@ -81,6 +82,30 @@ impl<'a> Repository<'a> {
         self.git_with_index(&index.path, ["add", "-A", "--", "."])?;
         let tree = self.git_text_with_index(&index.path, ["write-tree"])?;
         self.review_input(&base, &tree, max_chunk_lines)
+    }
+
+    /// Refuses a review with nothing in it. A range whose ends are the same
+    /// commit opens as an empty walkthrough that looks broken; this happened
+    /// with `--base <HEAD's commit> --head HEAD` while all work was uncommitted.
+    pub fn ensure_changes(&self, input: &ReviewInput, working_tree: bool) -> Result<()> {
+        if !input.changes.is_empty() {
+            return Ok(());
+        }
+        let base = &input.source.base[..input.source.base.len().min(12)];
+        let hint = if working_tree {
+            "the working tree matches the base; there are no uncommitted changes".to_owned()
+        } else {
+            let dirty = !self.git_text(["status", "--porcelain"])?.is_empty();
+            format!(
+                "the range has no changes{}",
+                if dirty {
+                    "; your edits are uncommitted, so review them with `--base HEAD --working-tree`"
+                } else {
+                    ""
+                }
+            )
+        };
+        bail!("nothing to review from {base}: {hint}")
     }
 
     fn git_text<const N: usize>(&self, args: [&str; N]) -> Result<String> {

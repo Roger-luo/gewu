@@ -23,19 +23,21 @@ pub enum Verdict {
     /// Unresolved requests about the walkthrough. An agent rewrites exactly
     /// these chunks.
     Revise { chunk_ids: Vec<String> },
-    /// Nothing is left to expand or the reviewer has finished.
+    /// Nothing is left to expand and every chunk is read, or the reviewer
+    /// settled a whole, read review with a decision.
     Complete,
 }
 
 /// Decides what happens when the harness is asked to continue.
 ///
-/// The gates are ordered by what would waste the most work if skipped. Drift
-/// comes first, because an approval over code that has since moved is not an
-/// approval. Then the reviewer's own requests, because they are instructions
-/// already given and nothing is gained by sitting on them. Only then does the
-/// harness wait for the rest of the batch to be read. `force` skips the request
-/// gates, for a reviewer who knows their request is confined to what is already
-/// expanded.
+/// The gates are ordered by what would waste the most work if skipped. A
+/// review that is whole, read, and settled by a decision is complete. Then the
+/// reviewer's own requests about code that has held still, because they are
+/// instructions already given and nothing is gained by sitting on them. Then
+/// drift, because chunks over code that has since moved must be re-planned.
+/// Only then does the harness wait for the rest of the batch to be read.
+/// `force` skips the request gates, for a reviewer who knows their request is
+/// confined to what is already expanded.
 #[must_use]
 pub fn next_step(
     spec: &ReviewSpec,
@@ -60,7 +62,15 @@ pub fn next_step(
         .changes
         .iter()
         .all(|change| written.contains(&change.id));
+    // Nor does a decision outlive the batch it was made about: it is never
+    // cleared, so without the read check an approval of the first batch would
+    // complete the review as soon as the last one was written.
+    let read = spec
+        .chunks
+        .iter()
+        .all(|chunk| session.reviewed.contains(&chunk.id));
     if whole
+        && read
         && matches!(
             session.decision,
             Some(Decision::Approve | Decision::Comment)
@@ -79,7 +89,10 @@ pub fn next_step(
     let drifted_beyond_expansion = current
         .changes
         .iter()
-        .any(|change| !carried.contains(&change.id) && !written.contains(&change.id));
+        .any(|change| !carried.contains(&change.id) && !written.contains(&change.id))
+        || previous.changes.iter().any(|change| {
+            !written.contains(&change.id) && !current.changes.iter().any(|now| now.id == change.id)
+        });
 
     // Requests come before re-planning, but only where the code they are about
     // has held still. Re-planning keeps chunks that survived the drift, so
@@ -167,6 +180,7 @@ mod tests {
                 context: None,
                 confidence: None,
                 oversized_reason: None,
+                section: None,
             })
             .collect();
         let items = changes
@@ -411,6 +425,27 @@ mod tests {
         );
         // Settled, and then a batch arrived that the reviewer has not read.
         let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::decision(Decision::Approve));
+
+        assert_eq!(
+            next_step(&spec, &session, &work, &input, &input, false),
+            Verdict::Wait { unreviewed: 1 }
+        );
+    }
+
+    /// Found by self-review: a decision is never cleared, so approving the
+    /// first batch used to complete the review the moment the last batch was
+    /// written, before anyone read it.
+    #[test]
+    fn an_earlier_decision_does_not_complete_an_unread_final_batch() {
+        let (first, second) = (change("a.rs", "one"), change("b.rs", "two"));
+        let (spec, work, input) = fixture(
+            vec![first.clone(), second.clone()],
+            &[first.id.clone(), second.id.clone()],
+        );
+        // Batch one was read and approved; batch two covers the rest, unread.
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::reviewed("chunk-0", true));
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
         assert_eq!(

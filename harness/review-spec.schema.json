@@ -148,6 +148,21 @@
               "type": "string"
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "text"
+          ],
+          "properties": {
+            "kind": {
+              "const": "diagram"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
         }
       ]
     },
@@ -249,6 +264,10 @@
         },
         "oversized_reason": {
           "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "description": "The work item this chunk was written for; shown as its section."
         }
       }
     },

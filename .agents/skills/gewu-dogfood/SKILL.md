@@ -127,6 +127,10 @@ handover -> retarget -> harness next -> write the checkpoint
          -> harness next (still gated) -> review resolve -> harness next (moves on)
 ```
 
+Once the walkthrough is complete, run `gewu review audit` in the reviewed
+copy. A failing coverage or reference gate is a finding like any other; see
+`docs/self-review.md` for the tiers and rubric.
+
 The gate must still hold before the feedback is resolved. That step is the one
 worth checking by hand: it separates a loop that closes from one that merely
 runs.

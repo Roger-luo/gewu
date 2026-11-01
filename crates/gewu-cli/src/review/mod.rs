@@ -1,4 +1,6 @@
+mod audit;
 mod feedback;
+mod frames;
 mod handover;
 
 use std::{
@@ -15,7 +17,9 @@ use gewu_review::{
 
 use crate::{git::Repository, tui::ReviewTui};
 
+use self::audit::AuditArgs;
 use self::feedback::{ResolveArgs, RetargetArgs};
+use self::frames::FramesArgs;
 use self::handover::HandoverArgs;
 
 const GUIDE: &str = include_str!("../../../../harness/review.md");
@@ -28,10 +32,16 @@ pub enum ReviewCommand {
     Guide,
     /// Validate an agent-generated review specification.
     Validate(ValidateArgs),
+    /// Check a validated review's coverage and references mechanically.
+    Audit(AuditArgs),
     /// Generate a deterministic file-ordered fallback specification.
     Fallback(FallbackArgs),
+    /// Have an agent write the walkthrough, stopping at each reviewer gate.
+    Generate(crate::harness::GenerateArgs),
     /// Open a validated review in the terminal UI.
     Open(OpenArgs),
+    /// Render every page of a review headlessly and check what a machine can.
+    Frames(FramesArgs),
     /// Print what the reviewer produced, for whoever acts on it next.
     Handover(HandoverArgs),
     /// Mark feedback addressed, so the harness stops holding for it.
@@ -49,8 +59,11 @@ impl ReviewCommand {
                 Ok(())
             }
             Self::Validate(args) => args.run(),
+            Self::Audit(args) => args.run(),
             Self::Fallback(args) => args.run(),
+            Self::Generate(args) => args.run(),
             Self::Open(args) => args.run(),
+            Self::Frames(args) => args.run(),
             Self::Handover(args) => args.run(),
             Self::Resolve(args) => args.run(),
             Self::Retarget(args) => args.run(),
@@ -70,11 +83,13 @@ pub struct PrepareArgs {
 
 impl PrepareArgs {
     fn run(self) -> Result<()> {
-        let input = Repository::new(Path::new(".")).review_input(
+        let repository = Repository::new(Path::new("."));
+        let input = repository.review_input(
             &self.base,
             &self.head,
             gewu_review::DEFAULT_MAX_CHUNK_LINES,
         )?;
+        repository.ensure_changes(&input, false)?;
         write_json(&self.output, &input)?;
         println!(
             "wrote {} changes to {}\nrun `gewu review guide` in your chosen agent",
@@ -103,15 +118,18 @@ impl FallbackArgs {
             .map(|(index, change)| ReviewChunk {
                 id: format!("fallback-{}", index + 1),
                 title: format!("Review {}", change.path),
-                summary: "File-ordered fallback; inspect this Git hunk directly.".into(),
+                summary: "Raw diff in file order. No walkthrough was generated, so this chunk \
+                          has no explanation; `gewu review generate` writes one."
+                    .into(),
                 kind: ChunkKind::Other,
                 content: vec![ChunkBlock::Changes {
                     quotes: vec![Quote::whole(change.id.clone(), change.body_lines())],
                     presentation: ChangePresentation::Diff,
                 }],
                 context: None,
-                confidence: Some("Semantic grouping was not generated.".into()),
+                confidence: None,
                 oversized_reason: None,
+                section: None,
             })
             .collect();
         let spec = ReviewSpec::new(

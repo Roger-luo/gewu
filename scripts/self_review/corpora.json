@@ -1,0 +1,62 @@
+{
+  "rubric_version": 3,
+  "corpora": {
+    "fix-domain": {
+      "tier": "T2",
+      "base": "8d2c319^",
+      "head": "8d2c319",
+      "scope": [],
+      "exercises": "a small fix across the domain verdict gates, the runner, and tests"
+    },
+    "feat-cli": {
+      "tier": "T2",
+      "base": "7c65e4e^",
+      "head": "7c65e4e",
+      "scope": [],
+      "exercises": "a small feature through the terminal UI"
+    },
+    "docs-only": {
+      "tier": "T2",
+      "base": "f08c7ed^",
+      "head": "f08c7ed",
+      "scope": [],
+      "exercises": "prose and configuration with a generated lockfile; minimality without code"
+    },
+    "domain-files": {
+      "tier": "T2",
+      "base": "empty",
+      "head": "20b5737",
+      "scope": [
+        "crates/gewu-review/src/spec.rs",
+        "crates/gewu-review/src/validation.rs",
+        "crates/gewu-review/src/height.rs"
+      ],
+      "exercises": "a directory-style review of connected domain files"
+    },
+    "integrate": {
+      "tier": "T3",
+      "base": "20b5737^",
+      "head": "20b5737",
+      "scope": [],
+      "exercises": "a 31-file feature; rehearsal for the whole repository"
+    },
+    "whole": {
+      "tier": "T3",
+      "base": "empty",
+      "head": "HEAD",
+      "scope": [],
+      "exercises": "every tracked file at a milestone"
+    },
+    "manifest-pipeline": {
+      "tier": "T2",
+      "base": "empty",
+      "head": "20b5737",
+      "scope": [
+        "crates/gewu-cli/src/git/mod.rs",
+        "crates/gewu-cli/src/git/diff.rs",
+        "crates/gewu-review/src/input.rs"
+      ],
+      "exercises": "a pipeline across two crates, git diff to parsed manifest; orientation and big picture matter"
+    }
+  }
+}

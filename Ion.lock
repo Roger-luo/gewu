@@ -8,13 +8,19 @@ checksum = "sha256:48e23dcc1d3e1d9ce3d92e660bd33e0cb7b0e64adbf1fa574fea6d9472e53
 name = "gewu-dogfood"
 source = ""
 kind = "local"
-checksum = "sha256:2cc2bb46d60f22c20c8db8dd509c421f8ea5c0ac2f923d87c3e51cd545f0446b"
+checksum = "sha256:ed74783ed2711d5284d40b074ec5a450c8a29b9974d75ca09443750970206fec"
 
 [[skill]]
 name = "gewu-review"
 source = ""
 kind = "local"
 checksum = "sha256:5c6ef1513c201ba9dd676de5197885beb64c297d02d7f2dd3821ae0e090d068d"
+
+[[skill]]
+name = "gewu-self-review"
+source = ""
+kind = "local"
+checksum = "sha256:513f48062cc12a5dc59c699a35a2bc732fdbeee9066ca15ca4747acd6071192a"
 
 [[skill]]
 name = "ion-cli"

@@ -213,16 +213,10 @@ impl<'a> Validator<'a> {
             return;
         }
         for change in &self.input.changes {
-            // Blank lines carry nothing to review and the renderer trims them
-            // from a view's edge, so they are exempt here exactly as they are
-            // in the harness checkpoint validator.
+            // Blank lines and edge context carry nothing to review, so they
+            // are exempt here exactly as they are in the harness validator.
             if let Some(line) = (1..=change.body_lines())
-                .filter(|line| {
-                    change
-                        .body(*line, *line)
-                        .first()
-                        .is_none_or(|text| !text.get(1..).unwrap_or_default().trim().is_empty())
-                })
+                .filter(|line| change.needs_review(*line))
                 .find(|line| {
                     !quotes
                         .iter()

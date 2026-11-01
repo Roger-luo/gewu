@@ -9,13 +9,17 @@ Spans this item covers:
 
 {{covers}}
 
-Investigation evidence relevant to those spans:
+Investigation evidence relevant to those spans. It is your notes, including
+what you could not run; it is not text for the reviewer, so do not carry its
+limitations or first-person wording into chunk prose:
 
 {{investigation}}
 
 Spans are numbered within the hunk body, from 1. Each change carries
 `body_lines`; the file line a body line lands on is shown in the review's own
-gutter, so you do not need to compute it.
+gutter. To read a span with both — the body number a quote uses, then the
+file line the reviewer sees and prose cites — run `gewu harness context source
+--change-id <id> --start 1 --end <body_lines> --numbered`.
 
 A reviewer cannot learn anything from a wall of diff. Your job is to break these
 spans into views small enough to understand, each introduced by prose that says
@@ -43,7 +47,7 @@ Write `.gewu/harness/expansion.json`:
         "relation": "how it relates to this chunk"
       },
       "confidence": "optional uncertainty the repository could not settle",
-      "oversized_reason": "optional reason a single indivisible line exceeds the budget",
+      "oversized_reason": "optional: the indivisible unit that makes this chunk exceed the budget",
       "content": [
         { "type": "narrative", "markdown": "what to look for in the next view" },
         {
@@ -66,7 +70,8 @@ Rules:
 - `summary` must be nonempty and at most 500 characters; this is a validation limit, not just a style preference.
 
 - At most {{max_chunks}} chunks. Quote only lines this item covers, and between
-  them show every line of every span at least once.
+  them show every line of every span at least once; blank lines and unchanged
+  context at a hunk's edges are exempt.
 - A chunk is the unit a reviewer comments on. Keep it to at most
   {{max_chunk_lines}} rendered rows — title, summary, prose, and quote headers
   included. Validation uses this estimate:
@@ -76,8 +81,12 @@ Rules:
   Measurement is still the authority because wrapping depends on the actual
   draft. In a direct CLI session run `gewu harness status`; under a driver send
   the complete draft through its measure action and inspect the returned
-  result. Explain `oversized_reason` only when a single indivisible line cannot
-  fit.
+  result. Set `oversized_reason` when the chunk is one unit a reviewer reads
+  together — a single test, a function with its doc comment, a table — and
+  splitting it would put setup and assertion, or doc and body, on different
+  stops. Name the unit in the reason. It is not a way to avoid choosing lines:
+  the reader pages through an oversized chunk, so a smaller view still wins
+  whenever the unit is not indivisible.
 - Alternate prose and views. Say what to look for, show the lines that prove it,
   move on. A view of five well-chosen lines beats a view of thirty.
 - Choose `kind` by the decision the chunk supports: `concept` introduces a new
@@ -86,24 +95,63 @@ Rules:
   `other` is the default for configuration, legal text, manifests, generated
   metadata, and anything that does not fit the earlier purposes. `context.kind`
   may support the chunk but does not have to equal its `kind`.
+- User-facing text that lives in a source string — help, messages, labels —
+  is read as code, escapes and all. Show the literal, and say in prose what the
+  reader will see, so they do not have to decode `\n` sequences to judge it.
+- YAML front matter at the top of a `.md` file is not Markdown; show it as
+  `added_code`, and the document after it as `rendered_markdown`. Rendered
+  Markdown wraps and spaces out, so budget about twice its source rows.
 - Choose the presentation that costs the reviewer least: `diff` when
   removed-versus-added behavior matters, `added_code` for new code,
   `rendered_markdown` only for paths ending in `.md`, `summary_only` only for
-  mechanically generated artifacts nobody should read line by line. Never
+  mechanically generated artifacts nobody should read line by line. A lockfile
+  or a file whose header says a tool writes it counts; name what marks it. Never
   hide legal text, policy, configuration, or other human-authored obligations
   behind `summary_only`.
 - A `context` pane is not charged to the budget: reading it is not reviewing.
   Attach one where the chunk turns on a name the reviewer has just met — a type
   this change introduces — and keep it to what they need to read the code in
-  front of them. It is still drawn, so it is not free to their patience.
+  front of them. It is still drawn, so it is not free to their patience: keep it
+  under half the row budget, and the measurement says when it is not.
 - Put code in a context `example` as code text, without an outer Markdown fence;
   Gewu supplies the visual code boundary. Keep explanation and headings in the
   `definition` or `relation` fields instead of embedding them in the example.
-- Put uncertain interpretation in `confidence`; never invent motivation.
+- Put uncertain interpretation in `confidence` — what the repository leaves
+  open, not a risk you already stated; never invent motivation. Do not write
+  that you read rather than ran something: the reviewer assumes the walkthrough
+  comes from reading. Say "untested" only when no test covers the behaviour,
+  because that is a fact about the code.
+- The reviewer has read the overview. A chunk sentence that repeats one of its
+  bullets, or the finding behind this item, teaches nothing; say what this
+  chunk's lines add.
+- Say where the chunk fits. Its first sentence tells a reviewer who has not
+  seen the code what part of the change this is and how it connects to the
+  previous chunk or the overview's map — "The runner acts on the verdict that
+  `next_step` returns", not "Next, the runner". The section name above the
+  chunk says which part of the walkthrough it is in; the sentence says why it
+  is read now. The first chunk of an item opens a new section: say what this
+  part of the change does that the previous part made necessary or possible.
+- The walkthrough's very first chunk says where on the overview's map it
+  begins, and why, when that is not the map's first step.
+- A risk the overview already states is not stated again. Show the lines it
+  lives in, point to it in a clause, and ask only what these lines add.
+- A risk you found by reading the code belongs in the narrative of the chunk
+  that shows that code: once, as a
+  question the reviewer can check against the lines in front of them, never as
+  a verdict. A later chunk that touches it names that chunk by its title, in
+  quotation marks, instead of raising it again; titles are what the reviewer
+  sees, and unquoted they read as a broken sentence.
 - `context`, `confidence`, and `oversized_reason` are optional chunk-level
   fields. Omit them when they do not add information. When `context` is present,
   every field of its selected shape is required: a concept has `definition`,
   `example`, and `relation`; a refactor has `before`, `after`, and `reason`.
+
+Before you submit, make one deletion pass over every sentence: delete it if
+the reviewer would lose nothing — if it restates the quoted lines, their doc
+comment, the title, the summary, the overview, or a sentence before it. Keep
+sentences that add a fact, ask a question, or say where the chunk fits. A
+judge applies exactly this test, and a first draft typically loses a sixth of
+its sentences to it.
 
 In a direct CLI session, write `expansion.json` and run `gewu harness status`
 before submitting: it reports each chunk's measured height against the budget,
