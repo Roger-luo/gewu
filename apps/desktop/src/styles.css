@@ -842,14 +842,11 @@ main[data-gewu-screen] {
 }
 
 .illustration-plot {
-  max-height: 14rem;
   overflow: auto;
 }
 
 .illustration-plot svg {
-  max-width: 100%;
-  max-height: 14rem;
-  width: auto;
+  max-width: none;
   height: auto;
 }
 

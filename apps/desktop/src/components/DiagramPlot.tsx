@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { readableSvg } from "../diagram";
 import { prefersDark } from "../highlight";
 
 /**
@@ -25,6 +26,7 @@ export function DiagramPlot({ source, label }: { source: string; label: string }
           securityLevel: "strict",
           theme: prefersDark() ? "dark" : "neutral",
           fontFamily: "inherit",
+          fontSize: 16,
           suppressErrorRendering: true,
           htmlLabels: false,
           flowchart: { htmlLabels: false },
@@ -35,9 +37,11 @@ export function DiagramPlot({ source, label }: { source: string; label: string }
         const rendered = await mermaid.render(renderId, source).finally(() => {
           document.getElementById(`d${renderId}`)?.remove();
         });
-        const clean = DOMPurify.sanitize(rendered.svg, {
-          USE_PROFILES: { svg: true, svgFilters: true },
-        });
+        const clean = readableSvg(
+          DOMPurify.sanitize(rendered.svg, {
+            USE_PROFILES: { svg: true, svgFilters: true },
+          }),
+        );
         if (!cancelled) {
           setDrawing({ source, svg: clean });
         }

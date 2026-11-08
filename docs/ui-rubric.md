@@ -5,7 +5,7 @@ Judges see screenshots (1440×900 and 1024×700, light and possibly dark), aria
 snapshots, mechanical `checks.json`, and interaction screenshots. They do not
 read application source. This note explains what v1 measures, why, and how to
 revise it. The machine-readable rubric is the highest `apps/ui-harness/rubric/vN.json`
-(currently v3).
+(currently v4).
 
 The product criteria come from `docs/design.md` and `docs/desktop.md`: guided
 review is orientation, intent before mechanics, prose with quoted code, a
@@ -36,7 +36,10 @@ The overview answers “what does this PR do?” before any hunk. That is
 design.md’s first principle and matches “match the real world / recognition
 over recall”: intent and scope up front, then a clear start action. A map of
 the change is a drawn diagram in the desktop app (a flowchart or another
-Mermaid diagram), not an ASCII picture; the terminal may show the source.
+Mermaid diagram), not an ASCII picture, and its labels are at least as large
+as body text. Shrinking the picture so it fits the first screen makes the
+labels unreadable; scrolling a readable diagram is fine. The terminal may
+show the source.
 Code-review research on file order shows early framing shapes what reviewers
 actually inspect. The showcase overview uses a before/after card, so judges
 who only saw that fixture never met an ASCII diagram.
@@ -181,6 +184,11 @@ sharper anchors over more dimensions. Product-rule changes belong in
 
 ## Changelog
 
+- **v4** — Overview diagrams must be readable, not merely drawn. A label
+  shorter than body text on screen (about 14px) fails `overview_intent`, and
+  `illustration.too_small` caps the score at 70. v3 missed this: it asked only
+  whether boxes and arrows were drawn, and `text.too_small` reads CSS
+  `font-size`, which stays 16px when the SVG is scaled down.
 - **v3** — Adds review_flow (weight 3): marking a step reviewed must open the
   next unreviewed step and the last one must land on the summary; the
   simple-diff journey asserts it, so a regression blocks the run. Typography now

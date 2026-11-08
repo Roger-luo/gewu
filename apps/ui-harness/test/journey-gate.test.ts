@@ -35,6 +35,14 @@ describe("journey gate", () => {
     expect(caps["illustration.ascii"]).toBe(75);
   });
 
+  it("v4 caps a diagram whose labels are too small to read", async () => {
+    const rubric = await loadRubric(path.join(import.meta.dirname, "../rubric/v4.json"));
+    const caps = Object.fromEntries(rubric.gates.map((g) => [g.check, g.cap]));
+    expect(caps["illustration.too_small"]).toBe(70);
+    const overview = rubric.dimensions.find((dimension) => dimension.id === "overview_intent");
+    expect(overview?.look_for.join(" ")).toContain("illustration.too_small");
+  });
+
   it("adds journey counters to page counters", async () => {
     dir = await mkdtemp(path.join(tmpdir(), "gewu-ui-gate-"));
     await writeFile(path.join(dir, "checks.json"), JSON.stringify(checks({ "axe.serious": 1 })));

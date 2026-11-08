@@ -44,6 +44,7 @@ export type CheckKey =
   | "text.raw_markdown"
   | "code.unhighlighted"
   | "illustration.ascii"
+  | "illustration.too_small"
   | "targets.too_small"
   | "console.errors"
   | "hooks.missing"
@@ -63,6 +64,7 @@ export const CHECK_KEYS: CheckKey[] = [
   "text.raw_markdown",
   "code.unhighlighted",
   "illustration.ascii",
+  "illustration.too_small",
   "targets.too_small",
   "console.errors",
   "hooks.missing",

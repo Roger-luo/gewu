@@ -78,6 +78,9 @@ describe("capture", () => {
     const diagrams = checks.findings.filter((f) => f.key === "illustration.ascii");
     expect(diagrams.some((f) => f.description.includes("parser"))).toBe(true);
     expect(diagrams.some((f) => f.description.includes("no labels"))).toBe(true);
+    expect(checks.findings.some((f) => f.key === "illustration.too_small" && f.description.includes("SKILL.md"))).toBe(
+      true,
+    );
     expect(manifest.interactions.length).toBeGreaterThanOrEqual(1);
   }, 90_000);
 });

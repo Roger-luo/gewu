@@ -2,9 +2,10 @@ import type { Page } from "playwright";
 import type { CheckFinding } from "../types.js";
 
 /**
- * Flags source quotes left as one color, and overview diagrams that stayed
- * ASCII art. A drawn diagram is an svg, so a box-drawing picture or the
- * "shown as text" fallback is the defect.
+ * Flags source quotes left as one color, overview diagrams that stayed ASCII
+ * art, and diagrams whose labels are drawn smaller than body text. SVG scaling
+ * does not change a label's CSS font-size, so the size check measures the
+ * glyphs on screen.
  */
 export async function runSourceChecks(
   page: Page,
@@ -12,8 +13,8 @@ export async function runSourceChecks(
 ): Promise<CheckFinding[]> {
   // No nested functions: the harness loader wraps them in a call that does not
   // exist inside the page.
-  const found = await page.evaluate((): { key: "code.unhighlighted" | "illustration.ascii"; selector: string; description: string }[] => {
-    const out: { key: "code.unhighlighted" | "illustration.ascii"; selector: string; description: string }[] = [];
+  const found = await page.evaluate((): { key: "code.unhighlighted" | "illustration.ascii" | "illustration.too_small"; selector: string; description: string }[] => {
+    const out: { key: "code.unhighlighted" | "illustration.ascii" | "illustration.too_small"; selector: string; description: string }[] = [];
     const boxDrawing = /[┌┐└┘│─├┤┬┴┼╭╮╯╰]/;
 
     for (const el of Array.from(document.querySelectorAll("pre.code-plain, .summary-only"))) {
@@ -48,12 +49,26 @@ export async function runSourceChecks(
     }
 
     for (const svg of Array.from(document.querySelectorAll(".illustration svg"))) {
-      if ((svg.textContent ?? "").trim()) continue;
-      out.push({
-        key: "illustration.ascii",
-        selector: ".illustration svg",
-        description: "Diagram drew no labels: its boxes are empty",
+      if (!(svg.textContent ?? "").trim()) {
+        out.push({
+          key: "illustration.ascii",
+          selector: ".illustration svg",
+          description: "Diagram drew no labels: its boxes are empty",
+        });
+        continue;
+      }
+      const tiny = Array.from(svg.querySelectorAll("text, tspan")).find((label) => {
+        const box = label.getBoundingClientRect();
+        return box.height > 0 && box.height < 12;
       });
+      if (tiny) {
+        const height = tiny.getBoundingClientRect().height;
+        out.push({
+          key: "illustration.too_small",
+          selector: ".illustration svg text",
+          description: `Diagram label rendered ${height.toFixed(1)}px tall: "${(tiny.textContent ?? "").trim().slice(0, 60)}"`,
+        });
+      }
     }
 
     for (const el of Array.from(document.querySelectorAll(".illustration-ascii, .illustration"))) {

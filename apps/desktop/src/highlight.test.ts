@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { diagramLabel, mermaidFlow } from "./diagram";
+import { diagramLabel, mermaidFlow, readableSvg } from "./diagram";
 import { highlightCode } from "./highlight";
 
 describe("syntax highlighting", () => {
@@ -26,6 +26,16 @@ describe("diagrams", () => {
     expect(mermaidFlow(["read the lock", 'write "Ion.lock"'])).toBe(
       ['flowchart TD', '  s0["read the lock"]', '  s1["write \'Ion.lock\'"]', "  s0 --> s1"].join("\n"),
     );
+  });
+
+  it("keeps a diagram at its own size instead of scaling the labels away", () => {
+    const svg = readableSvg(
+      '<svg viewBox="0 0 480.4 220.2" width="100%" style="max-width: 200px"><text>read the lock</text></svg>',
+    );
+    expect(svg).toContain('width="481"');
+    expect(svg).toContain('height="221"');
+    expect(svg).not.toContain("100%");
+    expect(svg).not.toContain("max-width");
   });
 
   it("names a diagram by its node labels", () => {
