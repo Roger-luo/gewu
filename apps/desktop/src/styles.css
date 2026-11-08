@@ -546,6 +546,7 @@ main[data-gewu-screen] {
 .chunk-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   position: sticky;
   top: 0;
@@ -803,9 +804,27 @@ main[data-gewu-screen] {
 }
 
 .summary-only {
-  padding: var(--space-3);
+  padding: 0;
   color: var(--text);
-  font-style: italic;
+}
+
+.summary-only.shiki,
+.summary-only .shiki {
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  font-style: normal;
+}
+
+.illustration-plot svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.illustration-ascii pre {
+  margin: 0;
+  white-space: pre;
+  overflow: auto;
 }
 
 .context-pane {
@@ -832,17 +851,23 @@ main[data-gewu-screen] {
   border-left: none;
 }
 
-.header-actions {
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.toolbar-group {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.toolbar-label {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--text-secondary);
-  margin-right: var(--space-1);
+.toolbar-group + .toolbar-group {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
 }
 
 .context-disclosure {

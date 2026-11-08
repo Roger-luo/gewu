@@ -1,4 +1,9 @@
-import { renderMarkdown } from "../markdown";
+import { renderInlineMarkdown, renderMarkdown } from "../markdown";
+
+/** Inline agent prose inside a heading, paragraph, or list item. */
+export function InlineMarkdown({ source }: { source: string }) {
+  return <span dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(source) }} />;
+}
 
 export function Markdown({
   source,

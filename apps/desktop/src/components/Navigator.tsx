@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 
+import { plainInline } from "../markdown";
 import { chunkNavState } from "../navigation";
 import type { Snapshot, ReviewTarget } from "../protocol";
+import { InlineMarkdown } from "./Markdown";
 
 export function Navigator({
   snapshot,
@@ -109,12 +111,14 @@ function renderChunks(
       <li key={chunk.id}>
         <button
           type="button"
-          aria-label={`${chunk.title}, ${STATE_LABELS[state]}`}
+          aria-label={`${plainInline(chunk.title)}, ${STATE_LABELS[state]}`}
           aria-current={screen === "chunk" && chunkIndex === index ? "page" : undefined}
           onClick={() => onNavigate({ screen: "chunk", index })}
         >
           <span className={`nav-state ${state}`} aria-hidden />
-          <span aria-hidden>{chunk.title}</span>
+          <span aria-hidden>
+            <InlineMarkdown source={chunk.title} />
+          </span>
         </button>
       </li>,
     );

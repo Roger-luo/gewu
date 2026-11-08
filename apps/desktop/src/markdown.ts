@@ -20,3 +20,18 @@ export function renderMarkdown(source: string): string {
     USE_PROFILES: { html: true },
   });
 }
+
+/** One line of agent prose (a title or summary): code spans and emphasis, no blocks. */
+export function renderInlineMarkdown(source: string): string {
+  const html = marked.parseInline(source, { async: false }) as string;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ["code", "em", "strong", "del", "a"],
+    ALLOWED_ATTR: ["href"],
+  });
+}
+
+/** The same line as plain text, for accessible names and tooltips. */
+export function plainInline(source: string): string {
+  const doc = new DOMParser().parseFromString(renderInlineMarkdown(source), "text/html");
+  return doc.body.textContent ?? source;
+}

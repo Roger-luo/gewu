@@ -95,7 +95,11 @@ describe("keyboard shortcuts", () => {
     await user.keyboard("j");
     await waitForReady();
 
+    const first = screen.getByRole("main").getAttribute("data-gewu-chunk-id");
     await user.keyboard("r");
+    await waitForReady();
+    expect(screen.getByRole("main").getAttribute("data-gewu-chunk-id")).not.toBe(first);
+    await user.keyboard("k");
     await waitForReady();
     expect(
       screen.getByRole("button", { name: /^reviewed$/i }),

@@ -54,7 +54,7 @@ describe("navigation", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: /Event path wiring/i })).toHaveFocus();
     expect(
-      within(nav).getByRole("button", { name: /Event path wiring, not reviewed/i }),
+      within(nav).getByRole("button", { name: /Event path wiring via session_key\(\), not reviewed/i }),
     ).toHaveAttribute("aria-current", "page");
   });
 

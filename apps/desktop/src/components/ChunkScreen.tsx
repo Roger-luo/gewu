@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { Markdown } from "./Markdown";
+import { InlineMarkdown, Markdown } from "./Markdown";
+import { plainInline } from "../markdown";
 import { sectionPosition } from "../navigation";
 import type { Action, Snapshot } from "../protocol";
 import { ChangesBlock } from "./ChangesBlock";
@@ -11,6 +12,7 @@ export function ChunkScreen({
   snapshot,
   chunkIndex,
   onDispatch,
+  onToggleReviewed,
   onAddComment,
   onRequestChange,
   lineSelection,
@@ -19,6 +21,7 @@ export function ChunkScreen({
   snapshot: Snapshot;
   chunkIndex: number;
   onDispatch: (action: Action) => Promise<unknown>;
+  onToggleReviewed: () => Promise<void>;
   onAddComment: () => void;
   onRequestChange: () => void;
   lineSelection: { changeId: string; lines: Set<number> } | null;
@@ -55,7 +58,11 @@ export function ChunkScreen({
 
   return (
     <div className={`app-body${showAside ? " has-context" : ""}`}>
-      <main data-gewu-screen="chunk" data-gewu-chunk-id={chunk.id} aria-label={chunk.title}>
+      <main
+        data-gewu-screen="chunk"
+        data-gewu-chunk-id={chunk.id}
+        aria-label={plainInline(chunk.title)}
+      >
         <div className="screen-header">
           <div>
             <div className="eyebrow stage">
@@ -69,45 +76,42 @@ export function ChunkScreen({
                 .join(" · ")}
             </div>
             <h2 className="screen-title" tabIndex={-1}>
-              {chunk.title}
+              <InlineMarkdown source={chunk.title} />
             </h2>
           </div>
-          <div className="header-actions">
-            <div role="group" aria-label="Mark this step">
+        </div>
+
+        <div className="chunk-toolbar">
+          <ChunkStatusChip
+            reviewed={chunk.status.reviewed}
+            openIssues={chunk.status.open_issues}
+          />
+          <div className="toolbar-actions">
+            <div className="toolbar-group" role="group" aria-label="Leave feedback">
+              <button type="button" className="btn" onClick={onAddComment}>
+                Comment
+              </button>
+              <button type="button" className="btn" onClick={onRequestChange}>
+                Request changes
+              </button>
+            </div>
+            <div className="toolbar-group" role="group" aria-label="Mark this step">
               <button
                 type="button"
                 className={chunk.status.reviewed ? "btn" : "btn primary"}
                 aria-pressed={chunk.status.reviewed}
-                title="Reviewed is separate from comments and change requests"
-                onClick={() =>
-                  void onDispatch({
-                    type: "set_reviewed",
-                    chunk_id: chunk.id,
-                    reviewed: !chunk.status.reviewed,
-                  })
-                }
+                title="Marks this step read and opens the next unreviewed one"
+                onClick={() => void onToggleReviewed()}
               >
                 {chunk.status.reviewed ? "Reviewed" : "Mark reviewed"}
               </button>
             </div>
-            <ChunkStatusChip
-              reviewed={chunk.status.reviewed}
-              openIssues={chunk.status.open_issues}
-            />
           </div>
         </div>
 
-        <div className="chunk-toolbar" role="group" aria-label="Leave feedback">
-          <span className="toolbar-label">Leave feedback</span>
-          <button type="button" className="btn" onClick={onAddComment}>
-            Comment
-          </button>
-          <button type="button" className="btn" onClick={onRequestChange}>
-            Request changes
-          </button>
-        </div>
-
-        <p className="chunk-summary">{chunk.summary}</p>
+        <p className="chunk-summary">
+          <InlineMarkdown source={chunk.summary} />
+        </p>
 
         {chunk.context && narrow && (
           <div className="context-inline">

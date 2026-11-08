@@ -1,3 +1,4 @@
+import { plainInline } from "./markdown";
 import type { GewuTestPage, Screen, Snapshot, ReviewTarget } from "./protocol";
 
 export function pagesFromSnapshot(snapshot: Snapshot): GewuTestPage<ReviewTarget>[] {
@@ -7,7 +8,7 @@ export function pagesFromSnapshot(snapshot: Snapshot): GewuTestPage<ReviewTarget
   for (const [index, chunk] of snapshot.chunks.entries()) {
     pages.push({
       id: `chunk-${chunk.id}`,
-      label: chunk.title,
+      label: plainInline(chunk.title),
       target: { screen: "chunk", index },
     });
   }
@@ -47,6 +48,18 @@ export function neighborTarget(
   }
   const next = pages[current + delta];
   return next?.target ?? null;
+}
+
+/** Where to go after marking a chunk reviewed: the next unreviewed chunk, wrapping, else the summary. */
+export function afterReviewed(snapshot: Snapshot, chunkIndex: number): ReviewTarget {
+  const count = snapshot.chunks.length;
+  for (let step = 1; step < count; step++) {
+    const index = (chunkIndex + step) % count;
+    if (!snapshot.chunks[index]?.status.reviewed) {
+      return { screen: "chunk", index };
+    }
+  }
+  return { screen: "summary" };
 }
 
 export function sectionPosition(

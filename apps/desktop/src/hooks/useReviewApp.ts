@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Backend } from "../backend";
 import { BackendError } from "../backend";
-import { neighborTarget, pagesFromSnapshot } from "../navigation";
+import { afterReviewed, neighborTarget, pagesFromSnapshot } from "../navigation";
 import type {
   Action,
   FeedbackKind,
@@ -208,12 +208,16 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
     if (!chunk) {
       return;
     }
-    await dispatch({
+    const reviewed = !chunk.status.reviewed;
+    const next = await dispatch({
       type: "set_reviewed",
       chunk_id: chunk.id,
-      reviewed: !chunk.status.reviewed,
+      reviewed,
     });
-  }, [chunkIndex, dispatch, screen, snapshot]);
+    if (next && reviewed) {
+      await goto(afterReviewed(next, chunkIndex));
+    }
+  }, [chunkIndex, dispatch, goto, screen, snapshot]);
 
   return {
     snapshot,

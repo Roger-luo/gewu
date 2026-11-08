@@ -1,4 +1,5 @@
 import type { Decision, Snapshot, ReviewTarget } from "../protocol";
+import { InlineMarkdown } from "./Markdown";
 
 export function SummaryScreen({
   snapshot,
@@ -77,7 +78,7 @@ export function SummaryScreen({
                         onNavigate({ screen: "chunk", index })
                       }
                     >
-                      {chunk.title}
+                      <InlineMarkdown source={chunk.title} />
                     </button>
                   </li>
                 );

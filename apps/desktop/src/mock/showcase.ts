@@ -36,7 +36,7 @@ export function showcaseSnapshot(): Snapshot {
         index: 0,
         title: "Session key identity",
         summary:
-          "A review_id is stamped once and used as the session key so later edits cannot move the event log.",
+          "A `review_id` is stamped once and used as the session key so later edits cannot move the event log.",
         kind: "concept",
         section: "Identity",
         context: {
@@ -74,9 +74,9 @@ export function showcaseSnapshot(): Snapshot {
       chunk({
         id: "event-path",
         index: 1,
-        title: "Event path wiring",
+        title: "Event path wiring via `session_key()`",
         summary:
-          "The app service resolves the event log from session_key(), keeping TUI and desktop sessions interchangeable.",
+          "The app service resolves the event log from `session_key()`, keeping TUI and desktop sessions interchangeable.",
         kind: "integration",
         section: "Identity",
         confidence: "Path joins follow the existing TUI layout; verify on resume.",

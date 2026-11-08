@@ -162,6 +162,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             snapshot={snapshot}
             chunkIndex={app.chunkIndex}
             onDispatch={app.dispatch}
+            onToggleReviewed={app.toggleReviewed}
             onAddComment={() => app.openFeedback("note")}
             onRequestChange={() => app.openFeedback("issue")}
             lineSelection={lineSelection}

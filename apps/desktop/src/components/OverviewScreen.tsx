@@ -1,6 +1,7 @@
 import { scopeFiles } from "../navigation";
 import type { Snapshot } from "../protocol";
 import { IllustrationView } from "./IllustrationView";
+import { InlineMarkdown } from "./Markdown";
 
 export function OverviewScreen({
   snapshot,
@@ -26,13 +27,20 @@ export function OverviewScreen({
         </button>
       </div>
 
-      <p className="intent">{overview.intent}</p>
+      <p className="intent">
+        <InlineMarkdown source={overview.intent} />
+      </p>
 
       {!generation.complete && (
         <div className="notice uncertainty" role="status">
           <strong>Incomplete batch</strong>
           {generation.remaining_work_items != null && (
-            <> · {generation.remaining_work_items} work items still generating</>
+            <>
+              {" · "}
+              {generation.remaining_work_items === 1
+                ? "1 work item still generating"
+                : `${generation.remaining_work_items} work items still generating`}
+            </>
           )}
           . A decision now covers only the generated chunks.
         </div>
@@ -44,7 +52,9 @@ export function OverviewScreen({
             <h3>Changes</h3>
             <ul className="changes-list">
               {overview.changes.map((change) => (
-                <li key={change}>{change}</li>
+                <li key={change}>
+                  <InlineMarkdown source={change} />
+                </li>
               ))}
             </ul>
           </section>
@@ -94,7 +104,9 @@ export function OverviewScreen({
             <h3>Concepts</h3>
             <ul className="concept-list">
               {overview.concepts.map((concept) => (
-                <li key={concept}>{concept}</li>
+                <li key={concept}>
+                  <InlineMarkdown source={concept} />
+                </li>
               ))}
             </ul>
           </section>
