@@ -6,8 +6,14 @@
   "build": {
     "frontendDist": "../../apps/desktop/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --dir ../../apps/desktop dev",
-    "beforeBuildCommand": "pnpm --dir ../../apps/desktop build"
+    "beforeDevCommand": {
+      "script": "pnpm dev",
+      "cwd": "../../apps/desktop"
+    },
+    "beforeBuildCommand": {
+      "script": "pnpm build",
+      "cwd": "../../apps/desktop"
+    }
   },
   "app": {
     "windows": [

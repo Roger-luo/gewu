@@ -105,12 +105,14 @@ run = '''
 set -euo pipefail
 cargo build --bin gewu
 export GEWU_BIN="$PWD/target/debug/gewu"
-# Tauri resolves Cargo.toml + tauri.conf.json from the crate directory.
+# Tauri resolves Cargo.toml + tauri.conf.json from this directory.
+# `pnpm --dir` would move there first and Tauri would not see the config.
 cd crates/gewu-desktop
+export PATH="$PWD/../../apps/desktop/node_modules/.bin:$PATH"
 if [ -n "${usage_root:-}" ]; then
   root="$(cd "${usage_root}" && pwd)"
-  pnpm --dir ../../apps/desktop exec tauri dev -- -- --root "$root"
+  tauri dev -- -- --root "$root"
 else
-  pnpm --dir ../../apps/desktop exec tauri dev
+  tauri dev
 fi
 '''
