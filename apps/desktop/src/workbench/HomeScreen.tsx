@@ -30,7 +30,9 @@ export function HomeScreen({
   return (
     <main data-gewu-screen="home" aria-labelledby="home-title">
       <header className="screen-header">
-        <p className="eyebrow">{repository ? repository.path : "All repositories"}</p>
+        <p className="eyebrow" title={repository?.path}>
+          {repository ? (repository.branch ?? repository.name) : "All repositories"}
+        </p>
         <h2 id="home-title" className="screen-title" tabIndex={-1}>
           {repository ? `Reviews in ${repository.name}` : "Reviews"}
         </h2>

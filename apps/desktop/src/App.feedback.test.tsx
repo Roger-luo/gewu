@@ -61,7 +61,7 @@ describe("feedback flow", () => {
     );
     await waitForReady();
 
-    const toolbar = screen.getByRole("group", { name: /chunk actions/i });
+    const toolbar = screen.getByRole("group", { name: /mark this step/i });
     await user.click(within(toolbar).getByRole("button", { name: /mark reviewed/i }));
     await waitForReady();
     expect(

@@ -246,11 +246,7 @@ impl Workbench {
             stage.clone(),
             "The agent is writing the next batch",
         )?;
-        self.emit(
-            task_id,
-            EventKind::Status,
-            format!("Starting {}", command.join(" ")),
-        );
+        self.emit(task_id, EventKind::Status, "Starting the agent");
         let before = ProjectState::capture(root)?;
         let sink: EventSink = {
             let workbench = self.clone();

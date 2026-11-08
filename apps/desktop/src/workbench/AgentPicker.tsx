@@ -23,15 +23,11 @@ function agentBlurb(id: string): string {
 export function AgentPicker({
   agents,
   value,
-  command,
   onChange,
-  onCommand,
 }: {
   agents: AgentPreset[];
   value: string;
-  command: string;
   onChange: (presetId: string) => void;
-  onCommand: (command: string) => void;
 }) {
   const name = useId();
   return (
@@ -61,7 +57,7 @@ export function AgentPicker({
                 ) : agent.kind === "none" ? (
                   "Shows the raw diff file by file. Nothing runs."
                 ) : agent.id === "custom" ? (
-                  "Any command that speaks the Agent Client Protocol on stdio."
+                  "Type its command next to Start review. It must speak ACP on stdio."
                 ) : (
                   agentBlurb(agent.id)
                 )}
@@ -70,19 +66,6 @@ export function AgentPicker({
           );
         })}
       </div>
-      {value === "custom" && (
-        <label className="field">
-          <span>Agent command</span>
-          <input
-            type="text"
-            value={command}
-            placeholder="e.g. opencode acp"
-            spellCheck={false}
-            autoComplete="off"
-            onChange={(event) => onCommand(event.target.value)}
-          />
-        </label>
-      )}
       <p className="field-hint muted">
         The agent may read the code under review and run <code>gewu harness</code>. It cannot
         edit your files; Gewu refuses anything else and stops the review if files change.

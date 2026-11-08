@@ -58,8 +58,9 @@ export function ChunkScreen({
       <main data-gewu-screen="chunk" data-gewu-chunk-id={chunk.id} aria-label={chunk.title}>
         <div className="screen-header">
           <div>
-            <div className="eyebrow">
+            <div className="eyebrow stage">
               {[
+                "Stage",
                 `Chunk ${chunkIndex + 1} of ${snapshot.chunks.length}`,
                 section,
                 chunk.kind,
@@ -71,41 +72,48 @@ export function ChunkScreen({
               {chunk.title}
             </h2>
           </div>
-          <ChunkStatusChip
-            reviewed={chunk.status.reviewed}
-            openIssues={chunk.status.open_issues}
-          />
+          <div className="header-actions">
+            <div role="group" aria-label="Mark this step">
+              <button
+                type="button"
+                className={chunk.status.reviewed ? "btn" : "btn primary"}
+                aria-pressed={chunk.status.reviewed}
+                title="Reviewed is separate from comments and change requests"
+                onClick={() =>
+                  void onDispatch({
+                    type: "set_reviewed",
+                    chunk_id: chunk.id,
+                    reviewed: !chunk.status.reviewed,
+                  })
+                }
+              >
+                {chunk.status.reviewed ? "Reviewed" : "Mark reviewed"}
+              </button>
+            </div>
+            <ChunkStatusChip
+              reviewed={chunk.status.reviewed}
+              openIssues={chunk.status.open_issues}
+            />
+          </div>
         </div>
 
-        <div className="chunk-toolbar" role="group" aria-label="Chunk actions">
-          <button
-            type="button"
-            className={chunk.status.reviewed ? "btn" : "btn primary"}
-            aria-pressed={chunk.status.reviewed}
-            title={
-              chunk.status.open_issues > 0
-                ? "Reviewed is independent of open change requests"
-                : undefined
-            }
-            onClick={() =>
-              void onDispatch({
-                type: "set_reviewed",
-                chunk_id: chunk.id,
-                reviewed: !chunk.status.reviewed,
-              })
-            }
-          >
-            {chunk.status.reviewed ? "Reviewed" : "Mark reviewed"}
-          </button>
-          <button type="button" className="btn ghost" onClick={onAddComment}>
+        <div className="chunk-toolbar" role="group" aria-label="Leave feedback">
+          <span className="toolbar-label">Leave feedback</span>
+          <button type="button" className="btn" onClick={onAddComment}>
             Comment
           </button>
-          <button type="button" className="btn ghost" onClick={onRequestChange}>
+          <button type="button" className="btn" onClick={onRequestChange}>
             Request changes
           </button>
         </div>
 
         <p className="chunk-summary">{chunk.summary}</p>
+
+        {chunk.context && narrow && (
+          <div className="context-inline">
+            <ContextPane context={chunk.context} />
+          </div>
+        )}
 
         {chunk.confidence && (
           <div className="notice uncertainty">
@@ -136,46 +144,16 @@ export function ChunkScreen({
         {chunk.status.open_issues > 0 && (
           <p className="notice feedback-jump" role="status">
             {chunk.status.open_issues === 1
-              ? "1 open change request — resolve it in Feedback below, or keep reading."
-              : `${chunk.status.open_issues} open change requests — resolve them in Feedback below, or keep reading.`}
+              ? "1 open change request — resolve it in Feedback below."
+              : `${chunk.status.open_issues} open change requests — resolve them in Feedback below.`}
           </p>
         )}
 
-        {chunk.status.open_issues > 0 ? (
-          <>
-            <FeedbackPanel
-              items={feedback}
-              onDispatch={onDispatch}
-              openIssues={chunk.status.open_issues}
-            />
-            {chunk.context && narrow && (
-              <details className="context-disclosure" open>
-                <summary>
-                  {chunk.context.kind === "concept" ? "Concept" : "Refactor"}{" "}
-                  context
-                </summary>
-                <ContextPane context={chunk.context} />
-              </details>
-            )}
-          </>
-        ) : (
-          <>
-            {chunk.context && narrow && (
-              <details className="context-disclosure" open>
-                <summary>
-                  {chunk.context.kind === "concept" ? "Concept" : "Refactor"}{" "}
-                  context
-                </summary>
-                <ContextPane context={chunk.context} />
-              </details>
-            )}
-            <FeedbackPanel
-              items={feedback}
-              onDispatch={onDispatch}
-              openIssues={chunk.status.open_issues}
-            />
-          </>
-        )}
+        <FeedbackPanel
+          items={feedback}
+          onDispatch={onDispatch}
+          openIssues={chunk.status.open_issues}
+        />
       </main>
       {showAside && chunk.context && <ContextPane context={chunk.context} />}
     </div>

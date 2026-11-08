@@ -106,17 +106,16 @@
 }
 
 .spinner {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  animation: spin 0.9s linear infinite;
+  background: currentColor;
+  animation: pulse 1s ease-in-out infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
   }
 }
 
@@ -518,6 +517,7 @@
 
 .new-review-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
@@ -525,6 +525,18 @@
 
 .new-review-header .btn {
   flex-shrink: 0;
+}
+
+.new-review-start {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.new-review-start .field {
+  min-width: 16rem;
+  margin: 0;
 }
 
 /* Task */

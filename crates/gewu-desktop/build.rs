@@ -40,7 +40,30 @@ fn main() {
         println!("cargo:rustc-env=TAURI_CONFIG={override_json}");
     }
 
-    tauri_build::build()
+    tauri_build::build();
+    // tauri-build rewrites these without a trailing newline, which the
+    // end-of-file hook then puts back and the next check strips again.
+    ensure_trailing_newlines(&manifest_dir.join("gen/schemas"));
+}
+
+fn ensure_trailing_newlines(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "json") {
+            continue;
+        }
+        let Ok(mut bytes) = fs::read(&path) else {
+            continue;
+        };
+        if bytes.last() == Some(&b'\n') {
+            continue;
+        }
+        bytes.push(b'\n');
+        let _ = fs::write(&path, bytes);
+    }
 }
 
 fn path_for_config(path: &Path) -> String {

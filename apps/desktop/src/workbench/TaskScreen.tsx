@@ -130,7 +130,12 @@ export function TaskScreen({
         <dt>Agent</dt>
         <dd>
           <div>{task.agent_label}</div>
-          {command && <code className="agent-command">{command}</code>}
+          {command && (
+            <details className="agent-command-details">
+              <summary>Show command</summary>
+              <code className="agent-command">{command}</code>
+            </details>
+          )}
         </dd>
         <dt>Started</dt>
         <dd>{relativeTime(task.created_at)}</dd>
