@@ -1,4 +1,3 @@
-import { scopeFiles } from "../navigation";
 import type { Snapshot } from "../protocol";
 import { IllustrationView } from "./IllustrationView";
 import { InlineMarkdown } from "./Markdown";
@@ -10,8 +9,7 @@ export function OverviewScreen({
   snapshot: Snapshot;
   onStart: () => void;
 }) {
-  const files = scopeFiles(snapshot);
-  const { overview, generation, source } = snapshot;
+  const { overview, generation, source, files } = snapshot;
 
   return (
     <main data-gewu-screen="overview" aria-label="Overview">
@@ -47,6 +45,13 @@ export function OverviewScreen({
       )}
 
       <div className="stack">
+        {overview.illustration && (
+          <section className="panel">
+            <h3>Illustration</h3>
+            <IllustrationView illustration={overview.illustration} />
+          </section>
+        )}
+
         {overview.changes.length > 0 && (
           <section className="panel">
             <h3>Changes</h3>
@@ -86,18 +91,13 @@ export function OverviewScreen({
                       −{file.removed}
                     </span>
                   </span>
+                  {!file.shown && <span className="muted"> · not in a step yet</span>}
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        {overview.illustration && (
-          <section className="panel">
-            <h3>Illustration</h3>
-            <IllustrationView illustration={overview.illustration} />
-          </section>
-        )}
 
         {overview.concepts && overview.concepts.length > 0 && (
           <section className="panel">

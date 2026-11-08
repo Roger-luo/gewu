@@ -124,10 +124,19 @@ export interface SummaryView {
   batch_scoped: boolean;
 }
 
+/** One file of the review's whole scope; `shown` once a generated step quotes it. */
+export interface FileView {
+  path: string;
+  added: number;
+  removed: number;
+  shown: boolean;
+}
+
 export interface Snapshot {
   review_id: string;
   source: { base: string; head: string };
   overview: Overview;
+  files: FileView[];
   generation: {
     remaining_work_items: number | null;
     complete: boolean;

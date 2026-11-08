@@ -99,6 +99,21 @@ impl Change {
         self.body_lines
     }
 
+    /// Added and removed body lines, as a diff stat counts them.
+    #[must_use]
+    pub fn line_counts(&self) -> (usize, usize) {
+        self.patch
+            .lines()
+            .skip(usize::from(self.patch.starts_with("@@ ")))
+            .fold((0, 0), |(added, removed), text| {
+                match text.as_bytes().first() {
+                    Some(b'+') => (added + 1, removed),
+                    Some(b'-') => (added, removed + 1),
+                    _ => (added, removed),
+                }
+            })
+    }
+
     /// The body lines covering a span of the new file, 1-based and inclusive.
     ///
     /// A reviewer anchors a request to the line number they can see, which is

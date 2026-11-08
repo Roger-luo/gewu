@@ -4,12 +4,16 @@ use gewu_review::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::FileView;
+
 /// Everything the UI needs to render the current review.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Snapshot {
     pub review_id: String,
     pub source: SourceView,
     pub overview: Overview,
+    /// Every file the review covers, whether or not a step shows it yet.
+    pub files: Vec<FileView>,
     pub generation: GenerationView,
     pub chunks: Vec<ChunkView>,
     pub feedback: Vec<Feedback>,
@@ -144,6 +148,7 @@ impl Snapshot {
                 head: spec.source.head.clone(),
             },
             overview: spec.overview.clone(),
+            files: FileView::collect(review.input(), &chunks),
             generation: GenerationView {
                 remaining_work_items: remaining,
                 complete,

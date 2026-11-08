@@ -25,6 +25,194 @@
       "**prek**: the repository's Git hook runner, configured in `prek.toml`; the `conventional-commit` entry is a `commit-msg` hook whose `entry` is a shell command."
     ]
   },
+  "files": [
+    {
+      "path": "crates/gewu-cli/src/harness/prompts.rs",
+      "added": 184,
+      "removed": 1,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/harness/runner.rs",
+      "added": 40,
+      "removed": 21,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/harness/runner/tests.rs",
+      "added": 134,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/feedback.rs",
+      "added": 274,
+      "removed": 42,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/help.rs",
+      "added": 8,
+      "removed": 5,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/highlight.rs",
+      "added": 10,
+      "removed": 2,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/markdown.rs",
+      "added": 28,
+      "removed": 2,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/mod.rs",
+      "added": 746,
+      "removed": 50,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/prompt.rs",
+      "added": 74,
+      "removed": 7,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/render.rs",
+      "added": 1188,
+      "removed": 75,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/render_support.rs",
+      "added": 4,
+      "removed": 1,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/style.rs",
+      "added": 20,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/src/tui/view.rs",
+      "added": 706,
+      "removed": 105,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-cli/tests/repository_policy.rs",
+      "added": 51,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/harness/model.rs",
+      "added": 14,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/harness/validation.rs",
+      "added": 70,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/height.rs",
+      "added": 87,
+      "removed": 16,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/input.rs",
+      "added": 49,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/lib.rs",
+      "added": 3,
+      "removed": 3,
+      "shown": true
+    },
+    {
+      "path": "crates/gewu-review/src/session/model.rs",
+      "added": 3,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "crates/gewu-review/src/spec.rs",
+      "added": 30,
+      "removed": 0,
+      "shown": true
+    },
+    {
+      "path": "crates/gewu-review/tests/harness.rs",
+      "added": 36,
+      "removed": 0,
+      "shown": false
+    },
+    {
+      "path": "docs/design.md",
+      "added": 16,
+      "removed": 11,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/expand.md",
+      "added": 49,
+      "removed": 8,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/investigate.md",
+      "added": 46,
+      "removed": 3,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/plan.md",
+      "added": 25,
+      "removed": 5,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/replan.md",
+      "added": 4,
+      "removed": 1,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/revise.md",
+      "added": 8,
+      "removed": 5,
+      "shown": false
+    },
+    {
+      "path": "harness/prompts/rubric.md",
+      "added": 61,
+      "removed": 1,
+      "shown": false
+    },
+    {
+      "path": "harness/review-spec.schema.json",
+      "added": 13,
+      "removed": 0,
+      "shown": true
+    },
+    {
+      "path": "prek.toml",
+      "added": 1,
+      "removed": 1,
+      "shown": false
+    }
+  ],
   "generation": {
     "remaining_work_items": 44,
     "complete": false

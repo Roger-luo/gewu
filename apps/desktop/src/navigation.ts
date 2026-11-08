@@ -89,36 +89,3 @@ export function chunkNavState(
   }
   return "unreviewed";
 }
-
-export interface ScopeFile {
-  path: string;
-  added: number;
-  removed: number;
-}
-
-/** Files quoted by the walkthrough with added/removed counts over quoted lines. */
-export function scopeFiles(snapshot: Snapshot): ScopeFile[] {
-  const files = new Map<string, ScopeFile>();
-  const seen = new Set<string>();
-  for (const chunk of snapshot.chunks) {
-    for (const block of chunk.blocks) {
-      if (block.type !== "changes") {
-        continue;
-      }
-      for (const quote of block.quotes) {
-        const file = files.get(quote.path) ?? { path: quote.path, added: 0, removed: 0 };
-        files.set(quote.path, file);
-        quote.lines.forEach((line, offset) => {
-          const key = `${quote.change_id}:${quote.start + offset}`;
-          if (seen.has(key)) {
-            return;
-          }
-          seen.add(key);
-          if (line.kind === "added") file.added += 1;
-          if (line.kind === "removed") file.removed += 1;
-        });
-      }
-    }
-  }
-  return [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
-}

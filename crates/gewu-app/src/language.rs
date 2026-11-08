@@ -25,9 +25,30 @@ impl SourceLanguage {
         if Self::ambiguous(&extension) {
             return Self::sniff(sample).map(str::to_owned);
         }
-        Self::by_extension(&extension)
-            .or_else(|| Self::sniff(sample))
-            .map(str::to_owned)
+        let language = Self::by_extension(&extension).or_else(|| Self::sniff(sample))?;
+        // A quote of only YAML front matter from a Markdown file should color
+        // as YAML; the Markdown grammar leaves those keys nearly monochrome.
+        if language == "markdown" && Self::yaml_front_matter(sample) {
+            return Some("yaml".to_owned());
+        }
+        Some(language.to_owned())
+    }
+
+    /// A sample that is YAML front matter (the `---` block at the top of a
+    /// Markdown file), not Markdown prose.
+    fn yaml_front_matter(sample: &str) -> bool {
+        let text = sample.trim_start();
+        if !text.starts_with("---") {
+            return false;
+        }
+        let body = text.trim_start_matches("---").trim_start();
+        let closed = body.contains("\n---") || body.starts_with("---");
+        let keys = body
+            .lines()
+            .take_while(|line| *line != "---")
+            .filter(|line| line.contains(':'))
+            .count();
+        closed || keys >= 2
     }
 
     fn by_filename(name: &str) -> Option<&'static str> {
@@ -166,6 +187,17 @@ mod tests {
         assert_eq!(
             SourceLanguage::detect("deps.lock", "{\n  \"packages\": []\n}").as_deref(),
             Some("json")
+        );
+    }
+
+    /// Found by judging a real walkthrough: a SKILL.md front-matter quote was
+    /// colored as Markdown and looked nearly monochrome.
+    #[test]
+    fn a_markdown_front_matter_quote_is_yaml() {
+        let sample = "---\nname: gewu-dogfood\ndescription: Dogfood the harness.\nallowed-tools: Bash\n---\n";
+        assert_eq!(
+            SourceLanguage::detect(".agents/skills/gewu-dogfood/SKILL.md", sample).as_deref(),
+            Some("yaml")
         );
     }
 }

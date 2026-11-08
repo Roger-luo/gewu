@@ -2,6 +2,7 @@ import type {
   BlockView,
   ChunkView,
   Feedback,
+  FileView,
   Overview,
   QuoteLine,
   QuoteView,
@@ -93,6 +94,7 @@ export function snapshot(partial: {
     review_id: partial.review_id,
     source: partial.source ?? { base: "main", head: "feature/demo" },
     overview: partial.overview,
+    files: quotedFiles(chunks),
     generation: partial.generation ?? {
       remaining_work_items: 0,
       complete: true,
@@ -102,4 +104,28 @@ export function snapshot(partial: {
     summary: emptySummary(chunks.length),
     last_visited: partial.last_visited ?? null,
   };
+}
+
+/** The files the mock's chunks quote, counted over quoted lines. */
+function quotedFiles(chunks: ChunkView[]): FileView[] {
+  const files = new Map<string, FileView>();
+  const seen = new Set<string>();
+  for (const block of chunks.flatMap((item) => item.blocks)) {
+    if (block.type !== "changes") {
+      continue;
+    }
+    for (const view of block.quotes) {
+      const file = files.get(view.path) ?? { path: view.path, added: 0, removed: 0, shown: true };
+      files.set(view.path, file);
+      view.lines.forEach((row, offset) => {
+        const key = `${view.change_id}:${view.start + offset}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          if (row.kind === "added") file.added += 1;
+          if (row.kind === "removed") file.removed += 1;
+        }
+      });
+    }
+  }
+  return [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
