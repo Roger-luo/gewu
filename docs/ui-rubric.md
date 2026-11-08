@@ -5,7 +5,7 @@ Judges see screenshots (1440×900 and 1024×700, light and possibly dark), aria
 snapshots, mechanical `checks.json`, and interaction screenshots. They do not
 read application source. This note explains what v1 measures, why, and how to
 revise it. The machine-readable rubric is the highest `apps/ui-harness/rubric/vN.json`
-(currently v2).
+(currently v3).
 
 The product criteria come from `docs/design.md` and `docs/desktop.md`: guided
 review is orientation, intent before mechanics, prose with quoted code, a
@@ -34,9 +34,12 @@ decoration.
 
 The overview answers “what does this PR do?” before any hunk. That is
 design.md’s first principle and matches “match the real world / recognition
-over recall”: intent and scope up front, then a clear start action. Code-review
-research on file order shows early framing shapes what reviewers actually
-inspect.
+over recall”: intent and scope up front, then a clear start action. A map of
+the change is a drawn diagram in the desktop app (a flowchart or another
+Mermaid diagram), not an ASCII picture; the terminal may show the source.
+Code-review research on file order shows early framing shapes what reviewers
+actually inspect. The showcase overview uses a before/after card, so judges
+who only saw that fixture never met an ASCII diagram.
 
 ### prose_with_code (weight 3)
 
@@ -47,9 +50,12 @@ not for literary quality of the prose.
 
 ### code_legibility (weight 3)
 
-Diffs need path, line numbers, and add/remove that survive contrast and wrap.
-WCAG contrast (text and non-text) and cognitive-load work on reviewability make
-illegible diffs a first-class defect for a review tool.
+Diffs need path, line numbers, add/remove contrast, and syntax color. A lock
+file that is TOML and a `.gitignore` with no extension are still source; one
+color for the whole quote is a defect. WCAG contrast and cognitive-load work
+on reviewability make illegible diffs a first-class defect for a review tool.
+The judged fixtures used to contain only Rust, Python, and Markdown, which
+already highlighted, so a monochrome `Ion.lock` never reached a judge.
 
 ### context_pane (weight 2)
 
@@ -63,6 +69,15 @@ clearly even when no chunk has context.
 Comment vs change request, and code vs explanation target, must be
 unambiguous; resolve/delete act on a selected item. That is design.md’s
 feedback model plus Nielsen/Shneiderman error prevention and clear exits.
+
+### review_flow (weight 3)
+
+A guided review is a sequence, so finishing a step should cost one action:
+marking it reviewed opens the next unreviewed step, and the last one opens the
+summary. Shneiderman’s “design dialogs to yield closure” and Nielsen’s
+efficiency of use both apply. Screenshots alone cannot show this, which is why
+v2 judges never flagged its absence; the simple-diff journey now asserts the
+advance, and judges score the journey evidence.
 
 ### summary_decision (weight 3)
 
@@ -166,6 +181,20 @@ sharper anchors over more dimensions. Product-rule changes belong in
 
 ## Changelog
 
+- **v3** — Adds review_flow (weight 3): marking a step reviewed must open the
+  next unreviewed step and the last one must land on the summary; the
+  simple-diff journey asserts it, so a regression blocks the run. Typography now
+  covers agent Markdown rendered as syntax, and visual hierarchy covers captions
+  off their controls' center line. New mechanical counters `text.raw_markdown`
+  (cap 70) and `layout.misaligned` (cap 80). The showcase-feedback fixture and
+  the fake ACP agent now write inline code in titles and summaries, as real
+  agents do; v2 missed literal backticks because no judged fixture had any.
+  Code legibility now requires syntax color, including lock files and
+  extensionless files such as `.gitignore`, and overview intent requires a
+  drawn diagram rather than ASCII art. New counters `code.unhighlighted`
+  (cap 70) and `illustration.ascii` (cap 75). v2 missed both because its
+  fixtures only quoted Rust, Python, and Markdown, and its only illustration
+  was a before/after card.
 - **v2** — Adds journey_completion, source_selection, agent_progress,
   multi_review_navigation, and failure_recovery (17 dimensions). Gate
   `journeys-complete` fails the run when `journey.blocked` > 0. Journeys cover

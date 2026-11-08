@@ -57,6 +57,27 @@ function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Mark the open chunk reviewed and require the app to move on by itself: to
+ * another chunk, or to the summary once none is left. Returns where it landed.
+ */
+async function markReviewedAndAdvance(j: Journey): Promise<string> {
+  const main = j.page.locator("main[data-gewu-screen]");
+  const before = await main.getAttribute("data-gewu-chunk-id");
+  await j.click("button", "Mark reviewed");
+  await j.page.waitForFunction(
+    (chunk) => {
+      const current = document.querySelector("main[data-gewu-screen]");
+      if (!current) return false;
+      if (current.getAttribute("data-gewu-screen") === "summary") return true;
+      return current.getAttribute("data-gewu-chunk-id") !== chunk;
+    },
+    before,
+    { timeout: 5000 },
+  );
+  return (await main.getAttribute("data-gewu-screen")) ?? "";
+}
+
 async function backToReviews(j: Journey): Promise<void> {
   await j.step("Back to reviews", async () => {
     await j.click("button", "Back to reviews");
@@ -89,13 +110,16 @@ export const STORIES: Story[] = [
         await j.click("button", "Start guided review");
         await j.screen("chunk");
       });
-      await j.step("Mark the first step reviewed", async () => {
-        await j.click("button", "Mark reviewed");
-        await j.control("button", "Reviewed").waitFor();
+      await j.step("Mark the first step reviewed and land on the next", async () => {
+        if ((await markReviewedAndAdvance(j)) !== "chunk") {
+          throw new Error("marking the first of two steps reviewed did not open the second");
+        }
+        await j.see(/Chunk 2 of 2/);
       });
-      await j.step("Go to the summary", async () => {
-        await j.click("button", "Summary", j.control("navigation", "Review navigator"));
-        await j.screen("summary");
+      await j.step("Mark the last step reviewed and land on the summary", async () => {
+        if ((await markReviewedAndAdvance(j)) !== "summary") {
+          throw new Error("marking the last step reviewed did not open the summary");
+        }
       });
       await j.step("Record a decision", async () => {
         await j.click("button", "Comment");
@@ -196,9 +220,9 @@ export const STORIES: Story[] = [
         await j.click("button", "Start guided review");
         await j.screen("chunk");
       });
+      let left = "chunk";
       await j.step("Mark it reviewed and ask for the next batch", async () => {
-        await j.click("button", "Mark reviewed");
-        await j.control("button", "Reviewed").waitFor();
+        left = await markReviewedAndAdvance(j);
         await j.click("button", "Continue");
         await j.see("Generating", 5000, j.control("region", "Review task"));
       });
@@ -216,7 +240,7 @@ export const STORIES: Story[] = [
       await j.step("Return to the first review where it was left", async () => {
         await j.click("button", "Back to reviews");
         await j.click("button", /^Open review of Uncommitted changes/);
-        await j.screen("chunk");
+        await j.screen(left);
       });
       await j.step("See the next batch arrive", async () => {
         await j.see(READY, 60_000, j.control("region", "Review task"));

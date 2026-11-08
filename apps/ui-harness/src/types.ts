@@ -39,7 +39,11 @@ export type CheckKey =
   | "layout.horizontal_overflow"
   | "layout.clipped_text"
   | "layout.overlap"
+  | "layout.misaligned"
   | "text.too_small"
+  | "text.raw_markdown"
+  | "code.unhighlighted"
+  | "illustration.ascii"
   | "targets.too_small"
   | "console.errors"
   | "hooks.missing"
@@ -54,7 +58,11 @@ export const CHECK_KEYS: CheckKey[] = [
   "layout.horizontal_overflow",
   "layout.clipped_text",
   "layout.overlap",
+  "layout.misaligned",
   "text.too_small",
+  "text.raw_markdown",
+  "code.unhighlighted",
+  "illustration.ascii",
   "targets.too_small",
   "console.errors",
   "hooks.missing",

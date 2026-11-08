@@ -64,6 +64,18 @@ describe("capture", () => {
     expect(clipped.some((f) => f.selector === "#clipped")).toBe(true);
     expect(clipped.some((f) => f.selector === "#scroll-pane")).toBe(false);
     expect(clipped.some((f) => f.selector === "main" || f.selector === "#main")).toBe(false);
+
+    const markdown = checks.findings.filter((f) => f.key === "text.raw_markdown");
+    expect(markdown.map((f) => f.selector)).toContain("p.raw-markdown");
+    expect(markdown.some((f) => f.description.includes("literal"))).toBe(false);
+
+    const misaligned = checks.findings.filter((f) => f.key === "layout.misaligned");
+    expect(misaligned.map((f) => f.selector)).toContain("span.caption");
+
+    expect(checks.findings.filter((f) => f.key === "code.unhighlighted").map((f) => f.selector)).toContain(
+      "pre.code-plain",
+    );
+    expect(checks.findings.map((f) => f.key)).toContain("illustration.ascii");
     expect(manifest.interactions.length).toBeGreaterThanOrEqual(1);
   }, 90_000);
 });

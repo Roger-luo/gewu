@@ -11,7 +11,10 @@ import { runAxeChecks } from "./axe.js";
 import { attachConsoleCollector, type ConsoleCollector } from "./console.js";
 import { runHookChecks } from "./hooks.js";
 import { runKeyboardChecks } from "./keyboard.js";
+import { runAlignmentChecks } from "./alignment.js";
 import { runLayoutChecks } from "./layout.js";
+import { runRawMarkdownChecks } from "./markdown.js";
+import { runSourceChecks } from "./source.js";
 import { runTargetSizeChecks } from "./targets.js";
 import { runTextSizeChecks } from "./text.js";
 
@@ -27,7 +30,10 @@ export async function runPageChecks(
   findings.push(...(await runHookChecks(page, meta)));
   findings.push(...(await runAxeChecks(page, meta)));
   findings.push(...(await runLayoutChecks(page, meta)));
+  findings.push(...(await runAlignmentChecks(page, meta)));
   findings.push(...(await runTextSizeChecks(page, meta)));
+  findings.push(...(await runRawMarkdownChecks(page, meta)));
+  findings.push(...(await runSourceChecks(page, meta)));
   findings.push(...(await runTargetSizeChecks(page, meta)));
 
   let interactionShots: InteractionShot[] = [];

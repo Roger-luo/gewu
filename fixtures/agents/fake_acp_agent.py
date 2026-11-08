@@ -144,7 +144,7 @@ class Agent:
             self.pause()
         if status.startswith("# Gewu harness: plan"):
             self.say("Planning one step per file.\n")
-            items = [{"id": f"item-{index + 1}", "title": f"Review {change['path']}",
+            items = [{"id": f"item-{index + 1}", "title": f"Review `{change['path']}`",
                       "purpose": f"Read the edits to {change['path']}.",
                       "covers": [{"change_id": change["id"], "start": 1,
                                   "end": change["body_lines"]}],

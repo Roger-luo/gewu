@@ -132,6 +132,17 @@
       <p id="body" class="muted"></p>
       <div class="clipped" id="clipped">Hidden first line<br />Hidden second line</div>
       <div class="scroll-pane" id="scroll-pane">Reachable first line<br />Reachable second line</div>
+      <!-- deliberate defects: Markdown shown as syntax, and a caption on the top edge of its row -->
+      <p class="raw-markdown">Calls `render()` before **paint**.</p>
+      <p><code>`literal`</code> inside code is fine.</p>
+      <div class="caption-row" style="display: flex; align-items: flex-start; gap: 8px">
+        <span class="caption" style="font-size: 12px">Leave feedback</span>
+        <button type="button" style="padding: 12px 16px">Comment</button>
+      </div>
+      <!-- deliberate defects: a lock file dumped as plain text, and an ASCII diagram -->
+      <pre class="code-plain lock">[[skill]] name = "writing"
+kind = "local"</pre>
+      <div class="illustration-ascii"><pre>parser ──▶ manifest</pre></div>
       <aside aria-label="Context" id="context" hidden>
         <p class="muted">Context pane for the current chunk.</p>
       </aside>

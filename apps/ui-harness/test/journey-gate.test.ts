@@ -25,6 +25,16 @@ describe("journey gate", () => {
     expect((await loadChecks(dir, rubric)).counters["journey.blocked"]).toBe(1);
   });
 
+  it("v3 scores review flow and caps raw Markdown and misaligned captions", async () => {
+    const rubric = await loadRubric(path.join(import.meta.dirname, "../rubric/v3.json"));
+    expect(rubric.dimensions.map((d) => d.id)).toContain("review_flow");
+    const caps = Object.fromEntries(rubric.gates.map((g) => [g.check, g.cap]));
+    expect(caps["text.raw_markdown"]).toBe(70);
+    expect(caps["layout.misaligned"]).toBe(80);
+    expect(caps["code.unhighlighted"]).toBe(70);
+    expect(caps["illustration.ascii"]).toBe(75);
+  });
+
   it("adds journey counters to page counters", async () => {
     dir = await mkdtemp(path.join(tmpdir(), "gewu-ui-gate-"));
     await writeFile(path.join(dir, "checks.json"), JSON.stringify(checks({ "axe.serious": 1 })));
