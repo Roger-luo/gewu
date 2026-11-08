@@ -1,5 +1,7 @@
 /** Workbench protocol (docs/workbench.md). Field names match the JSON. */
 
+import type { Decision } from "../protocol";
+
 export type Source =
   | { type: "commit_range"; base: string; head: string }
   | { type: "working_tree"; base: string }
@@ -43,6 +45,7 @@ export interface ReviewProgress {
   total: number;
   open_issues: number;
   remaining_work_items: number | null;
+  decision: Decision | null;
 }
 
 export interface TaskView {
@@ -73,6 +76,8 @@ export interface CommitSummary {
   subject: string;
   author: string;
   date: string;
+  /** False for the repository's first commit, which has no parent to use as Base. */
+  has_parent: boolean;
 }
 
 export interface PullRequestSummary {

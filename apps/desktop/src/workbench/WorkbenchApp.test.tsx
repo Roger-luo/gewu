@@ -79,6 +79,31 @@ describe("workbench", () => {
     expect(main()).toHaveTextContent(/Mark every step in this batch reviewed/);
   });
 
+  it("reopens a finished batch at the first step of the next one", async () => {
+    const user = userEvent.setup();
+    renderWorkbench(MockWorkbench.seeded(0));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Open review of Pull request #42" }));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Start guided review" }));
+    for (let step = 0; step < 2; step++) {
+      await waitForReady();
+      await user.click(screen.getByRole("button", { name: "Mark reviewed" }));
+    }
+    await waitForReady();
+    expect(main()).toHaveAttribute("data-gewu-screen", "summary");
+
+    await user.click(screen.getByRole("button", { name: "Back to reviews" }));
+    await user.click(screen.getByRole("button", { name: "Pull request #42" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const open = await screen.findByRole("button", { name: "Open review" });
+    await vi.waitFor(() => expect(main()).toHaveTextContent(/2 of \d+ steps reviewed/));
+    await user.click(open);
+    await waitForReady();
+    expect(main()).toHaveAttribute("data-gewu-screen", "chunk");
+    expect(window.__gewu?.state().chunk_index).toBe(2);
+  });
+
   it("explains a failed review and an agent that is not installed", async () => {
     const user = userEvent.setup();
     renderWorkbench(MockWorkbench.seeded(0));
@@ -114,5 +139,48 @@ describe("workbench", () => {
     await user.click(screen.getByRole("tab", { name: "Uncommitted changes" }));
     await user.click(screen.getByRole("button", { name: "Start review" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/already has a review of its uncommitted changes/);
+  });
+
+  it("removes a repository together with its reviews after asking", async () => {
+    const user = userEvent.setup();
+    renderWorkbench(MockWorkbench.seeded(0));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: /notes/ }));
+    await user.click(screen.getByRole("button", { name: "Remove notes from Gewu…" }));
+    await user.click(screen.getByRole("button", { name: "Remove notes and its review" }));
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: /notes/ })).not.toBeInTheDocument());
+    expect(within(screen.getByRole("list", { name: "Reviews" })).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("leaves New review with Escape", async () => {
+    const user = userEvent.setup();
+    renderWorkbench(MockWorkbench.seeded(0));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "New review" }));
+    expect(main()).toHaveAttribute("data-gewu-screen", "new-review");
+    await user.keyboard("{Escape}");
+    expect(main()).toHaveAttribute("data-gewu-screen", "home");
+  });
+
+  it("remembers the reader's place across a reload", async () => {
+    const user = userEvent.setup();
+    const backend = MockWorkbench.seeded(0);
+    const { unmount } = render(<WorkbenchApp backend={backend} />);
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Open review of Pull request #42" }));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Start guided review" }));
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Mark reviewed" }));
+    await waitForReady();
+    const index = window.__gewu?.state().chunk_index;
+    unmount();
+
+    render(<WorkbenchApp backend={backend} />);
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "Open review of Pull request #42" }));
+    await waitForReady();
+    expect(main()).toHaveAttribute("data-gewu-screen", "chunk");
+    expect(window.__gewu?.state().chunk_index).toBe(index);
   });
 });

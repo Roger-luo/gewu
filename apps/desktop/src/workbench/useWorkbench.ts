@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import type { ReviewPlace } from "../protocol";
 import { setDocumentReady } from "../ready";
+import { PlaceStore } from "./places";
 import type { WorkbenchBackend } from "./backend";
 import type { WorkbenchAction, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 
@@ -19,7 +19,7 @@ export function useWorkbench(backend: WorkbenchBackend) {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
-  const [places] = useState(() => new Map<string, ReviewPlace>());
+  const [places] = useState(() => new PlaceStore());
 
   const refresh = useCallback(async () => {
     try {
@@ -85,10 +85,15 @@ export function useWorkbench(backend: WorkbenchBackend) {
     [backend, track],
   );
 
-  const navigate = useCallback((next: WorkbenchRoute) => {
-    setError(null);
-    setRoute(next);
-  }, []);
+  const navigate = useCallback(
+    (next: WorkbenchRoute) => {
+      setError(null);
+      setRoute(next);
+      // Reviewing changes progress the lists show; don't wait for the next poll.
+      void track(() => backend.workbench()).then((fresh) => fresh && setSnapshot(fresh));
+    },
+    [backend, track],
+  );
 
   /** Create a task and open it; the task's id, or `null` when refused. */
   const createTask = useCallback(

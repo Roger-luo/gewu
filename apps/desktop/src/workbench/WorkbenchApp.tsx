@@ -36,6 +36,13 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
     },
     [wb],
   );
+  const { setError } = wb;
+  const closeAdding = useCallback(() => {
+    setAdding(false);
+    setError(null);
+  }, [setError]);
+
+  const leaveNewReview = useCallback(() => navigate({ screen: "home" }), [navigate]);
 
   const task = route.screen === "task" || route.screen === "review"
     ? snapshot?.tasks.find((item) => item.id === route.task_id)
@@ -61,7 +68,10 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   }
 
   if (route.screen === "review" && task?.review) {
-    return <TaskReview key={task.id} wb={wb} task={task} />;
+    return <TaskReview key={task.id} wb={wb} task={task} onBack={() => {
+      setFilter(task.repository_id);
+      navigate({ screen: "home" });
+    }} />;
   }
 
   return (
@@ -75,7 +85,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
         onAddRepository={() => setAdding(true)}
       />
       <div className="app-main-column">
-        {wb.error && <ErrorBanner message={wb.error} onDismiss={() => wb.setError(null)} />}
+        {wb.error && !adding && <ErrorBanner message={wb.error} onDismiss={() => wb.setError(null)} />}
         {wb.loadError && (
           <p className="warning stale">Showing the last known state: {wb.loadError}</p>
         )}
@@ -89,6 +99,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
               setFilter(null);
               void wb.dispatch({ type: "remove_repository", repository_id: id });
             }}
+            onContinue={(id) => void wb.dispatch({ type: "continue_task", task_id: id })}
             pickDirectory={backend.pickDirectory}
           />
         )}
@@ -99,6 +110,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             initialRepository={route.repository_id}
             onAddRepository={addRepository}
             onCreate={wb.createTask}
+            onCancel={leaveNewReview}
           />
         )}
         {route.screen === "task" && task && (
@@ -114,11 +126,12 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
         )}
       </div>
       {adding && (
-        <Dialog title="Add a repository" onClose={() => setAdding(false)}>
+        <Dialog title="Add a repository" onClose={closeAdding}>
           <AddRepositoryForm
             onAdd={addRepository}
             pickDirectory={backend.pickDirectory}
-            onCancel={() => setAdding(false)}
+            onCancel={closeAdding}
+            onEdit={() => wb.error && setError(null)}
           />
           {wb.error && <p className="warning" role="alert">{wb.error}</p>}
         </Dialog>
@@ -128,7 +141,15 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
 }
 
 /** One task's review, with the task strip and the reader's place kept. */
-function TaskReview({ wb, task }: { wb: WorkbenchController; task: TaskView }) {
+function TaskReview({
+  wb,
+  task,
+  onBack,
+}: {
+  wb: WorkbenchController;
+  task: TaskView;
+  onBack: () => void;
+}) {
   const review = useMemo(() => wb.backend.review(task.id), [task.id, wb.backend]);
   const { navigate, places, dispatch } = wb;
   const host = useMemo(() => ({ taskId: task.id, goto: navigate }), [navigate, task.id]);
@@ -139,7 +160,8 @@ function TaskReview({ wb, task }: { wb: WorkbenchController; task: TaskView }) {
         view: task,
         place: places.get(task.id),
         onPlace: (place) => places.set(task.id, place),
-        onBack: () => navigate({ screen: "home" }),
+        onChange: () => void wb.refresh(),
+        onBack,
         onShowTask: () => navigate({ screen: "task", task_id: task.id }),
         onContinue: () => void dispatch({ type: "continue_task", task_id: task.id }),
         host,

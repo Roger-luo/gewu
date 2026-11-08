@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { Decision, Snapshot, ReviewTarget } from "../protocol";
+import { FeedbackJumpList } from "./FeedbackJumpList";
 import { InlineMarkdown } from "./Markdown";
 
 /** How many unreviewed chunks show before the list folds. */
@@ -20,11 +21,15 @@ export function SummaryScreen({
   const unresolved = feedback.filter((item) =>
     summary.unresolved_issues.includes(item.id),
   );
+  const comments = feedback.filter((item) => item.kind === "note");
   const unreviewed = chunks.filter((chunk) =>
     summary.unreviewed.includes(chunk.id),
   );
   const shown = showAll ? unreviewed : unreviewed.slice(0, UNREVIEWED_PREVIEW);
-  const highlighted = summary.decision ?? (feedback.length > 0 ? summary.suggested_decision : null);
+  const next = chunks.findIndex((chunk) => summary.unreviewed.includes(chunk.id));
+  // While chunks remain, reviewing them is the next step, so only a recorded decision stands out.
+  const suggested = feedback.length > 0 && next === -1 ? summary.suggested_decision : null;
+  const highlighted = summary.decision ?? suggested;
   const remaining = generation.remaining_work_items;
 
   return (
@@ -43,12 +48,21 @@ export function SummaryScreen({
 
       <section className="panel decision-box">
         <h3>Decision</h3>
-        {unreviewed.length > 0 && (
-          <div className="warning" role="status">
-            {unreviewed.length === 1
-              ? "1 chunk is still unreviewed."
-              : `${unreviewed.length} chunks are still unreviewed.`}{" "}
-            You can decide anyway, but consider finishing the guided path first.
+        {next !== -1 && (
+          <div className="warning unreviewed-warning">
+            <p role="status">
+              {unreviewed.length === 1
+                ? "1 chunk is still unreviewed."
+                : `${unreviewed.length} chunks are still unreviewed.`}{" "}
+              You can decide anyway, but consider finishing the guided path first.
+            </p>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => onNavigate({ screen: "chunk", index: next })}
+            >
+              Review next unreviewed step
+            </button>
           </div>
         )}
         {summary.batch_scoped && (
@@ -90,30 +104,12 @@ export function SummaryScreen({
       <div className="summary-grid">
         <section className="panel">
           <h3>Unresolved requests</h3>
-          {unresolved.length === 0 ? (
-            <p className="muted">None open.</p>
-          ) : (
-            <ul className="jump-list">
-              {unresolved.map((item) => {
-                const index = chunks.findIndex(
-                  (chunk) => chunk.id === item.chunk_id,
-                );
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        index >= 0 &&
-                        onNavigate({ screen: "chunk", index })
-                      }
-                    >
-                      {item.body}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <FeedbackJumpList items={unresolved} chunks={chunks} empty="None open." onNavigate={onNavigate} />
+        </section>
+
+        <section className="panel">
+          <h3>Comments</h3>
+          <FeedbackJumpList items={comments} chunks={chunks} empty="No comments." onNavigate={onNavigate} />
         </section>
 
         <section className="panel">

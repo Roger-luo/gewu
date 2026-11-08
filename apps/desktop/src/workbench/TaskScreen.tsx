@@ -3,7 +3,14 @@ import { useState } from "react";
 import { AgentLog } from "./AgentLog";
 import type { WorkbenchBackend } from "./backend";
 import { Dialog } from "./Dialog";
-import { canContinue, continueHeld, progressLabel, relativeTime, sourceSummary } from "./format";
+import {
+  canContinue,
+  continueHeld,
+  progressLabel,
+  relativeTime,
+  sourceSummary,
+  stageLabel,
+} from "./format";
 import type { AgentPreset, TaskView, WorkbenchRoute } from "./protocol";
 import { StatusBadge } from "./StatusBadge";
 
@@ -27,6 +34,7 @@ export function TaskScreen({
 }) {
   const [confirming, setConfirming] = useState(false);
   const progress = progressLabel(task);
+  const stage = task.status === "generating" ? stageLabel(task.stage) : null;
   const failed = task.status === "failed";
   const held = continueHeld(task);
   const command = task.agent.command ?? agent?.command;
@@ -49,9 +57,7 @@ export function TaskScreen({
         </h2>
         <div className="status-line" aria-live="polite">
           <StatusBadge task={task} />
-          {task.stage && task.status === "generating" && (
-            <span className="muted">Stage: {task.stage}</span>
-          )}
+          {stage && <span className="muted">{stage}</span>}
           {progress && <span className="muted">{progress}</span>}
         </div>
       </header>

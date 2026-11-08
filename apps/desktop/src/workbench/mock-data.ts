@@ -55,10 +55,10 @@ export const REFS: RepositoryRefs = {
   branch: "main",
   dirty: true,
   commits: [
-    { sha: "4f2a9c1e", subject: "feat(review): stable session keys", author: "Ada", date: "2026-11-06" },
-    { sha: "9b1d03aa", subject: "fix(harness): keep progress on append", author: "Lin", date: "2026-11-05" },
-    { sha: "c07e5512", subject: "docs: describe batch-scoped decisions", author: "Ada", date: "2026-11-04" },
-    { sha: "1aa4be90", subject: "test: cover orphaned events", author: "Mo", date: "2026-11-03" },
+    { sha: "4f2a9c1e", subject: "feat(review): stable session keys", author: "Ada", date: "2026-11-06", has_parent: true },
+    { sha: "9b1d03aa", subject: "fix(harness): keep progress on append", author: "Lin", date: "2026-11-05", has_parent: true },
+    { sha: "c07e5512", subject: "docs: describe batch-scoped decisions", author: "Ada", date: "2026-11-04", has_parent: true },
+    { sha: "1aa4be90", subject: "test: cover orphaned events", author: "Mo", date: "2026-11-03", has_parent: false },
   ],
   branches: ["main", "feature/session-keys"],
   pull_requests: [

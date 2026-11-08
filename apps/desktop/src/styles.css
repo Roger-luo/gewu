@@ -1131,9 +1131,22 @@ main[data-gewu-screen] {
 
 @media (prefers-color-scheme: dark) {
   .warning {
-    color: #ffe08a;
-    background: #3a2a10;
+    color: #ffecb8;
+    background: #33260f;
   }
+}
+
+.unreviewed-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.unreviewed-warning p {
+  margin: 0;
+  flex: 1 1 20rem;
 }
 
 @media (max-width: 1100px) {

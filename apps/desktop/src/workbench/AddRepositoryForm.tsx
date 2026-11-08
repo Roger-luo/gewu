@@ -6,11 +6,14 @@ export function AddRepositoryForm({
   pickDirectory,
   autoFocus = false,
   onCancel,
+  onEdit,
 }: {
   onAdd: (path: string) => Promise<boolean>;
   pickDirectory?: () => Promise<string | null>;
   autoFocus?: boolean;
   onCancel?: () => void;
+  /** The path changed, so an error about the last one no longer applies. */
+  onEdit?: () => void;
 }) {
   const [path, setPath] = useState("");
   const hint = useId();
@@ -29,7 +32,10 @@ export function AddRepositoryForm({
         <input
           type="text"
           value={path}
-          onChange={(event) => setPath(event.target.value)}
+          onChange={(event) => {
+            setPath(event.target.value);
+            onEdit?.();
+          }}
           placeholder="/Users/you/Code/project"
           spellCheck={false}
           autoComplete="off"

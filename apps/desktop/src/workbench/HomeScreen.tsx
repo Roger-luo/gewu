@@ -1,6 +1,7 @@
 import { AddRepositoryForm } from "./AddRepositoryForm";
 import { progressLabel, relativeTime, sourceSummary, statusLabel } from "./format";
 import type { TaskView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
+import { RemoveRepository } from "./RemoveRepository";
 import { StatusBadge } from "./StatusBadge";
 
 /** Every review, newest first, with its state at a glance. */
@@ -10,13 +11,16 @@ export function HomeScreen({
   onNavigate,
   onAddRepository,
   onRemoveRepository,
+  onContinue,
   pickDirectory,
 }: {
   snapshot: WorkbenchSnapshot;
   filter: string | null;
   onNavigate: (route: WorkbenchRoute) => void;
   onAddRepository: (path: string) => Promise<boolean>;
+  /** Removes the repository and deletes its reviews. */
   onRemoveRepository: (repositoryId: string) => void;
+  onContinue: (taskId: string) => void;
   pickDirectory?: () => Promise<string | null>;
 }) {
   const repository = snapshot.repositories.find((repo) => repo.id === filter) ?? null;
@@ -69,11 +73,27 @@ export function HomeScreen({
           )}
         </section>
       ) : (
-        <ul className="task-list" aria-label="Reviews">
-          {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} showRepository={!repository} onNavigate={onNavigate} />
-          ))}
-        </ul>
+        <>
+          <ul className="task-list" aria-label="Reviews">
+            {tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                showRepository={!repository}
+                onNavigate={onNavigate}
+                onContinue={onContinue}
+              />
+            ))}
+          </ul>
+          {repository && (
+            <RemoveRepository
+              key={repository.id}
+              name={repository.name}
+              reviews={tasks.length}
+              onRemove={() => onRemoveRepository(repository.id)}
+            />
+          )}
+        </>
       )}
     </main>
   );
@@ -83,10 +103,12 @@ function TaskRow({
   task,
   showRepository,
   onNavigate,
+  onContinue,
 }: {
   task: TaskView;
   showRepository: boolean;
   onNavigate: (route: WorkbenchRoute) => void;
+  onContinue: (taskId: string) => void;
 }) {
   const meta = `task-${task.id}-meta`;
   const progress = progressLabel(task);
@@ -132,6 +154,16 @@ function TaskRow({
           onClick={() => onNavigate({ screen: "task", task_id: task.id })}
         >
           See how to fix
+        </button>
+      )}
+      {task.status === "cancelled" && !task.review && (
+        <button
+          type="button"
+          className="btn small task-row-open"
+          aria-label={`Continue ${task.title}`}
+          onClick={() => onContinue(task.id)}
+        >
+          Continue
         </button>
       )}
     </li>

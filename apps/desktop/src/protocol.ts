@@ -207,6 +207,8 @@ export interface GewuTestPage<T extends Target = Target> {
 export interface ReviewPlace {
   screen: Screen;
   chunkIndex: number | null;
+  /** How many chunks the review had when the reader got there. */
+  chunkCount: number;
 }
 
 export interface GewuTestApi {

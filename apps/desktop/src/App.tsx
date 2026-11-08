@@ -12,6 +12,7 @@ import { useFocusOnNavigate } from "./hooks/useFocusOnNavigate";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useReviewApp } from "./hooks/useReviewApp";
 import { useTestApi, type TestApiHost } from "./hooks/useTestApi";
+import { firstUnreviewed } from "./navigation";
 import type { FeedbackAnchorInput, FeedbackTarget, ReviewPlace } from "./protocol";
 import { TaskBar } from "./workbench/TaskBar";
 import type { TaskView } from "./workbench/protocol";
@@ -21,6 +22,8 @@ export interface ReviewTask {
   view: TaskView;
   place?: ReviewPlace;
   onPlace: (place: ReviewPlace) => void;
+  /** The reader changed the review, which can change the task, e.g. finish it. */
+  onChange: () => void;
   onBack: () => void;
   onShowTask: () => void;
   onContinue: () => void;
@@ -31,6 +34,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
   const app = useReviewApp(backend, {
     place: task?.place,
     onPlace: task?.onPlace,
+    onChange: task?.onChange,
     revision: task?.view.updated_at,
   });
   const [lineSelection, setLineSelection] = useState<{
@@ -154,7 +158,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
         {screenShown === "overview" && (
           <OverviewScreen
             snapshot={snapshot}
-            onStart={() => void app.goto({ screen: "chunk", index: 0 })}
+            onStart={() => void app.goto({ screen: "chunk", index: firstUnreviewed(snapshot) })}
           />
         )}
         {currentChunk && app.chunkIndex !== null && (

@@ -49,7 +49,7 @@ export function FeedbackDialog({
           {anchorSummary
             ? `Anchored to ${anchorSummary}`
             : target === "code"
-              ? "No line selected — applies to the whole chunk. Select new-side line numbers in a quote to anchor."
+              ? "No line selected — applies to the whole chunk. To anchor it, cancel, click new-side line numbers in a quote, then open this again."
               : "Targets the explanation, not a specific line."}
         </p>
         <label>

@@ -60,9 +60,8 @@ export class MockWorkbench implements WorkbenchBackend {
         this.addRepository(action.path);
         break;
       case "remove_repository":
-        if (this.tasks.some((task) => task.view.repository_id === action.repository_id)) {
-          throw new BackendError("delete this repository's reviews before removing it");
-        }
+        this.repository(action.repository_id);
+        this.tasks = this.tasks.filter((task) => task.view.repository_id !== action.repository_id);
         this.repositories = this.repositories.filter((repo) => repo.id !== action.repository_id);
         break;
       case "create_task":
@@ -278,6 +277,7 @@ export class MockWorkbench implements WorkbenchBackend {
         total: summary.total,
         open_issues: summary.unresolved_issues.length,
         remaining_work_items: generation.remaining_work_items,
+        decision: summary.decision,
       },
     };
   }

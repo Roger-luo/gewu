@@ -4,6 +4,9 @@ import type { SourceDraft } from "./sourceDraft";
 
 type Change = (patch: Partial<SourceDraft>) => void;
 
+/** Git's empty tree; Base for a repository's first commit, which has no parent. */
+const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
 export function SourceFields({
   type,
   draft,
@@ -53,14 +56,17 @@ function CommitRange({ draft, refs, onChange }: { draft: SourceDraft; refs: Repo
           <legend>Or review one recent commit</legend>
           <ul>
             {refs.commits.slice(0, 8).map((commit) => {
-              const chosen = draft.head === commit.sha.slice(0, 12) && draft.base === `${commit.sha.slice(0, 12)}~1`;
+              const head = commit.sha.slice(0, 12);
+              // A root commit has no parent; compare against Git's empty tree instead.
+              const base = commit.has_parent ? `${head}~1` : EMPTY_TREE;
+              const chosen = draft.head === head && draft.base === base;
               return (
                 <li key={commit.sha}>
                   <button
                     type="button"
                     className="commit-pick"
                     aria-pressed={chosen}
-                    onClick={() => onChange({ base: `${commit.sha.slice(0, 12)}~1`, head: commit.sha.slice(0, 12) })}
+                    onClick={() => onChange({ base, head })}
                   >
                     <code>{commit.sha.slice(0, 8)}</code>
                     <span className="commit-subject">{commit.subject}</span>

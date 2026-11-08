@@ -34,13 +34,25 @@ export function NewReviewScreen({
   initialRepository,
   onAddRepository,
   onCreate,
+  onCancel,
 }: {
   backend: WorkbenchBackend;
   snapshot: WorkbenchSnapshot;
   initialRepository?: string;
   onAddRepository: (path: string) => Promise<boolean>;
   onCreate: (action: CreateTask) => Promise<unknown>;
+  /** Leave without starting a review; Escape does the same. */
+  onCancel: () => void;
 }) {
+  useEffect(() => {
+    const leave = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector("[role=dialog]")) {
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", leave);
+    return () => document.removeEventListener("keydown", leave);
+  }, [onCancel]);
   const [chosen, setRepositoryId] = useState(initialRepository ?? "");
   const [type, setType] = useState<SourceType>("commit_range");
   const [draft, setDraft] = useState<SourceDraft>(EMPTY_DRAFT);
@@ -119,6 +131,9 @@ export function NewReviewScreen({
         </div>
         {snapshot.repositories.length > 0 && (
           <div className="new-review-start">
+            <button type="button" className="btn" onClick={onCancel}>
+              Cancel
+            </button>
             <button type="submit" form="new-review-form" className="btn primary" disabled={starting}>
               {starting ? "Starting…" : "Start review"}
             </button>

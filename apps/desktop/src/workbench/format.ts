@@ -1,3 +1,4 @@
+import type { Decision } from "../protocol";
 import type { Source, SourceType, TaskStatus, TaskView } from "./protocol";
 
 /** The title the backend gives a task when the reviewer gives none. */
@@ -62,6 +63,26 @@ export function statusLabel(task: TaskView): string {
 }
 
 /** Progress through what exists so far, e.g. "2 of 5 steps reviewed". */
+/** Harness stages as a reviewer would describe the agent's work. */
+const STAGES: Record<string, string> = {
+  investigate: "Reading the changes",
+  plan: "Planning the steps",
+  expand: "Writing steps",
+  checkpoint: "Checking the batch",
+  rewrite: "Revising a step",
+};
+
+/** What the agent is doing now, or `null` for a stage with nothing to say. */
+export function stageLabel(stage: string | null): string | null {
+  return stage ? (STAGES[stage] ?? null) : null;
+}
+
+const DECIDED: Record<Decision, string> = {
+  approve: "you approved",
+  comment: "you commented",
+  request_changes: "you requested changes",
+};
+
 export function progressLabel(task: TaskView): string | null {
   const review = task.review;
   if (!review) {
@@ -73,6 +94,9 @@ export function progressLabel(task: TaskView): string | null {
   }
   if (review.open_issues > 0) {
     label += ` · ${review.open_issues} open change request${review.open_issues === 1 ? "" : "s"}`;
+  }
+  if (review.decision) {
+    label += ` · ${DECIDED[review.decision]}`;
   }
   return label;
 }
@@ -104,11 +128,14 @@ export function relativeTime(at: number, now = Date.now()): string {
 
 /** Whether Continue belongs on screen (enabled or held). */
 export function canContinue(task: TaskView): boolean {
-  return (
-    task.status === "awaiting_reviewer" ||
-    task.status === "failed" ||
-    task.status === "cancelled"
-  );
+  if (task.status === "failed" || task.status === "cancelled") {
+    return true;
+  }
+  // The last batch is in; finishing those steps closes the walkthrough — no Continue.
+  if (task.status !== "awaiting_reviewer") {
+    return false;
+  }
+  return (task.review?.remaining_work_items ?? 0) > 0;
 }
 
 /** Held until every written step is marked reviewed. */
@@ -116,7 +143,7 @@ export function continueHeld(
   task: TaskView,
   progress?: { reviewed: number; total: number } | null,
 ): boolean {
-  if (task.status !== "awaiting_reviewer") {
+  if (!canContinue(task) || task.status !== "awaiting_reviewer") {
     return false;
   }
   const review = progress ?? task.review;

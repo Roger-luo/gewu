@@ -17,11 +17,15 @@ export function TaskBar({
   onShowTask: () => void;
   onContinue: () => void;
 }) {
-  const more = task.status !== "complete" && canContinue(task);
+  const more = canContinue(task);
   const held = continueHeld(task, progress);
+  const finishing =
+    task.status === "awaiting_reviewer" && (task.review?.remaining_work_items ?? 0) === 0;
   const message = held
     ? "Mark every step reviewed before asking for the next batch."
-    : task.message;
+    : finishing
+      ? "Mark every step reviewed to finish the walkthrough."
+      : task.message;
   return (
     <div className="task-bar" role="region" aria-label="Review task">
       <button type="button" className="btn ghost" onClick={onBack}>
@@ -29,7 +33,11 @@ export function TaskBar({
       </button>
       <div className="task-bar-status" aria-live="polite">
         <StatusBadge task={task} />
-        {message && <span className="muted task-bar-message">{message}</span>}
+        {message && (
+          <span className="muted task-bar-message" title={message}>
+            {message}
+          </span>
+        )}
       </div>
       <div className="task-bar-actions">
         <button type="button" className="btn" onClick={onShowTask}>

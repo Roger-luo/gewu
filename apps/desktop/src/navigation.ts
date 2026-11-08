@@ -1,5 +1,5 @@
 import { plainInline } from "./markdown";
-import type { GewuTestPage, Screen, Snapshot, ReviewTarget } from "./protocol";
+import type { GewuTestPage, ReviewPlace, Screen, Snapshot, ReviewTarget } from "./protocol";
 
 export function pagesFromSnapshot(snapshot: Snapshot): GewuTestPage<ReviewTarget>[] {
   const pages: GewuTestPage<ReviewTarget>[] = [
@@ -60,6 +60,30 @@ export function afterReviewed(snapshot: Snapshot, chunkIndex: number): ReviewTar
     }
   }
   return { screen: "summary" };
+}
+
+/** Where the guided path picks up: the first unreviewed chunk, else the first. */
+export function firstUnreviewed(snapshot: Snapshot): number {
+  return Math.max(0, snapshot.chunks.findIndex((chunk) => !chunk.status.reviewed));
+}
+
+/**
+ * Where to reopen a review. A reader who left on the summary has finished what
+ * existed then, so chunks that arrived since take them to the first unreviewed one.
+ */
+export function resumeTarget(snapshot: Snapshot, place: ReviewPlace): ReviewTarget {
+  if (place.screen === "summary") {
+    const index = snapshot.chunks.findIndex(
+      (chunk, at) => at >= place.chunkCount && !chunk.status.reviewed,
+    );
+    if (index !== -1) {
+      return { screen: "chunk", index };
+    }
+  }
+  if (place.screen === "chunk" && place.chunkIndex !== null) {
+    return { screen: "chunk", index: place.chunkIndex };
+  }
+  return { screen: place.screen === "chunk" ? "overview" : place.screen };
 }
 
 export function sectionPosition(

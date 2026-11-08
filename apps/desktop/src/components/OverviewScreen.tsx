@@ -9,7 +9,8 @@ export function OverviewScreen({
   snapshot: Snapshot;
   onStart: () => void;
 }) {
-  const { overview, generation, source, files } = snapshot;
+  const { overview, generation, source, files, summary } = snapshot;
+  const resuming = summary.reviewed > 0 && summary.unreviewed.length > 0;
 
   return (
     <main data-gewu-screen="overview" aria-label="Overview">
@@ -21,7 +22,7 @@ export function OverviewScreen({
           </h2>
         </div>
         <button type="button" className="btn primary" onClick={onStart}>
-          Start guided review
+          {resuming ? "Continue guided review" : "Start guided review"}
         </button>
       </div>
 

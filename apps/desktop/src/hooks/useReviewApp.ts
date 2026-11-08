@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Backend } from "../backend";
 import { BackendError } from "../backend";
-import { afterReviewed, neighborTarget, pagesFromSnapshot } from "../navigation";
+import { afterReviewed, neighborTarget, pagesFromSnapshot, resumeTarget } from "../navigation";
 import type {
   Action,
   FeedbackKind,
@@ -18,12 +18,14 @@ export interface ReviewOptions {
   /** Where to start reading, e.g. where the reader left this task. */
   place?: ReviewPlace;
   onPlace?: (place: ReviewPlace) => void;
+  /** Called after each action the backend accepted. */
+  onChange?: () => void;
   /** Changes when an agent may have added chunks; the review is reloaded. */
   revision?: number;
 }
 
 export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
-  const { place, onPlace, revision } = options;
+  const { place, onPlace, onChange, revision } = options;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [screen, setScreen] = useState<Screen>(place?.screen ?? "overview");
   const [chunkIndex, setChunkIndex] = useState<number | null>(place?.chunkIndex ?? null);
@@ -36,17 +38,6 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
   const [epoch, setEpoch] = useState(0);
   const transitionDepth = useRef(0);
   const restored = useRef(false);
-
-  // Re-apply a remembered place once the snapshot is in, in case the first
-  // paint raced the parent’s place map.
-  useEffect(() => {
-    if (restored.current || !place || !bootstrapped) {
-      return;
-    }
-    restored.current = true;
-    setScreen(place.screen);
-    setChunkIndex(place.chunkIndex);
-  }, [bootstrapped, place]);
 
   const markBusy = useCallback(() => {
     transitionDepth.current += 1;
@@ -103,12 +94,20 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
   }, [backend, revision]);
 
   const onPlaceRef = useRef(onPlace);
+  const onChangeRef = useRef(onChange);
+  const chunkCount = useRef(0);
   useEffect(() => {
     onPlaceRef.current = onPlace;
-  }, [onPlace]);
+    onChangeRef.current = onChange;
+  }, [onPlace, onChange]);
   useEffect(() => {
-    onPlaceRef.current?.({ screen, chunkIndex });
-  }, [screen, chunkIndex]);
+    chunkCount.current = snapshot?.chunks.length ?? 0;
+  }, [snapshot]);
+  useEffect(() => {
+    if (bootstrapped) {
+      onPlaceRef.current?.({ screen, chunkIndex, chunkCount: chunkCount.current });
+    }
+  }, [bootstrapped, screen, chunkIndex]);
 
   useEffect(() => {
     if (!bootstrapped || busy || loadError || transitionDepth.current > 0) {
@@ -136,6 +135,7 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
         const next = await backend.dispatch(action);
         setSnapshot(next);
         setError(null);
+        onChangeRef.current?.();
         return next;
       } catch (err) {
         const message =
@@ -176,6 +176,16 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
     },
     [dispatch, markBusy, markIdle, snapshot],
   );
+
+  // Re-apply a remembered place once the snapshot is in, in case the first
+  // paint raced the parent’s place map.
+  useEffect(() => {
+    if (restored.current || !place || !snapshot) {
+      return;
+    }
+    restored.current = true;
+    void goto(resumeTarget(snapshot, place));
+  }, [goto, place, snapshot]);
 
   const openFeedback = useCallback((kind: FeedbackKind) => {
     setFeedbackKind(kind);
