@@ -1,7 +1,9 @@
 import type { QuoteView } from "../protocol";
-import { CodeHighlight } from "./CodeHighlight";
 import { QuoteFrame } from "./QuoteFrame";
+import { TokenLine } from "./TokenLine";
+import { useHighlightedLines } from "./useHighlightedLines";
 
+/** New code, one row per line so a long line wraps beside its own number. */
 export function AddedCodeQuote({
   quote,
   selectedLines,
@@ -11,46 +13,49 @@ export function AddedCodeQuote({
   selectedLines: Set<number>;
   onToggleLine: (changeId: string, line: number) => void;
 }) {
-  const lines = quote.lines.filter((line) => line.kind !== "removed");
-  const code = lines.map((line) => line.text).join("\n");
+  const rows = quote.lines.filter((line) => line.kind !== "removed");
+  const { lines: highlighted, pending } = useHighlightedLines(
+    rows.map((line) => line.text).join("\n"),
+    quote.language,
+  );
 
   return (
     <QuoteFrame quote={quote} presentationLabel="added code">
-      <div className="added-code-layout">
-        <div className="added-gutter" aria-hidden={false}>
-          {lines.map((row, index) => {
-            const selectable = row.new_line != null;
-            const selected =
-              selectable && selectedLines.has(row.new_line as number);
+      <table
+        className="diff-table added-table"
+        data-gewu-pending={pending ? "highlight" : undefined}
+      >
+        <tbody>
+          {rows.map((row, index) => {
+            const selected = row.new_line != null && selectedLines.has(row.new_line);
             return (
-              <button
-                key={`${quote.change_id}-ln-${index}`}
-                type="button"
-                className={`ln-btn${selected ? " selected" : ""}`}
-                disabled={!selectable}
-                aria-pressed={selectable ? selected : undefined}
-                aria-label={
-                  row.new_line != null
-                    ? `Select line ${row.new_line}`
-                    : undefined
-                }
-                onClick={() => {
-                  if (row.new_line != null) {
-                    onToggleLine(quote.change_id, row.new_line);
-                  }
-                }}
-              >
-                {row.new_line ?? ""}
-              </button>
+              <tr key={`${quote.change_id}-${index}`}>
+                <td className="ln-cell">
+                  <button
+                    type="button"
+                    className={`ln-btn${selected ? " selected" : ""}`}
+                    disabled={row.new_line == null}
+                    aria-pressed={row.new_line != null ? selected : undefined}
+                    aria-label={row.new_line != null ? `Select line ${row.new_line}` : undefined}
+                    onClick={() => {
+                      if (row.new_line != null) {
+                        onToggleLine(quote.change_id, row.new_line);
+                      }
+                    }}
+                  >
+                    {row.new_line ?? ""}
+                  </button>
+                </td>
+                <td>
+                  <code className="diff-code">
+                    <TokenLine tokens={highlighted?.[index]} plain={row.text} />
+                  </code>
+                </td>
+              </tr>
             );
           })}
-        </div>
-        <CodeHighlight
-          className="added-code"
-          code={code}
-          language={quote.language}
-        />
-      </div>
+        </tbody>
+      </table>
     </QuoteFrame>
   );
 }

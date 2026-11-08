@@ -77,40 +77,50 @@
 
 /* Status */
 
-.status-badge {
+.status-text {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
-  font-size: 12px;
+  gap: 0.45rem;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  background: var(--bg-muted);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
-.status-badge.awaiting_reviewer {
-  background: var(--accent-soft);
+.status-text .status-mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex: none;
+  background: var(--border-strong);
+}
+
+.status-text.awaiting_reviewer {
   color: var(--accent-ink);
 }
-
-.status-badge.complete {
-  background: var(--success-soft);
-  color: var(--success-ink);
+.status-text.awaiting_reviewer .status-mark {
+  background: var(--accent);
 }
 
-.status-badge.failed {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.spinner {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
+.status-text.generating .status-mark {
   background: currentColor;
   animation: pulse 1s ease-in-out infinite;
+}
+
+.status-text.complete {
+  color: var(--success-ink);
+}
+.status-text.complete .status-mark {
+  background: var(--success);
+}
+
+.status-text.failed {
+  color: var(--danger);
+}
+.status-text.failed .status-mark {
+  background: var(--danger);
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
 
 @keyframes pulse {
@@ -199,7 +209,7 @@
   font-weight: 600;
 }
 
-.task-row .status-badge {
+.task-row .status-text {
   grid-area: status;
 }
 
@@ -418,16 +428,23 @@
 .agent-option {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.agent-choice {
+  position: relative;
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
     "radio label"
     ". detail";
   column-gap: var(--space-2);
   row-gap: 2px;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
   cursor: pointer;
 }
 
@@ -452,8 +469,8 @@
   outline-offset: 2px;
 }
 
-/* The native radio covers the whole card, so the card is the target. */
-.agent-option input {
+/* The native radio covers the choice, so the label text is the target. */
+.agent-choice input {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -505,14 +522,17 @@
   color: var(--danger);
 }
 
-.agent-detail code,
-.agent-command {
+.agent-detail code {
   display: block;
   margin-top: 0.2rem;
   font-family: var(--font-mono);
   font-size: 12px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.agent-option .agent-command {
+  margin: var(--space-2) 0 0;
 }
 
 .new-review-header {

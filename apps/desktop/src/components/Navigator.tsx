@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { plainInline } from "../markdown";
 import { chunkNavState } from "../navigation";
@@ -20,9 +20,16 @@ export function Navigator({
   taskTitle?: string;
 }) {
   const { reviewed, total } = snapshot.summary;
+  const nav = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    nav.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [screen, chunkIndex]);
 
   return (
-    <nav className="navigator" aria-label="Review navigator">
+    <nav className="navigator" aria-label="Review navigator" ref={nav}>
       {taskTitle ? (
         <>
           <p className="eyebrow">Gewu review</p>
@@ -101,7 +108,7 @@ function renderChunks(
       if (chunk.section) {
         items.push(
           <li key={`section-${chunk.section}-${index}`} className="section-label">
-            {chunk.section}
+            <InlineMarkdown source={chunk.section} />
           </li>,
         );
       }

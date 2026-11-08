@@ -119,19 +119,6 @@ export function NewReviewScreen({
         </div>
         {snapshot.repositories.length > 0 && (
           <div className="new-review-start">
-            {agent === "custom" && (
-              <label className="field">
-                <span>Agent command</span>
-                <input
-                  type="text"
-                  value={command}
-                  placeholder="e.g. opencode acp"
-                  spellCheck={false}
-                  autoComplete="off"
-                  onChange={(event) => setCommand(event.target.value)}
-                />
-              </label>
-            )}
             <button type="submit" form="new-review-form" className="btn primary" disabled={starting}>
               {starting ? "Starting…" : "Start review"}
             </button>
@@ -187,7 +174,7 @@ export function NewReviewScreen({
             </div>
           </div>
 
-          <AgentPicker agents={snapshot.agents} value={agent} onChange={setAgent} />
+          <AgentPicker agents={snapshot.agents} value={agent} onChange={setAgent} command={command} onCommandChange={setCommand} />
 
           <label className="field">
             <span>Title</span>

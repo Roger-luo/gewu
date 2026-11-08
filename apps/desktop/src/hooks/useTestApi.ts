@@ -59,7 +59,12 @@ export function waitUntilReady(): Promise<void> {
     let frames = 0;
     const tick = () => {
       // Two frames first, so a navigation has started before readiness counts.
-      if (frames++ > 1 && document.documentElement.dataset.gewuReady === "true") {
+      // Diagrams and highlighting load asynchronously and mark themselves pending.
+      if (
+        frames++ > 1 &&
+        document.documentElement.dataset.gewuReady === "true" &&
+        !document.querySelector("[data-gewu-pending]")
+      ) {
         resolve();
         return;
       }

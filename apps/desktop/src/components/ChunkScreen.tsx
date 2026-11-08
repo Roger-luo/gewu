@@ -55,6 +55,10 @@ export function ChunkScreen({
     (item) => item.chunk_id === chunk.id,
   );
   const showAside = Boolean(chunk.context) && !narrow;
+  const language =
+    chunk.blocks
+      .flatMap((block) => (block.type === "changes" ? block.quotes : []))
+      .find((quote) => quote.language)?.language ?? null;
 
   return (
     <div className={`app-body${showAside ? " has-context" : ""}`}>
@@ -66,14 +70,16 @@ export function ChunkScreen({
         <div className="screen-header">
           <div>
             <div className="eyebrow stage">
-              {[
-                "Stage",
-                `Chunk ${chunkIndex + 1} of ${snapshot.chunks.length}`,
-                section,
-                chunk.kind,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              <InlineMarkdown
+                source={[
+                  "Stage",
+                  `Chunk ${chunkIndex + 1} of ${snapshot.chunks.length}`,
+                  section,
+                  chunk.kind,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
             </div>
             <h2 className="screen-title" tabIndex={-1}>
               <InlineMarkdown source={chunk.title} />
@@ -114,19 +120,24 @@ export function ChunkScreen({
         </p>
 
         {chunk.context && narrow && (
-          <div className="context-inline">
-            <ContextPane context={chunk.context} />
-          </div>
+          <details className="context-disclosure">
+            <summary>
+              {chunk.context.kind === "concept"
+                ? "Concept: definition and example"
+                : "Refactor: reason and signatures"}
+            </summary>
+            <ContextPane context={chunk.context} language={language} />
+          </details>
         )}
 
         {chunk.confidence && (
           <div className="notice uncertainty">
-            Uncertainty: {chunk.confidence}
+            Uncertainty: <InlineMarkdown source={chunk.confidence} />
           </div>
         )}
         {chunk.oversized_reason && (
           <div className="notice oversized">
-            Oversized: {chunk.oversized_reason}
+            Oversized: <InlineMarkdown source={chunk.oversized_reason} />
           </div>
         )}
 
@@ -159,7 +170,7 @@ export function ChunkScreen({
           openIssues={chunk.status.open_issues}
         />
       </main>
-      {showAside && chunk.context && <ContextPane context={chunk.context} />}
+      {showAside && chunk.context && <ContextPane context={chunk.context} language={language} />}
     </div>
   );
 }
@@ -175,7 +186,8 @@ function ChunkStatusChip({
   // (or unreviewed) here so chrome does not repeat the same status three ways.
   if (openIssues > 0) {
     return (
-      <span className="chip warn">
+      <span className="step-status warn">
+        <span className="nav-state unresolved" aria-hidden />
         {openIssues === 1
           ? "Open change request"
           : `${openIssues} open change requests`}
@@ -185,5 +197,10 @@ function ChunkStatusChip({
   if (reviewed) {
     return null;
   }
-  return <span className="chip quiet">Unreviewed</span>;
+  return (
+    <span className="step-status">
+      <span className="nav-state unreviewed" aria-hidden />
+      Not reviewed
+    </span>
+  );
 }

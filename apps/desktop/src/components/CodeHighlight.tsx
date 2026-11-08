@@ -11,24 +11,21 @@ export function CodeHighlight({
   language: string | null;
   className?: string;
 }) {
-  const [html, setHtml] = useState<string | null>(null);
+  const key = `${language ?? ""}\n${code}`;
+  const [result, setResult] = useState<{ key: string; html: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const dark = prefersDark();
-    void highlightCode(code, language, dark).then((result) => {
-      if (!cancelled) {
-        setHtml(result);
-      }
-    });
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      void highlightCode(code, language, media.matches).then((result) => {
+    const apply = (dark: boolean) => {
+      void highlightCode(code, language, dark).then((html) => {
         if (!cancelled) {
-          setHtml(result);
+          setResult({ key: `${language ?? ""}\n${code}`, html });
         }
       });
     };
+    apply(prefersDark());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => apply(media.matches);
     media.addEventListener("change", onChange);
     return () => {
       cancelled = true;
@@ -36,14 +33,17 @@ export function CodeHighlight({
     };
   }, [code, language]);
 
-  if (html) {
-    return (
-      <div
-        className={className}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
+  const current = result?.key === key ? result : null;
+  if (current?.html) {
+    return <div className={className} dangerouslySetInnerHTML={{ __html: current.html }} />;
   }
 
-  return <pre className={`code-plain ${className ?? ""}`}>{code}</pre>;
+  return (
+    <pre
+      className={`code-plain ${className ?? ""}`}
+      data-gewu-pending={current ? undefined : "highlight"}
+    >
+      {code}
+    </pre>
+  );
 }

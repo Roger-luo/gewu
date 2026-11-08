@@ -108,6 +108,10 @@ describe("feedback flow", () => {
     expect(title.textContent).toBe("Event path wiring via session_key()");
     expect(title.querySelector("code")?.textContent).toBe("session_key()");
     expect(main.querySelector(".chunk-summary code")?.textContent).toBe("session_key()");
+    expect(main.querySelector(".eyebrow code")?.textContent).toBe("review_id");
+    expect(main.querySelector(".notice.uncertainty code")?.textContent).toBe("session_key()");
     expect(main.textContent).not.toContain("`");
+    expect(nav.querySelector(".section-label code")?.textContent).toBe("review_id");
+    expect(nav.textContent).not.toContain("`");
   });
 });

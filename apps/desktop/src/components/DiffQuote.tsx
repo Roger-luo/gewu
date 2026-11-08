@@ -12,14 +12,14 @@ export function DiffQuote({
   selectedLines: Set<number>;
   onToggleLine: (changeId: string, line: number) => void;
 }) {
-  const highlighted = useHighlightedLines(
+  const { lines: highlighted, pending } = useHighlightedLines(
     quote.lines.map((row) => row.text).join("\n"),
     quote.language,
   );
 
   return (
     <QuoteFrame quote={quote} presentationLabel="diff">
-      <table className="diff-table">
+      <table className="diff-table" data-gewu-pending={pending ? "highlight" : undefined}>
         <tbody>
           {quote.lines.map((row, index) => {
             const selectable =
@@ -61,7 +61,9 @@ export function DiffQuote({
                   {row.kind === "added" ? "+" : row.kind === "removed" ? "-" : " "}
                 </td>
                 <td>
-                  <TokenLine tokens={highlighted?.[index]} plain={row.text} />
+                  <code className="diff-code">
+                    <TokenLine tokens={highlighted?.[index]} plain={row.text} />
+                  </code>
                 </td>
               </tr>
             );

@@ -38,7 +38,7 @@ export function showcaseSnapshot(): Snapshot {
         summary:
           "A `review_id` is stamped once and used as the session key so later edits cannot move the event log.",
         kind: "concept",
-        section: "Identity",
+        section: "Identity via `review_id`",
         context: {
           kind: "concept",
           definition:
@@ -78,8 +78,8 @@ export function showcaseSnapshot(): Snapshot {
         summary:
           "The app service resolves the event log from `session_key()`, keeping TUI and desktop sessions interchangeable.",
         kind: "integration",
-        section: "Identity",
-        confidence: "Path joins follow the existing TUI layout; verify on resume.",
+        section: "Identity via `review_id`",
+        confidence: "Path joins follow the existing TUI layout; verify `session_key()` on resume.",
         blocks: [
           narrative(
             "Look at how the path is built. The `reviews/<key>/events.jsonl` layout is unchanged — only the key source moves.",

@@ -24,10 +24,15 @@ export function AgentPicker({
   agents,
   value,
   onChange,
+  command,
+  onCommandChange,
 }: {
   agents: AgentPreset[];
   value: string;
   onChange: (presetId: string) => void;
+  /** Shown under the Custom option when that option is selected. */
+  command?: string;
+  onCommandChange?: (command: string) => void;
 }) {
   const name = useId();
   return (
@@ -37,32 +42,50 @@ export function AgentPicker({
         {agents.map((agent) => {
           const detail = `${name}-${agent.id}-detail`;
           return (
-            <label key={agent.id} className={agent.available ? "agent-option" : "agent-option unavailable"}>
-              <input
-                type="radio"
-                name={name}
-                value={agent.id}
-                checked={value === agent.id}
-                disabled={!agent.available}
-                aria-describedby={detail}
-                onChange={() => onChange(agent.id)}
-              />
-              <span className="radio-dot" aria-hidden />
-              <span className="agent-label">{agent.label}</span>
-              <span id={detail} className="agent-detail">
-                {!agent.available ? (
-                  <span className="unavailable-reason">
-                    {agent.detail ?? "Not installed"}. Install it to choose it here.
-                  </span>
-                ) : agent.kind === "none" ? (
-                  "Shows the raw diff file by file. Nothing runs."
-                ) : agent.id === "custom" ? (
-                  "Type its command next to Start review. It must speak ACP on stdio."
-                ) : (
-                  agentBlurb(agent.id)
-                )}
-              </span>
-            </label>
+            <div
+              key={agent.id}
+              className={agent.available ? "agent-option" : "agent-option unavailable"}
+            >
+              <label className="agent-choice">
+                <input
+                  type="radio"
+                  name={name}
+                  value={agent.id}
+                  checked={value === agent.id}
+                  disabled={!agent.available}
+                  aria-describedby={detail}
+                  onChange={() => onChange(agent.id)}
+                />
+                <span className="radio-dot" aria-hidden />
+                <span className="agent-label">{agent.label}</span>
+                <span id={detail} className="agent-detail">
+                  {!agent.available ? (
+                    <span className="unavailable-reason">
+                      {agent.detail ?? "Not installed"}. Install it to choose it here.
+                    </span>
+                  ) : agent.kind === "none" ? (
+                    "Shows the raw diff file by file. Nothing runs."
+                  ) : agent.id === "custom" ? (
+                    "Type its command in the field under this option. It must speak ACP on stdio."
+                  ) : (
+                    agentBlurb(agent.id)
+                  )}
+                </span>
+              </label>
+              {agent.id === "custom" && value === "custom" && onCommandChange && (
+                <label className="field agent-command">
+                  <span>Agent command</span>
+                  <input
+                    type="text"
+                    value={command ?? ""}
+                    placeholder="e.g. opencode acp"
+                    spellCheck={false}
+                    autoComplete="off"
+                    onChange={(event) => onCommandChange(event.target.value)}
+                  />
+                </label>
+              )}
+            </div>
           );
         })}
       </div>

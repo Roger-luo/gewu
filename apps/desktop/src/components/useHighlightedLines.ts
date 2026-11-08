@@ -2,19 +2,25 @@ import { useEffect, useState } from "react";
 
 import { highlightLines, prefersDark, type HighlightToken } from "../highlight";
 
-/** Highlighted tokens for each line, or null while the grammar loads or the language is unknown. */
+/**
+ * Highlighted tokens for each line. `lines` is null while the grammar loads or
+ * when the language is unknown; `pending` tells the two apart.
+ */
 export function useHighlightedLines(
   code: string,
   language: string | null,
-): HighlightToken[][] | null {
-  const [lines, setLines] = useState<HighlightToken[][] | null>(null);
+): { lines: HighlightToken[][] | null; pending: boolean } {
+  const key = `${language ?? ""}\n${code}`;
+  const [result, setResult] = useState<{ key: string; lines: HighlightToken[][] | null } | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
     const apply = (dark: boolean) => {
-      void highlightLines(code, language, dark).then((result) => {
+      void highlightLines(code, language, dark).then((lines) => {
         if (!cancelled) {
-          setLines(result);
+          setResult({ key: `${language ?? ""}\n${code}`, lines });
         }
       });
     };
@@ -28,5 +34,6 @@ export function useHighlightedLines(
     };
   }, [code, language]);
 
-  return lines;
+  const current = result?.key === key ? result : null;
+  return { lines: current?.lines ?? null, pending: current === null };
 }

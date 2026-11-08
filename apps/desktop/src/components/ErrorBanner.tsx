@@ -1,3 +1,5 @@
+import { InlineMarkdown } from "./Markdown";
+
 export function ErrorBanner({
   message,
   onDismiss,
@@ -7,7 +9,9 @@ export function ErrorBanner({
 }) {
   return (
     <div className="error-banner" role="alert">
-      <span>{message}</span>
+      <span>
+        <InlineMarkdown source={message} />
+      </span>
       <button type="button" onClick={onDismiss} aria-label="Dismiss error">
         Dismiss
       </button>

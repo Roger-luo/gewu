@@ -96,6 +96,34 @@ pnpm --dir apps/ui-harness ui journeys --out "$PWD/$run"
 echo "Captured $run; brief a judge with: pnpm --dir apps/ui-harness ui brief --run $PWD/$run"
 '''
 
+[tasks.ui-real]
+description = "Capture a generated walkthrough of a real repository, plus the journeys: mise run ui-real <label> <repo>"
+usage = '''
+arg "<label>" help="Run name under .gewu/ui-runs"
+arg "<repo>" help="Repository whose .gewu/review-spec.json an agent generated, e.g. a self-review run"
+'''
+run = '''
+set -euo pipefail
+run=".gewu/ui-runs/${usage_label}"
+workspace="$(mktemp -d)/workspace"
+rsync -a --exclude .gewu/self-review --exclude .gewu/reviews "${usage_repo}/" "$workspace/"
+cargo build --bin gewu
+pnpm --dir apps/desktop build
+rm -rf "$run"
+# A free port each run, so a leftover serve from an earlier capture cannot steal the URL.
+port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+pnpm --dir apps/ui-harness ui capture \
+  --url "http://127.0.0.1:${port}/" \
+  --out "$PWD/$run" \
+  --label "${usage_label} ($(basename "${usage_repo}") + journeys)" \
+  --color-scheme both \
+  --viewports 1440x900,1024x700 \
+  --start "$PWD/target/debug/gewu ui serve --root $workspace --static $PWD/apps/desktop/dist --port ${port}" \
+  --wait-url "http://127.0.0.1:${port}/api/health"
+pnpm --dir apps/ui-harness ui journeys --out "$PWD/$run"
+echo "Captured $run; brief a judge with: pnpm --dir apps/ui-harness ui brief --run $PWD/$run"
+'''
+
 [tasks.desktop]
 description = "Run the Tauri desktop app in dev mode: mise run desktop [root]"
 usage = '''

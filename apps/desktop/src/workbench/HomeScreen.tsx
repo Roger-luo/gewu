@@ -1,9 +1,7 @@
 import { AddRepositoryForm } from "./AddRepositoryForm";
-import { progressLabel, relativeTime, sourceSummary, STATUS_LABELS } from "./format";
-import type { TaskStatus, TaskView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
+import { progressLabel, relativeTime, sourceSummary, statusLabel } from "./format";
+import type { TaskView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 import { StatusBadge } from "./StatusBadge";
-
-const ORDER: TaskStatus[] = ["awaiting_reviewer", "generating", "failed", "cancelled", "complete"];
 
 /** Every review, newest first, with its state at a glance. */
 export function HomeScreen({
@@ -23,9 +21,14 @@ export function HomeScreen({
 }) {
   const repository = snapshot.repositories.find((repo) => repo.id === filter) ?? null;
   const tasks = snapshot.tasks.filter((task) => !repository || task.repository_id === repository.id);
-  const counts = ORDER.map((status) => [status, tasks.filter((task) => task.status === status).length] as const)
-    .filter(([, count]) => count > 0)
-    .map(([status, count]) => `${count} ${STATUS_LABELS[status].toLowerCase()}`);
+  // Count by the same label each card shows, so the tally cannot say
+  // "walkthrough ready" while a card says "Raw diff ready".
+  const counts = new Map<string, number>();
+  for (const task of tasks) {
+    const label = statusLabel(task);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const tally = [...counts.entries()].map(([label, count]) => `${count} ${label.toLowerCase()}`);
 
   return (
     <main data-gewu-screen="home" aria-labelledby="home-title">
@@ -38,7 +41,7 @@ export function HomeScreen({
         </h2>
         {tasks.length > 0 && (
           <p className="muted">
-            {tasks.length} review{tasks.length === 1 ? "" : "s"} · {counts.join(" · ")}
+            {tasks.length} review{tasks.length === 1 ? "" : "s"} · {tally.join(" · ")}
           </p>
         )}
       </header>

@@ -42,7 +42,7 @@ describe("summary and decision", () => {
     await waitForReady();
 
     expect(
-      screen.getByText(/some chunks are still unreviewed/i),
+      screen.getByText(/chunks? (is|are) still unreviewed/i),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^approve$/i }));

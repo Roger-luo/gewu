@@ -40,7 +40,7 @@ describe("navigation", () => {
       "data-gewu-chunk-id",
       "event-path",
     );
-    expect(screen.getByText("Unreviewed")).toBeInTheDocument();
+    expect(screen.getByText("Not reviewed", { selector: ".step-status" })).toBeInTheDocument();
   });
 
   it("moves focus to the new screen title after navigating", async () => {
