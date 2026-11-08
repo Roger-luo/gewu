@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Args;
 use gewu_review::{ReviewInput, harness::WorkList};
 
-use super::artifacts;
+use gewu_harness::{DEFAULT_MAX_CHUNKS, artifacts};
 
 #[derive(Debug, Args)]
 pub struct ValidatePlanArgs {
@@ -15,7 +15,7 @@ pub struct ValidatePlanArgs {
     /// Repeat for a local planning scope. Omit to validate the whole manifest.
     #[arg(long)]
     change_id: Vec<String>,
-    #[arg(long, default_value_t = super::DEFAULT_MAX_CHUNKS)]
+    #[arg(long, default_value_t = DEFAULT_MAX_CHUNKS)]
     max_chunks: usize,
 }
 

@@ -1,6 +1,11 @@
 [tools]
 rust = { version = "stable", profile = "minimal", components = ["rustfmt", "clippy"] }
 prek = "latest"
+node = "24"
+# aqua:pnpm/pnpm looks up pnpm-macos-* assets. pnpm 11 publishes
+# pnpm-darwin-*.tar.gz, which mise before 2026.4.27 cannot install.
+"npm:pnpm" = "11"
+"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.151"
 
 [tasks.check]
 description = "Run all repository checks"
@@ -8,7 +13,104 @@ run = [
   "cargo fmt --all -- --check",
   "cargo check --workspace --all-targets --all-features",
   "cargo clippy --workspace --all-targets --all-features -- -D warnings",
-  "cargo test --workspace --all-features",
+  "cargo nextest run --workspace --all-features",
+  "cargo test --doc --workspace --all-features",
   "cargo build --bin gewu",
   "python3 -m unittest discover -s scripts/tests -v",
 ]
+
+[tasks.test]
+description = "Run workspace tests with nextest. Extra arguments are test-name filters."
+run = '''
+set -euo pipefail
+cargo nextest run --workspace --all-features "$@"
+'''
+
+[tasks.ui-install]
+description = "Install the desktop UI and UI harness packages"
+run = [
+  "pnpm --dir apps/desktop install --frozen-lockfile",
+  "pnpm --dir apps/ui-harness install --frozen-lockfile",
+  "pnpm --dir apps/ui-harness exec playwright install chromium",
+]
+
+[tasks.ui-check]
+description = "Typecheck, lint, test, and build the desktop UI and UI harness"
+run = [
+  "pnpm --dir apps/desktop typecheck",
+  "pnpm --dir apps/desktop lint",
+  "pnpm --dir apps/desktop test",
+  "pnpm --dir apps/desktop build",
+  "pnpm --dir apps/ui-harness typecheck",
+  "pnpm --dir apps/ui-harness lint",
+  "pnpm --dir apps/ui-harness test",
+]
+
+[tasks.ui-capture]
+description = "Capture the desktop UI against a fixture: mise run ui-capture <label> [fixture]"
+usage = '''
+arg "<label>" help="Run name under .gewu/ui-runs"
+arg "[fixture]" default="showcase-feedback" help="Directory under fixtures/ui"
+'''
+run = '''
+set -euo pipefail
+run=".gewu/ui-runs/${usage_label}"
+workspace="$(mktemp -d)/workspace"
+cp -R "fixtures/ui/${usage_fixture}" "$workspace"
+cargo build --bin gewu
+pnpm --dir apps/desktop build
+rm -rf "$run"
+pnpm --dir apps/ui-harness ui capture \
+  --url http://127.0.0.1:4317/ \
+  --out "$PWD/$run" \
+  --label "${usage_label} (${usage_fixture})" \
+  --color-scheme both \
+  --start "$PWD/target/debug/gewu ui serve --root $workspace --static $PWD/apps/desktop/dist --port 4317" \
+  --wait-url http://127.0.0.1:4317/api/health
+echo "Captured $run"
+'''
+
+[tasks.ui-journeys]
+description = "Capture review screens and run the user-story journeys into one run: mise run ui-journeys <label>"
+usage = '''
+arg "<label>" help="Run name under .gewu/ui-runs"
+arg "[fixture]" default="showcase-feedback" help="Directory under fixtures/ui for the review screens"
+'''
+run = '''
+set -euo pipefail
+run=".gewu/ui-runs/${usage_label}"
+workspace="$(mktemp -d)/workspace"
+cp -R "fixtures/ui/${usage_fixture}" "$workspace"
+cargo build --bin gewu
+pnpm --dir apps/desktop build
+rm -rf "$run"
+pnpm --dir apps/ui-harness ui capture \
+  --url http://127.0.0.1:4318/ \
+  --out "$PWD/$run" \
+  --label "${usage_label} (${usage_fixture} + journeys)" \
+  --color-scheme both \
+  --viewports 1440x900,1024x700 \
+  --start "$PWD/target/debug/gewu ui serve --root $workspace --static $PWD/apps/desktop/dist --port 4318" \
+  --wait-url http://127.0.0.1:4318/api/health
+pnpm --dir apps/ui-harness ui journeys --out "$PWD/$run"
+echo "Captured $run; brief a judge with: pnpm --dir apps/ui-harness ui brief --run $PWD/$run"
+'''
+
+[tasks.desktop]
+description = "Run the Tauri desktop app in dev mode: mise run desktop [root]"
+usage = '''
+arg "[root]" help="Open only this prepared review (a directory with .gewu/); omit for the workbench"
+'''
+run = '''
+set -euo pipefail
+cargo build --bin gewu
+export GEWU_BIN="$PWD/target/debug/gewu"
+# Tauri resolves Cargo.toml + tauri.conf.json from the crate directory.
+cd crates/gewu-desktop
+if [ -n "${usage_root:-}" ]; then
+  root="$(cd "${usage_root}" && pwd)"
+  pnpm --dir ../../apps/desktop exec tauri dev -- -- --root "$root"
+else
+  pnpm --dir ../../apps/desktop exec tauri dev
+fi
+'''

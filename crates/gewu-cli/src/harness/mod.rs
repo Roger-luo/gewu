@@ -1,11 +1,6 @@
-mod artifacts;
 mod context;
-mod estimate;
 mod generate;
-mod prompts;
 mod research;
-mod research_state;
-mod runner;
 mod validate_plan;
 mod watch;
 
@@ -13,15 +8,11 @@ use std::path::Path;
 
 use anyhow::Result;
 use clap::{Args, Subcommand};
+use gewu_git::Repository;
+use gewu_harness::{DEFAULT_MAX_CHUNKS, HarnessRunner};
 use gewu_review::harness::ReviewOrigin;
 
-use crate::git::Repository;
-
 pub use self::generate::GenerateArgs;
-use self::runner::HarnessRunner;
-
-/// Chunks one expansion may put in front of a reviewer at once.
-pub const DEFAULT_MAX_CHUNKS: usize = 6;
 
 #[derive(Debug, Subcommand)]
 pub enum HarnessCommand {

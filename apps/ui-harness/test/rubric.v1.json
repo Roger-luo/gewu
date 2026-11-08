@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "title": "Test UI rubric",
+  "scale": {
+    "min": 0,
+    "max": 3,
+    "anchors": {
+      "0": "broken",
+      "1": "material problems",
+      "2": "usable with small gaps",
+      "3": "clear"
+    }
+  },
+  "dimensions": [
+    {
+      "id": "orientation",
+      "name": "Orientation",
+      "weight": 3,
+      "question": "Can the reviewer tell where they are in the review?",
+      "look_for": ["screen identity", "navigator", "chunk title"],
+      "anchors": {
+        "0": "lost",
+        "1": "often unclear",
+        "2": "mostly clear",
+        "3": "always clear"
+      },
+      "evidence": ["screenshot", "aria"],
+      "sources": ["nielsen-heuristics"]
+    },
+    {
+      "id": "a11y",
+      "name": "Accessibility basics",
+      "weight": 2,
+      "question": "Are landmarks, focus, and targets usable?",
+      "look_for": ["landmarks", "focus rings", "target size"],
+      "anchors": {
+        "0": "blocked",
+        "1": "serious gaps",
+        "2": "small gaps",
+        "3": "solid"
+      },
+      "evidence": ["checks", "interaction"],
+      "sources": ["wcag"]
+    }
+  ],
+  "gates": [
+    {
+      "id": "no-critical-a11y",
+      "check": "axe.critical",
+      "max": 0,
+      "effect": "fail",
+      "description": "No critical axe violations"
+    },
+    {
+      "id": "target-size-cap",
+      "check": "targets.too_small",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "Cap score when tiny targets exist"
+    }
+  ],
+  "sources": [
+    {
+      "id": "nielsen-heuristics",
+      "title": "Nielsen heuristics",
+      "url": "https://www.nngroup.com/articles/ten-usability-heuristics/"
+    },
+    {
+      "id": "wcag",
+      "title": "WCAG 2.2",
+      "url": "https://www.w3.org/TR/WCAG22/"
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gewu fixture</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f5f0;
+        --fg: #1a1a1a;
+        --muted: #5a5a5a;
+        --accent: #0b6e4f;
+        --border: #d0cbc2;
+        font-family: ui-serif, Georgia, serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #161616;
+          --fg: #eee;
+          --muted: #aaa;
+          --accent: #6ec9a8;
+          --border: #333;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      header {
+        grid-column: 1 / -1;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+      header h1 { font-size: 1.1rem; margin: 0; }
+      nav {
+        padding: 1rem;
+        border-right: 1px solid var(--border);
+      }
+      nav ol { margin: 0; padding-left: 1.2rem; }
+      nav button {
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        padding: 0.35rem 0;
+        min-height: 28px;
+        min-width: 28px;
+      }
+      nav button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      main { padding: 1.25rem 1.5rem; max-width: 52rem; }
+      main h2 { margin-top: 0; }
+      .muted { color: var(--muted); font-size: 0.95rem; }
+      .tiny-btn {
+        /* deliberate defect: under 24×24 target size */
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        font-size: 10px;
+        line-height: 1;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--fg);
+        cursor: pointer;
+      }
+      .tiny-btn:focus-visible {
+        outline: 2px solid var(--accent);
+      }
+      .clipped {
+        /* deliberate defect: text cut off with no way to reach it */
+        height: 1.2em;
+        overflow: hidden;
+      }
+      .scroll-pane {
+        /* not a defect: overflow stays reachable by scrolling */
+        height: 1.2em;
+        overflow: auto;
+      }
+      dialog {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        max-width: 28rem;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+      form { display: grid; gap: 0.75rem; }
+      label { display: grid; gap: 0.25rem; }
+      input, textarea, select {
+        font: inherit;
+        padding: 0.4rem 0.5rem;
+        min-height: 28px;
+      }
+      .actions { display: flex; gap: 0.5rem; }
+      .actions button {
+        min-height: 28px;
+        min-width: 28px;
+        padding: 0.35rem 0.75rem;
+      }
+      .actions button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Gewu fixture review</h1>
+      <span class="muted" id="status">Ready</span>
+      <button type="button" class="tiny-btn" id="tiny" title="Tiny" aria-label="Tiny action">·</button>
+    </header>
+    <nav aria-label="Review navigator">
+      <ol id="nav-list"></ol>
+    </nav>
+    <main data-gewu-screen="overview" id="main">
+      <h2 id="title">Overview</h2>
+      <p id="body" class="muted"></p>
+      <div class="clipped" id="clipped">Hidden first line<br />Hidden second line</div>
+      <div class="scroll-pane" id="scroll-pane">Reachable first line<br />Reachable second line</div>
+      <aside aria-label="Context" id="context" hidden>
+        <p class="muted">Context pane for the current chunk.</p>
+      </aside>
+    </main>
+
+    <dialog id="help" aria-label="Keyboard help">
+      <h2>Keyboard</h2>
+      <ul>
+        <li><kbd>j</kbd> / <kbd>k</kbd> next / previous</li>
+        <li><kbd>o</kbd> overview · <kbd>s</kbd> summary</li>
+        <li><kbd>?</kbd> help · <kbd>Esc</kbd> close</li>
+        <li><kbd>c</kbd> comment</li>
+      </ul>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+
+    <dialog id="feedback" aria-label="Add feedback">
+      <h2>Add feedback</h2>
+      <form id="feedback-form">
+        <label>Kind
+          <select name="kind">
+            <option value="note">Note</option>
+            <option value="issue">Issue</option>
+          </select>
+        </label>
+        <label>Body
+          <textarea name="body" rows="3" required></textarea>
+        </label>
+        <div class="actions">
+          <button type="submit">Save</button>
+          <button type="button" id="feedback-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,11 +1,23 @@
 [workspace]
-members = [".", "crates/gewu-cli", "crates/gewu-review"]
+members = [
+    ".",
+    "crates/gewu-agent",
+    "crates/gewu-app",
+    "crates/gewu-cli",
+    "crates/gewu-desktop",
+    "crates/gewu-git",
+    "crates/gewu-harness",
+    "crates/gewu-http",
+    "crates/gewu-review",
+    "crates/gewu-tui",
+    "crates/gewu-workbench",
+]
 resolver = "3"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT"
 
 [package]
@@ -18,4 +30,12 @@ description = "Human-guided code and design review"
 
 [dependencies]
 gewu-cli = { path = "crates/gewu-cli" }
+gewu-git = { path = "crates/gewu-git" }
+gewu-harness = { path = "crates/gewu-harness" }
 gewu-review = { path = "crates/gewu-review" }
+gewu-tui = { path = "crates/gewu-tui" }
+gewu-workbench = { path = "crates/gewu-workbench" }
+
+[dev-dependencies]
+gewu-app = { path = "crates/gewu-app" }
+tempfile = "3.27.0"

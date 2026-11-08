@@ -4,7 +4,7 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 
 use super::ArtifactArgs;
-use crate::tui::ReviewTui;
+use gewu_tui::ReviewTui;
 
 #[derive(Debug, Args)]
 pub struct FramesArgs {

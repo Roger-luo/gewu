@@ -1,0 +1,10 @@
+{"at_unix_ms":1,"type":"session_started","spec_id":"review-ui-showcase"}
+{"at_unix_ms":2,"type":"visited","chunk_id":"showcase-ts-greet"}
+{"at_unix_ms":3,"type":"visited","chunk_id":"showcase-python-scale"}
+{"at_unix_ms":4,"type":"review_changed","chunk_id":"showcase-ts-greet","reviewed":true}
+{"at_unix_ms":5,"type":"review_changed","chunk_id":"showcase-python-scale","reviewed":true}
+{"at_unix_ms":6,"type":"feedback_added","feedback":{"id":"feedback-note-1","chunk_id":"showcase-ts-greet","kind":"note","target":"code","body":"Nice mirror of the Rust helper.","anchor":{"change_id":"change-53188473c28444dc","path":"src/new_module.ts","side":"new","start_line":1,"end_line":1,"patch_sha256":"1afb0ea7310487d4447bc02efeff120ad27b2aaa74f163c338b387887a53c9a7"},"resolved":false}}
+{"at_unix_ms":7,"type":"feedback_added","feedback":{"id":"feedback-issue-open","chunk_id":"showcase-python-scale","kind":"issue","target":"code","body":"Document that factor defaults to 2 in the guide too.","anchor":null,"resolved":false}}
+{"at_unix_ms":8,"type":"feedback_added","feedback":{"id":"feedback-issue-resolved","chunk_id":"showcase-guide-md","kind":"issue","target":"explanation","body":"The overview bullet about Markdown was unclear.","anchor":null,"resolved":false}}
+{"at_unix_ms":9,"type":"feedback_resolved","feedback_id":"feedback-issue-resolved","resolved":true}
+{"at_unix_ms":10,"type":"visited","chunk_id":"showcase-guide-md"}

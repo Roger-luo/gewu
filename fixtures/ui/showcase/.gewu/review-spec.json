@@ -1,0 +1,214 @@
+{
+  "schema_version": 4,
+  "review_id": "review-ui-showcase",
+  "source": {
+    "base": "b3339c072d8be4ab3b292ba2f08e4417066915eb",
+    "head": "642d3c7aaac245aac645cdabdf9ee5135fd10b21",
+    "diff_sha256": "0ce4c6c170b58426279b0383ba381c6ab1cf282b5c069ead958067a6b7dbb0a4"
+  },
+  "overview": {
+    "intent": "Add a multi-language greet API, document it, and keep a large helper type reviewable as one unit.",
+    "changes": [
+      "Introduce a TypeScript greet helper beside the Rust library.",
+      "Make Python scaling take an explicit factor.",
+      "Rewrite the guide as Markdown the reviewer can read as a document.",
+      "Keep the oversized Big type together with an explicit reason."
+    ],
+    "illustration": {
+      "kind": "before_after",
+      "before": "greet(name) -> \"hello, {name}\"",
+      "after": "greet(name) -> \"hello, {name}!\""
+    },
+    "concepts": [
+      "ChangePresentation chooses how a quote is shown.",
+      "Split chunks share a section title across parts."
+    ]
+  },
+  "generation": {
+    "remaining_work_items": 2
+  },
+  "chunks": [
+    {
+      "id": "showcase-ts-greet",
+      "title": "TypeScript greet helper",
+      "summary": "A new module exports greet for the web surface; the added code is the whole story.",
+      "kind": "concept",
+      "section": "API surface",
+      "confidence": "high",
+      "context": {
+        "kind": "concept",
+        "definition": "A thin TypeScript mirror of the Rust greet helper.",
+        "example": "greet(\"world\")",
+        "relation": "Reviewers see the same greeting contract outside Rust."
+      },
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "The new TypeScript module is pure addition, so show it as added code."
+        },
+        {
+          "type": "changes",
+          "presentation": "added_code",
+          "quotes": [
+            {
+              "change_id": "change-53188473c28444dc",
+              "start": 1,
+              "end": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-python-scale",
+      "title": "Python scale factor",
+      "summary": "Scaling now takes an explicit factor; the diff shows the old signature disappearing.",
+      "kind": "refactor",
+      "section": "API surface",
+      "context": {
+        "kind": "refactor",
+        "before": "def scale(x): return x * 2",
+        "after": "def scale(x, factor=2): return x * factor",
+        "reason": "Callers may choose a factor without a second helper."
+      },
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "Removed-versus-added signature matters here."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ea9dac2d2c558ed2",
+              "start": 1,
+              "end": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-guide-md",
+      "title": "Guide as a document",
+      "summary": "The Markdown guide is meant to be read as prose, not as a raw diff.",
+      "kind": "other",
+      "section": "Documentation",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "Rendered Markdown keeps the fence boundaries visible."
+        },
+        {
+          "type": "changes",
+          "presentation": "rendered_markdown",
+          "quotes": [
+            {
+              "change_id": "change-dcec20fc18c6bbf3",
+              "start": 1,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-notes-summary",
+      "title": "Notes summarized",
+      "summary": "A trivial text tweak is summarized rather than shown line by line.",
+      "kind": "other",
+      "section": "Documentation",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "Summary-only presentation for generated or uninteresting text."
+        },
+        {
+          "type": "changes",
+          "presentation": "summary_only",
+          "quotes": [
+            {
+              "change_id": "change-1f2f341ba048706e",
+              "start": 1,
+              "end": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-lib-greet",
+      "title": "Rust greet punctuation",
+      "summary": "The library module documentation and greet punctuation change first.",
+      "kind": "concept",
+      "section": "Rust library \u00b7 1 of 2",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "Module docs and greet gain an exclamation point."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ff23785f51428be5",
+              "start": 1,
+              "end": 8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-lib-math",
+      "title": "Rust arithmetic helpers",
+      "summary": "Saturating add and a new multiply complete the library edits.",
+      "kind": "integration",
+      "section": "Rust library \u00b7 2 of 2",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "The rest of the hunk covers add and multiply."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ff23785f51428be5",
+              "start": 9,
+              "end": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "showcase-big-type",
+      "title": "Oversized Big type",
+      "summary": "Big is one type with many step methods; it stays one chunk with an oversized reason.",
+      "kind": "concept",
+      "section": "Large unit",
+      "oversized_reason": "A single type with its step methods must stay together.",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "The whole file is one semantic unit."
+        },
+        {
+          "type": "changes",
+          "presentation": "added_code",
+          "quotes": [
+            {
+              "change_id": "change-04810ccd7be6be04",
+              "start": 1,
+              "end": 83
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

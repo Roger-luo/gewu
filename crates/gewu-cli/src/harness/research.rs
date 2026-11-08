@@ -11,7 +11,7 @@ use gewu_review::{
     research::{GroundedOverview, ResearchLedger, ResearchNotes, ResearchPolicy, ResearchRun},
 };
 
-use super::{artifacts, research_state};
+use gewu_harness::{artifacts, research_state};
 
 #[derive(Debug, Args)]
 pub struct ResearchArgs {

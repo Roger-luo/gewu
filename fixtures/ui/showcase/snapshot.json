@@ -1,0 +1,1078 @@
+{
+  "review_id": "review-ui-showcase",
+  "source": {
+    "base": "b3339c072d8be4ab3b292ba2f08e4417066915eb",
+    "head": "642d3c7aaac245aac645cdabdf9ee5135fd10b21"
+  },
+  "overview": {
+    "intent": "Add a multi-language greet API, document it, and keep a large helper type reviewable as one unit.",
+    "changes": [
+      "Introduce a TypeScript greet helper beside the Rust library.",
+      "Make Python scaling take an explicit factor.",
+      "Rewrite the guide as Markdown the reviewer can read as a document.",
+      "Keep the oversized Big type together with an explicit reason."
+    ],
+    "illustration": {
+      "kind": "before_after",
+      "before": "greet(name) -> \"hello, {name}\"",
+      "after": "greet(name) -> \"hello, {name}!\""
+    },
+    "concepts": [
+      "ChangePresentation chooses how a quote is shown.",
+      "Split chunks share a section title across parts."
+    ]
+  },
+  "generation": {
+    "remaining_work_items": 2,
+    "complete": false
+  },
+  "chunks": [
+    {
+      "id": "showcase-ts-greet",
+      "index": 0,
+      "title": "TypeScript greet helper",
+      "summary": "A new module exports greet for the web surface; the added code is the whole story.",
+      "kind": "concept",
+      "section": "API surface",
+      "confidence": "high",
+      "oversized_reason": null,
+      "context": {
+        "kind": "concept",
+        "definition": "A thin TypeScript mirror of the Rust greet helper.",
+        "example": "greet(\"world\")",
+        "relation": "Reviewers see the same greeting contract outside Rust."
+      },
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "The new TypeScript module is pure addition, so show it as added code."
+        },
+        {
+          "type": "changes",
+          "presentation": "added_code",
+          "quotes": [
+            {
+              "change_id": "change-53188473c28444dc",
+              "path": "src/new_module.ts",
+              "start": 1,
+              "end": 3,
+              "language": "typescript",
+              "more_above": false,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 1,
+                  "text": "export function greet(name: string): string {"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 2,
+                  "text": "  return `hello, ${name}`;"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 3,
+                  "text": "}"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-python-scale",
+      "index": 1,
+      "title": "Python scale factor",
+      "summary": "Scaling now takes an explicit factor; the diff shows the old signature disappearing.",
+      "kind": "refactor",
+      "section": "API surface",
+      "confidence": null,
+      "oversized_reason": null,
+      "context": {
+        "kind": "refactor",
+        "before": "def scale(x): return x * 2",
+        "after": "def scale(x, factor=2): return x * factor",
+        "reason": "Callers may choose a factor without a second helper."
+      },
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "Removed-versus-added signature matters here."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ea9dac2d2c558ed2",
+              "path": "src/util.py",
+              "start": 1,
+              "end": 5,
+              "language": "python",
+              "more_above": false,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "removed",
+                  "old_line": 1,
+                  "new_line": null,
+                  "text": "def scale(x):"
+                },
+                {
+                  "kind": "removed",
+                  "old_line": 2,
+                  "new_line": null,
+                  "text": "    return x * 2"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 1,
+                  "text": "def scale(x, factor=2):"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 2,
+                  "text": "    \"\"\"Scale a value.\"\"\""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 3,
+                  "text": "    return x * factor"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-guide-md",
+      "index": 2,
+      "title": "Guide as a document",
+      "summary": "The Markdown guide is meant to be read as prose, not as a raw diff.",
+      "kind": "other",
+      "section": "Documentation",
+      "confidence": null,
+      "oversized_reason": null,
+      "context": null,
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "Rendered Markdown keeps the fence boundaries visible."
+        },
+        {
+          "type": "changes",
+          "presentation": "rendered_markdown",
+          "quotes": [
+            {
+              "change_id": "change-dcec20fc18c6bbf3",
+              "path": "docs/guide.md",
+              "start": 1,
+              "end": 14,
+              "language": "markdown",
+              "more_above": false,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "context",
+                  "old_line": 1,
+                  "new_line": 1,
+                  "text": "# Guide"
+                },
+                {
+                  "kind": "context",
+                  "old_line": 2,
+                  "new_line": 2,
+                  "text": ""
+                },
+                {
+                  "kind": "removed",
+                  "old_line": 3,
+                  "new_line": null,
+                  "text": "Old instructions."
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 3,
+                  "text": "## Overview"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 4,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 5,
+                  "text": "Use the new API:"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 6,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 7,
+                  "text": "```rust"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 8,
+                  "text": "greet(\"world\")"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 9,
+                  "text": "```"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 10,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 11,
+                  "text": "## Details"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 12,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 13,
+                  "text": "More documentation for reviewers."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-notes-summary",
+      "index": 3,
+      "title": "Notes summarized",
+      "summary": "A trivial text tweak is summarized rather than shown line by line.",
+      "kind": "other",
+      "section": "Documentation",
+      "confidence": null,
+      "oversized_reason": null,
+      "context": null,
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "Summary-only presentation for generated or uninteresting text."
+        },
+        {
+          "type": "changes",
+          "presentation": "summary_only",
+          "quotes": [
+            {
+              "change_id": "change-1f2f341ba048706e",
+              "path": "notes.txt",
+              "start": 1,
+              "end": 2,
+              "language": "text",
+              "more_above": false,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "removed",
+                  "old_line": 1,
+                  "new_line": null,
+                  "text": "plain notes"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 1,
+                  "text": "plain notes updated for summary_only"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-lib-greet",
+      "index": 4,
+      "title": "Rust greet punctuation",
+      "summary": "The library module documentation and greet punctuation change first.",
+      "kind": "concept",
+      "section": "Rust library · 1 of 2",
+      "confidence": null,
+      "oversized_reason": null,
+      "context": null,
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "Module docs and greet gain an exclamation point."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ff23785f51428be5",
+              "path": "src/lib.rs",
+              "start": 1,
+              "end": 8,
+              "language": "rust",
+              "more_above": false,
+              "more_below": true,
+              "lines": [
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 1,
+                  "text": "//! Showcase library."
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 2,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 3,
+                  "text": "/// Greets a person."
+                },
+                {
+                  "kind": "context",
+                  "old_line": 1,
+                  "new_line": 4,
+                  "text": "pub fn greet(name: &str) -> String {"
+                },
+                {
+                  "kind": "removed",
+                  "old_line": 2,
+                  "new_line": null,
+                  "text": "    format!(\"hello, {name}\")"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 5,
+                  "text": "    format!(\"hello, {name}!\")"
+                },
+                {
+                  "kind": "context",
+                  "old_line": 3,
+                  "new_line": 6,
+                  "text": "}"
+                },
+                {
+                  "kind": "context",
+                  "old_line": 4,
+                  "new_line": 7,
+                  "text": ""
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-lib-math",
+      "index": 5,
+      "title": "Rust arithmetic helpers",
+      "summary": "Saturating add and a new multiply complete the library edits.",
+      "kind": "integration",
+      "section": "Rust library · 2 of 2",
+      "confidence": null,
+      "oversized_reason": null,
+      "context": null,
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "The rest of the hunk covers add and multiply."
+        },
+        {
+          "type": "changes",
+          "presentation": "diff",
+          "quotes": [
+            {
+              "change_id": "change-ff23785f51428be5",
+              "path": "src/lib.rs",
+              "start": 9,
+              "end": 16,
+              "language": "rust",
+              "more_above": true,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "context",
+                  "old_line": 5,
+                  "new_line": 8,
+                  "text": "pub fn add(a: i32, b: i32) -> i32 {"
+                },
+                {
+                  "kind": "removed",
+                  "old_line": 6,
+                  "new_line": null,
+                  "text": "    a + b"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 9,
+                  "text": "    a.saturating_add(b)"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 10,
+                  "text": "}"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 11,
+                  "text": ""
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 12,
+                  "text": "pub fn multiply(a: i32, b: i32) -> i32 {"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 13,
+                  "text": "    a * b"
+                },
+                {
+                  "kind": "context",
+                  "old_line": 7,
+                  "new_line": 14,
+                  "text": "}"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    },
+    {
+      "id": "showcase-big-type",
+      "index": 6,
+      "title": "Oversized Big type",
+      "summary": "Big is one type with many step methods; it stays one chunk with an oversized reason.",
+      "kind": "concept",
+      "section": "Large unit",
+      "confidence": null,
+      "oversized_reason": "A single type with its step methods must stay together.",
+      "context": null,
+      "blocks": [
+        {
+          "type": "narrative",
+          "markdown": "The whole file is one semantic unit."
+        },
+        {
+          "type": "changes",
+          "presentation": "added_code",
+          "quotes": [
+            {
+              "change_id": "change-04810ccd7be6be04",
+              "path": "src/big.rs",
+              "start": 1,
+              "end": 83,
+              "language": "rust",
+              "more_above": false,
+              "more_below": false,
+              "lines": [
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 1,
+                  "text": "//! Oversized unit kept together."
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 2,
+                  "text": "pub struct Big;"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 3,
+                  "text": "impl Big {"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 4,
+                  "text": "    pub fn step_1(&self) -> u32 { 1 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 5,
+                  "text": "    pub fn step_2(&self) -> u32 { 2 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 6,
+                  "text": "    pub fn step_3(&self) -> u32 { 3 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 7,
+                  "text": "    pub fn step_4(&self) -> u32 { 4 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 8,
+                  "text": "    pub fn step_5(&self) -> u32 { 5 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 9,
+                  "text": "    pub fn step_6(&self) -> u32 { 6 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 10,
+                  "text": "    pub fn step_7(&self) -> u32 { 7 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 11,
+                  "text": "    pub fn step_8(&self) -> u32 { 8 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 12,
+                  "text": "    pub fn step_9(&self) -> u32 { 9 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 13,
+                  "text": "    pub fn step_10(&self) -> u32 { 10 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 14,
+                  "text": "    pub fn step_11(&self) -> u32 { 11 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 15,
+                  "text": "    pub fn step_12(&self) -> u32 { 12 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 16,
+                  "text": "    pub fn step_13(&self) -> u32 { 13 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 17,
+                  "text": "    pub fn step_14(&self) -> u32 { 14 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 18,
+                  "text": "    pub fn step_15(&self) -> u32 { 15 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 19,
+                  "text": "    pub fn step_16(&self) -> u32 { 16 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 20,
+                  "text": "    pub fn step_17(&self) -> u32 { 17 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 21,
+                  "text": "    pub fn step_18(&self) -> u32 { 18 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 22,
+                  "text": "    pub fn step_19(&self) -> u32 { 19 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 23,
+                  "text": "    pub fn step_20(&self) -> u32 { 20 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 24,
+                  "text": "    pub fn step_21(&self) -> u32 { 21 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 25,
+                  "text": "    pub fn step_22(&self) -> u32 { 22 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 26,
+                  "text": "    pub fn step_23(&self) -> u32 { 23 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 27,
+                  "text": "    pub fn step_24(&self) -> u32 { 24 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 28,
+                  "text": "    pub fn step_25(&self) -> u32 { 25 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 29,
+                  "text": "    pub fn step_26(&self) -> u32 { 26 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 30,
+                  "text": "    pub fn step_27(&self) -> u32 { 27 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 31,
+                  "text": "    pub fn step_28(&self) -> u32 { 28 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 32,
+                  "text": "    pub fn step_29(&self) -> u32 { 29 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 33,
+                  "text": "    pub fn step_30(&self) -> u32 { 30 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 34,
+                  "text": "    pub fn step_31(&self) -> u32 { 31 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 35,
+                  "text": "    pub fn step_32(&self) -> u32 { 32 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 36,
+                  "text": "    pub fn step_33(&self) -> u32 { 33 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 37,
+                  "text": "    pub fn step_34(&self) -> u32 { 34 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 38,
+                  "text": "    pub fn step_35(&self) -> u32 { 35 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 39,
+                  "text": "    pub fn step_36(&self) -> u32 { 36 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 40,
+                  "text": "    pub fn step_37(&self) -> u32 { 37 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 41,
+                  "text": "    pub fn step_38(&self) -> u32 { 38 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 42,
+                  "text": "    pub fn step_39(&self) -> u32 { 39 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 43,
+                  "text": "    pub fn step_40(&self) -> u32 { 40 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 44,
+                  "text": "    pub fn step_41(&self) -> u32 { 41 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 45,
+                  "text": "    pub fn step_42(&self) -> u32 { 42 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 46,
+                  "text": "    pub fn step_43(&self) -> u32 { 43 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 47,
+                  "text": "    pub fn step_44(&self) -> u32 { 44 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 48,
+                  "text": "    pub fn step_45(&self) -> u32 { 45 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 49,
+                  "text": "    pub fn step_46(&self) -> u32 { 46 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 50,
+                  "text": "    pub fn step_47(&self) -> u32 { 47 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 51,
+                  "text": "    pub fn step_48(&self) -> u32 { 48 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 52,
+                  "text": "    pub fn step_49(&self) -> u32 { 49 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 53,
+                  "text": "    pub fn step_50(&self) -> u32 { 50 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 54,
+                  "text": "    pub fn step_51(&self) -> u32 { 51 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 55,
+                  "text": "    pub fn step_52(&self) -> u32 { 52 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 56,
+                  "text": "    pub fn step_53(&self) -> u32 { 53 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 57,
+                  "text": "    pub fn step_54(&self) -> u32 { 54 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 58,
+                  "text": "    pub fn step_55(&self) -> u32 { 55 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 59,
+                  "text": "    pub fn step_56(&self) -> u32 { 56 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 60,
+                  "text": "    pub fn step_57(&self) -> u32 { 57 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 61,
+                  "text": "    pub fn step_58(&self) -> u32 { 58 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 62,
+                  "text": "    pub fn step_59(&self) -> u32 { 59 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 63,
+                  "text": "    pub fn step_60(&self) -> u32 { 60 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 64,
+                  "text": "    pub fn step_61(&self) -> u32 { 61 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 65,
+                  "text": "    pub fn step_62(&self) -> u32 { 62 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 66,
+                  "text": "    pub fn step_63(&self) -> u32 { 63 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 67,
+                  "text": "    pub fn step_64(&self) -> u32 { 64 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 68,
+                  "text": "    pub fn step_65(&self) -> u32 { 65 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 69,
+                  "text": "    pub fn step_66(&self) -> u32 { 66 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 70,
+                  "text": "    pub fn step_67(&self) -> u32 { 67 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 71,
+                  "text": "    pub fn step_68(&self) -> u32 { 68 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 72,
+                  "text": "    pub fn step_69(&self) -> u32 { 69 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 73,
+                  "text": "    pub fn step_70(&self) -> u32 { 70 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 74,
+                  "text": "    pub fn step_71(&self) -> u32 { 71 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 75,
+                  "text": "    pub fn step_72(&self) -> u32 { 72 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 76,
+                  "text": "    pub fn step_73(&self) -> u32 { 73 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 77,
+                  "text": "    pub fn step_74(&self) -> u32 { 74 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 78,
+                  "text": "    pub fn step_75(&self) -> u32 { 75 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 79,
+                  "text": "    pub fn step_76(&self) -> u32 { 76 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 80,
+                  "text": "    pub fn step_77(&self) -> u32 { 77 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 81,
+                  "text": "    pub fn step_78(&self) -> u32 { 78 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 82,
+                  "text": "    pub fn step_79(&self) -> u32 { 79 }"
+                },
+                {
+                  "kind": "added",
+                  "old_line": null,
+                  "new_line": 83,
+                  "text": "}"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "visited": false,
+        "reviewed": false,
+        "open_issues": 0,
+        "feedback_count": 0
+      }
+    }
+  ],
+  "feedback": [],
+  "summary": {
+    "reviewed": 0,
+    "total": 7,
+    "unreviewed": [
+      "showcase-ts-greet",
+      "showcase-python-scale",
+      "showcase-guide-md",
+      "showcase-notes-summary",
+      "showcase-lib-greet",
+      "showcase-lib-math",
+      "showcase-big-type"
+    ],
+    "unresolved_issues": [],
+    "decision": null,
+    "suggested_decision": "approve",
+    "batch_scoped": true
+  },
+  "last_visited": null
+}

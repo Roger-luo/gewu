@@ -15,14 +15,14 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
 use sha2::{Digest, Sha256};
 
-use crate::git::Repository;
+use gewu_git::Repository;
 
-use super::{
-    DEFAULT_MAX_CHUNKS, StartArgs,
+use gewu_harness::{
+    DEFAULT_MAX_CHUNKS, HarnessRunner,
     estimate::{self, Estimate, Usage},
-    runner::HarnessRunner,
-    watch::Watch,
 };
+
+use super::{StartArgs, watch::Watch};
 
 const BRIEF: &str = include_str!("../../../../harness/prompts/agent.md");
 const WAITING: &str = "# Gewu harness: waiting for the reviewer";

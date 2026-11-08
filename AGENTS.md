@@ -23,8 +23,9 @@ Common commands:
 
 ```bash
 mise exec -- cargo build --workspace
-mise exec -- cargo test --workspace --all-features
-mise exec -- cargo test --workspace test_name
+mise exec -- cargo nextest run --workspace --all-features
+mise exec -- cargo nextest run --workspace --all-features test_name
+mise run test
 mise run check
 mise exec -- prek run --all-files
 ```
@@ -33,8 +34,12 @@ mise exec -- prek run --all-files
 
 - `src/main.rs`: minimal executable entry point; delegates to `gewu-cli`.
 - `src/lib.rs`: public facade containing re-exports only.
-- `crates/gewu-cli`: CLI-specific runtime and presentation.
 - `crates/gewu-review`: interface-independent review domain.
+- `crates/gewu-git`: Git diffs, trees, and pull requests.
+- `crates/gewu-harness`: progressive generation harness (no terminal I/O).
+- `crates/gewu-tui`: terminal review UI.
+- `crates/gewu-cli`: command parsing and terminal presentation.
+- `crates/gewu-desktop`: Tauri shell exposing the app protocol over IPC.
 - Add focused workspace crates as boundaries become clear. Do not put domain
   behavior in the root facade or couple it to terminal UI concerns.
 
@@ -53,9 +58,10 @@ run `mise run check`, which executes:
 1. `cargo fmt --all -- --check`
 2. `cargo check --workspace --all-targets --all-features`
 3. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-4. `cargo test --workspace --all-features`
-5. `cargo build --bin gewu`
-6. `python3 -m unittest discover -s scripts/tests -v` (offline CLI scenarios;
+4. `cargo nextest run --workspace --all-features` (unit and integration tests)
+5. `cargo test --doc --workspace --all-features` (doctests; nextest does not run them)
+6. `cargo build --bin gewu`
+7. `python3 -m unittest discover -s scripts/tests -v` (offline CLI scenarios;
    requires Python 3, makes no model calls)
 
 Never suppress lint failures merely to pass these checks.

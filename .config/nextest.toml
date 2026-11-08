@@ -1,0 +1,16 @@
+# Workspace test runner. `cargo nextest` does not execute doctests;
+# `mise run check` runs those with `cargo test --doc`.
+
+[profile.default]
+fail-fast = false
+status-level = "fail"
+final-status-level = "slow"
+slow-timeout = { period = "60s" }
+
+# `cargo nextest run --profile ci`
+[profile.ci]
+fail-fast = false
+retries = 2
+status-level = "fail"
+final-status-level = "retry"
+slow-timeout = { period = "60s" }

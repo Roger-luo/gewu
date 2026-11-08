@@ -1,0 +1,142 @@
+{
+  "schema_version": 4,
+  "review_id": "review-18e3c374649a93c0",
+  "source": {
+    "base": "8d2c31909bee0779aec6ff72c5a3d7cdea169033",
+    "head": "20b57370b18e2ac5a06ec75e0eae839a24330785",
+    "diff_sha256": "4164f8f89fc17f5988b5dfa072c0d859eebd4031e29c1dd8e1bf275ac45bb871"
+  },
+  "overview": {
+    "intent": "Make a progressively generated review honest about its own scope and easier to work through: the spec now records how much planned work is still ungenerated, the terminal UI labels and guards batch-scoped outcomes, the author prompts and height estimate are recalibrated against what the renderer actually draws, and the planner rejects multi-change work items that could never fit their expansion budget.",
+    "changes": [
+      "A `ReviewSpec` may now carry an optional `generation.remaining_work_items` count. The harness sets it on every batch it writes, and the TUI uses it, together with how many change hunks the chunks cover, to label the summary as a *current batch* outcome and to show pending generation on the overview.",
+      "Ending a review from the summary now takes a second `Enter` when chunks are unreviewed, or when the outcome is *approve* while generation is pending; `Esc` cancels. Separately, `Enter` on a chunk now marks it reviewed even if the reviewer left feedback on it — previously such a chunk was left for `r`.",
+      "The TUI gains a chunk outline (`o`), a raw-source toggle (`v`), jumps to source and context (`s`/`z`), a pinned chunk header, a sticky context sidebar at widths of 100 columns or more, and an arrow-key line picker that both comments and change requests can use. Resume, saved-feedback, and exit messages say what was recorded.",
+      "The chunk height estimate is recalibrated: chrome rises from 7 to 8 rows, wrapped titles and elision markers are charged, and the same rules are exported as `CHUNK_HEIGHT_GUIDANCE` and inserted into the plan and expand prompts. Plan validation, when a chunk budget is given, rejects a work item spanning more than one change whose non-blank source rows exceed `max_chunk_lines × max_chunks`; one-change items are exempt.",
+      "Author prompts gain many evidence rules (literal quoting traces, aggregate claims, driver vs direct CLI continuation), and each expand prompt now carries the investigation findings that touch its item. The conventional-commit hook regex drops a backslash from its scope bracket, and a new test executes the extracted hook through `sh`."
+    ],
+    "illustration": {
+      "kind": "diagram",
+      "text": "worklist.json --validate_for--> ImpossibleItem? (plan budget)\n      |\nexpand prompt <-- investigation findings + CHUNK_HEIGHT_GUIDANCE\n      |                              (height.rs chunk_height)\nfinish_expansion --> ReviewSpec.with_remaining_work(n)\n      |\nTUI: overview / chunk / summary  (render.rs, view.rs)\n  generation_progress -> batch-scoped outcome + 2nd Enter\n  feedback.rs line picker -> LineAnchor via Change::new_line_at\n\nside: prompts/*.md, docs/design.md, prek.toml + policy test"
+    },
+    "concepts": [
+      "**Batch / generation**: the harness expands one work item at a time and waits for the reviewer between items, so the spec a reviewer opens is often a *batch* — only part of the change set. `GenerationStatus { remaining_work_items }` is the new spec field that says how many planned items are not yet written.",
+      "**Work item and expansion budget**: a plan (`worklist.json`) divides the diff into items; each item is later expanded into at most `max_chunks` chunks of about `max_chunk_lines` rendered rows each. `ImpossibleItem` is the new plan-time error for a multi-change item whose source rows cannot fit `max_chunk_lines × max_chunks`.",
+      "**Chunk height / chrome**: `chunk_height` estimates the rows a chunk renders at an 80-column reference width; *chrome* is the fixed rows (status line, title, headings, blanks) charged before any summary, prose, or source.",
+      "**Hunk body line vs file line**: a `Quote` addresses lines 1..`body_lines` inside a hunk's patch body. The new `Change::new_line_at` maps such a body line to its new-side file line, returning `None` for removed lines.",
+      "**prek**: the repository's Git hook runner, configured in `prek.toml`; the `conventional-commit` entry is a `commit-msg` hook whose `entry` is a shell command."
+    ]
+  },
+  "chunks": [
+    {
+      "id": "generation-status-type",
+      "title": "`GenerationStatus` and the `ReviewSpec.generation` field",
+      "summary": "A new spec type holds one count of planned work items not yet written, and `ReviewSpec` carries it as an optional field.",
+      "kind": "concept",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "The walkthrough starts at the data the rest of the change reads: the harness writes this count and the terminal UI uses it to tell a batch from a whole review. The field is defaulted when absent and skipped when `None`, so older specs still parse and specs built outside the harness serialize as before."
+        },
+        {
+          "type": "changes",
+          "quotes": [
+            {
+              "change_id": "change-dc4843c50cd4367e",
+              "start": 4,
+              "end": 13
+            },
+            {
+              "change_id": "change-60c8f82c94e64aa4",
+              "start": 4,
+              "end": 5
+            }
+          ],
+          "presentation": "added_code"
+        }
+      ],
+      "context": {
+        "kind": "concept",
+        "definition": "A batch is the spec the harness writes after expanding one work item. It holds only the chunks generated so far; the rest of the plan is still in the harness's work list.",
+        "example": "\"generation\": { \"remaining_work_items\": 3 }",
+        "relation": "This field is how a batch says it is partial without the reader opening harness files."
+      },
+      "section": "Spec: the `generation` field"
+    },
+    {
+      "id": "generation-builder-accessor",
+      "title": "Setting and reading the remaining-work count",
+      "summary": "`ReviewSpec::new` starts with no generation status; `with_remaining_work` sets it and `remaining_work_items` reads it back.",
+      "kind": "concept",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "The harness runner calls `with_remaining_work` on each batch it writes; the TUI's render code reads the count through `remaining_work_items`. `None` means the spec says nothing about generation, which is different from `Some(0)`."
+        },
+        {
+          "type": "changes",
+          "quotes": [
+            {
+              "change_id": "change-ded61465b8872ef3",
+              "start": 4,
+              "end": 22
+            }
+          ],
+          "presentation": "diff"
+        }
+      ],
+      "section": "Spec: the `generation` field"
+    },
+    {
+      "id": "generation-reexports",
+      "title": "Crate-root re-exports",
+      "summary": "`lib.rs` re-exports `GenerationStatus` and `CHUNK_HEIGHT_GUIDANCE` so the CLI crate can use them.",
+      "kind": "integration",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "`CHUNK_HEIGHT_GUIDANCE` belongs to the height estimate, which a later section covers; the other added name is the type from \"`GenerationStatus` and the `ReviewSpec.generation` field\"."
+        },
+        {
+          "type": "changes",
+          "quotes": [
+            {
+              "change_id": "change-743781e40d894a7d",
+              "start": 4,
+              "end": 15
+            }
+          ],
+          "presentation": "diff"
+        }
+      ],
+      "section": "Spec: the `generation` field"
+    },
+    {
+      "id": "generation-schema",
+      "title": "The `generation` entry in the JSON schema",
+      "summary": "The published schema gains an optional `generation` object whose only key, `remaining_work_items`, is a required non-negative integer.",
+      "kind": "other",
+      "content": [
+        {
+          "type": "narrative",
+          "markdown": "`generation` joins the top-level `properties` but not its `required` list, matching the Rust `Option`. The top-level object already forbids unknown keys, and `schema_version` stays `const: 4`; both are outside the diff. Does any consumer validate against an older copy of this v4 schema? It would reject a harness-written spec, since `generation` was not an allowed key before."
+        },
+        {
+          "type": "changes",
+          "quotes": [
+            {
+              "change_id": "change-8d401d354bdfd361",
+              "start": 3,
+              "end": 17
+            }
+          ],
+          "presentation": "diff"
+        }
+      ],
+      "section": "Spec: the `generation` field"
+    }
+  ],
+  "generation": {
+    "remaining_work_items": 44
+  }
+}

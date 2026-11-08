@@ -1,0 +1,677 @@
+/* Workbench screens: Home, New review, Task, and the task strip on reviews. */
+
+.workbench-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.workbench-nav h1 {
+  margin-bottom: var(--space-2);
+}
+
+.nav-cta,
+.nav-secondary {
+  margin: 0 var(--space-2);
+  min-height: 32px;
+}
+
+.nav-secondary {
+  margin-top: var(--space-2);
+}
+
+.nav-heading {
+  margin: var(--space-4) var(--space-2) var(--space-1);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.workbench-nav .nav-list button {
+  align-items: center;
+}
+
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-meta {
+  margin: 0 0 var(--space-1);
+  padding: 0 0.6rem;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-meta.error {
+  color: var(--danger);
+  white-space: normal;
+}
+
+.navigator .task-title {
+  font-size: 14px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.navigator .eyebrow {
+  margin: 0 var(--space-2) var(--space-1);
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Status */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+.status-badge.awaiting_reviewer {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.status-badge.complete {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.status-badge.failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.spinner {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  flex-basis: 100%;
+}
+
+.screen-header > .eyebrow,
+.screen-header > .muted {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.screen-header > .eyebrow + h2 {
+  flex-basis: 100%;
+}
+
+.screen-back {
+  margin: 0 0 var(--space-2) calc(-1 * var(--space-3));
+}
+
+/* Home */
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 64rem;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "title status open"
+    "meta meta open";
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.task-row:hover {
+  border-color: var(--border-strong);
+}
+
+.task-row.failed {
+  border-left: 3px solid var(--danger);
+}
+
+.task-row.awaiting_reviewer {
+  border-left: 3px solid var(--accent);
+}
+
+.task-row-main {
+  grid-area: title;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  min-height: 24px;
+  color: var(--text);
+}
+
+.task-row-main:hover .task-row-title {
+  text-decoration: underline;
+}
+
+.task-row-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.task-row .status-badge {
+  grid-area: status;
+}
+
+.task-row-open {
+  grid-area: open;
+}
+
+.task-row-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.task-row-message {
+  flex-basis: 100%;
+  color: var(--text);
+}
+
+.task-row-message.error {
+  color: var(--danger);
+}
+
+.empty-state {
+  max-width: 40rem;
+}
+
+.empty-state p {
+  margin: 0 0 var(--space-3);
+}
+
+/* Forms */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.field > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-elevated);
+  min-height: 34px;
+}
+
+.field-hint {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+  font-size: 13px;
+}
+
+.add-repository .dialog-actions {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.new-review {
+  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.source-picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs [role="tab"] {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.8rem;
+  min-height: 30px;
+  color: var(--text-secondary);
+}
+
+.tabs [role="tab"]:hover {
+  background: var(--bg-muted);
+}
+
+.tabs [role="tab"][aria-selected="true"] {
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.tab-panel {
+  padding: var(--space-4);
+}
+
+.source-fields.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--space-4);
+}
+
+.source-fields .span {
+  grid-column: 1 / -1;
+}
+
+.loading-refs {
+  margin-top: 0;
+}
+
+.commit-picks {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.commit-picks legend,
+.agent-picker legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.commit-picks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.commit-pick,
+.pull-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 0.35rem 0.5rem;
+  min-height: 30px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.commit-pick:hover,
+.pull-option:hover {
+  background: var(--bg-muted);
+}
+
+.commit-pick[aria-pressed="true"],
+.pull-option[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.commit-subject,
+.pull-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.pull-list {
+  display: grid;
+  gap: 2px;
+  margin-bottom: var(--space-3);
+}
+
+.pull-number {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.agent-picker {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-bottom: var(--space-3);
+}
+
+@media (min-width: 720px) {
+  .agent-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+.agent-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "radio label"
+    ". detail";
+  column-gap: var(--space-2);
+  row-gap: 2px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.directory-pick {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.directory-pick code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.agent-option:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The native radio covers the whole card, so the card is the target. */
+.agent-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.radio-dot {
+  grid-area: radio;
+  width: 16px;
+  height: 16px;
+  margin-top: 0.1rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-elevated);
+}
+
+.agent-option:has(input:checked) .radio-dot {
+  border: 5px solid var(--accent-fill);
+}
+
+.agent-option.unavailable .radio-dot {
+  background: var(--bg-muted);
+}
+
+.agent-label {
+  grid-area: label;
+  font-weight: 600;
+}
+
+.agent-detail {
+  grid-area: detail;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.agent-option.unavailable {
+  cursor: not-allowed;
+}
+
+.agent-option.unavailable .agent-label {
+  color: var(--text-secondary);
+}
+
+.unavailable-reason {
+  color: var(--danger);
+}
+
+.agent-detail code,
+.agent-command {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.new-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.new-review-header .btn {
+  flex-shrink: 0;
+}
+
+/* Task */
+
+.notice.failure {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+[data-gewu-screen="task"] > .notice {
+  max-width: 48rem;
+  margin: 0 0 var(--space-3);
+}
+
+[data-gewu-screen="task"] > .actions-row {
+  margin-bottom: var(--space-2);
+}
+
+.task-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-4) 0;
+  max-width: 48rem;
+  font-size: 13px;
+}
+
+.task-details dt {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.task-details dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.agent-command {
+  color: var(--text-secondary);
+}
+
+.agent-log {
+  max-width: 64rem;
+}
+
+.log-lines ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.log-lines {
+  margin: 0;
+  padding: var(--space-2);
+  max-height: 22rem;
+  overflow: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: 5.5rem 4.5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: 1px var(--space-1);
+}
+
+.log-line time,
+.log-kind {
+  color: var(--text-secondary);
+}
+
+.log-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.log-line.denied .log-kind,
+.log-line.denied .log-text,
+.log-line.error .log-kind,
+.log-line.error .log-text {
+  color: var(--danger);
+}
+
+.log-line.output .log-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+/* The strip above a task's review. */
+
+.task-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.task-bar > .btn.ghost {
+  margin-left: calc(-1 * var(--space-3));
+}
+
+.task-bar-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.task-bar-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.task-bar-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.warning.stale {
+  margin: var(--space-3) var(--space-5) 0;
+}
+
+.boot-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  .source-fields.two {
+    grid-template-columns: 1fr;
+  }
+}

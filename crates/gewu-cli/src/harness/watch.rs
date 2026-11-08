@@ -14,7 +14,7 @@ use std::{
 
 use serde_json::Value;
 
-use super::estimate::duration;
+use gewu_harness::estimate::duration;
 
 /// How often a non-terminal reader gets a plain line instead of a redraw.
 const PLAIN_EVERY: Duration = Duration::from_secs(30);

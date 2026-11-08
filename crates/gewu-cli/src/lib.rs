@@ -1,9 +1,8 @@
 //! Command-line runtime for Gewu.
 
-mod git;
 mod harness;
 mod review;
-mod tui;
+mod ui;
 
 use std::process::ExitCode;
 
@@ -45,6 +44,11 @@ enum Command {
         #[command(subcommand)]
         command: review::ReviewCommand,
     },
+    /// Serve the desktop web UI.
+    Ui {
+        #[command(subcommand)]
+        command: ui::UiCommand,
+    },
 }
 
 impl Command {
@@ -52,6 +56,7 @@ impl Command {
         match self {
             Self::Harness { command } => command.run(),
             Self::Review { command } => command.run(),
+            Self::Ui { command } => command.run(),
         }
     }
 }

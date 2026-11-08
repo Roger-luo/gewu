@@ -1,0 +1,22 @@
+[package]
+name = "gewu-workbench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Repositories, review tasks, and agent orchestration for the Gewu app"
+
+[dependencies]
+gewu-agent = { path = "../gewu-agent" }
+gewu-app = { path = "../gewu-app" }
+gewu-git = { path = "../gewu-git" }
+gewu-harness = { path = "../gewu-harness" }
+gewu-review = { path = "../gewu-review" }
+hex = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+thiserror = "2.0.20"
+
+[dev-dependencies]
+tempfile = "3.27.0"

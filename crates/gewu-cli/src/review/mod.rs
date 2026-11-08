@@ -11,11 +11,12 @@ use std::{
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 use gewu_review::{
-    ChangePresentation, ChunkBlock, ChunkKind, EventLog, Overview, Quote, ReviewChunk, ReviewInput,
-    ReviewSession, ReviewSpec, ValidatedReview, ValidationErrors,
+    EventLog, ReviewChunk, ReviewInput, ReviewSession, ReviewSpec, ValidatedReview,
+    ValidationErrors,
 };
 
-use crate::{git::Repository, tui::ReviewTui};
+use gewu_git::Repository;
+use gewu_tui::ReviewTui;
 
 use self::audit::AuditArgs;
 use self::feedback::{ResolveArgs, RetargetArgs};
@@ -122,38 +123,7 @@ pub struct FallbackArgs {
 impl FallbackArgs {
     fn run(self) -> Result<()> {
         let input: ReviewInput = read_json(&self.input)?;
-        let chunks = input
-            .changes
-            .iter()
-            .enumerate()
-            .map(|(index, change)| ReviewChunk {
-                id: format!("fallback-{}", index + 1),
-                title: format!("Review {}", change.path),
-                summary: "Raw diff in file order. No walkthrough was generated, so this chunk \
-                          has no explanation; `gewu review generate` writes one."
-                    .into(),
-                kind: ChunkKind::Other,
-                content: vec![ChunkBlock::Changes {
-                    quotes: vec![Quote::whole(change.id.clone(), change.body_lines())],
-                    presentation: ChangePresentation::Diff,
-                }],
-                context: None,
-                confidence: None,
-                oversized_reason: None,
-                section: None,
-            })
-            .collect();
-        let spec = ReviewSpec::new(
-            input.source,
-            Overview {
-                intent: "Review the selected Git changes.".into(),
-                changes: vec!["Using deterministic file-ordered fallback chunks.".into()],
-                illustration: None,
-                concepts: vec![],
-            },
-            chunks,
-        );
-        write_json(&self.output, &spec)?;
+        write_json(&self.output, &ReviewSpec::fallback(&input))?;
         println!("wrote fallback review spec to {}", self.output.display());
         Ok(())
     }
@@ -267,7 +237,7 @@ impl OpenArgs {
     fn run(self) -> Result<()> {
         let review = self.session.artifacts.load_partial()?;
         let path = self.session.path(&review);
-        ReviewTui::new(review, path)?.run()
+        Ok(ReviewTui::new(review, path)?.run()?)
     }
 }
 

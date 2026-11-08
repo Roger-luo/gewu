@@ -5,7 +5,7 @@ use clap::{Args, ValueEnum};
 use gewu_review::audit::{Audit, AuditReport, DEFAULT_ANCHOR_DISTANCE, SymbolIndex};
 
 use super::ArtifactArgs;
-use crate::git::Repository;
+use gewu_git::Repository;
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 enum Format {

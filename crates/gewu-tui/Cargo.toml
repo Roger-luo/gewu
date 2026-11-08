@@ -1,0 +1,19 @@
+[package]
+name = "gewu-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Terminal review UI for Gewu"
+
+[dependencies]
+crossterm = "0.29.0"
+gewu-review = { version = "0.1.0", path = "../gewu-review" }
+pulldown-cmark = "0.13.4"
+serde_json = "1.0.151"
+syntect = "5.3.0"
+thiserror = "2.0.20"
+unicode-width = "0.2.2"
+
+[dev-dependencies]
+tempfile = "3.27.0"

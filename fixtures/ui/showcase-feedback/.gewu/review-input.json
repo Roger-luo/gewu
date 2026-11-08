@@ -1,0 +1,81 @@
+{
+  "schema_version": 4,
+  "source": {
+    "base": "b3339c072d8be4ab3b292ba2f08e4417066915eb",
+    "head": "642d3c7aaac245aac645cdabdf9ee5135fd10b21",
+    "diff_sha256": "0ce4c6c170b58426279b0383ba381c6ab1cf282b5c069ead958067a6b7dbb0a4"
+  },
+  "max_chunk_lines": 40,
+  "changes": [
+    {
+      "id": "change-fbaf67fec6e3610b",
+      "path": "config.toml",
+      "old_start": 1,
+      "old_lines": 1,
+      "new_start": 1,
+      "new_lines": 2,
+      "body_lines": 2,
+      "patch": "@@ -1 +1,2 @@\n name = \"demo\"\n+version = \"2\"\n"
+    },
+    {
+      "id": "change-dcec20fc18c6bbf3",
+      "path": "docs/guide.md",
+      "old_start": 1,
+      "old_lines": 3,
+      "new_start": 1,
+      "new_lines": 13,
+      "body_lines": 14,
+      "patch": "@@ -1,3 +1,13 @@\n # Guide\n \n-Old instructions.\n+## Overview\n+\n+Use the new API:\n+\n+```rust\n+greet(\"world\")\n+```\n+\n+## Details\n+\n+More documentation for reviewers.\n"
+    },
+    {
+      "id": "change-1f2f341ba048706e",
+      "path": "notes.txt",
+      "old_start": 1,
+      "old_lines": 1,
+      "new_start": 1,
+      "new_lines": 1,
+      "body_lines": 2,
+      "patch": "@@ -1 +1 @@\n-plain notes\n+plain notes updated for summary_only\n"
+    },
+    {
+      "id": "change-04810ccd7be6be04",
+      "path": "src/big.rs",
+      "old_start": 0,
+      "old_lines": 0,
+      "new_start": 1,
+      "new_lines": 83,
+      "body_lines": 83,
+      "patch": "@@ -0,0 +1,83 @@\n+//! Oversized unit kept together.\n+pub struct Big;\n+impl Big {\n+    pub fn step_1(&self) -> u32 { 1 }\n+    pub fn step_2(&self) -> u32 { 2 }\n+    pub fn step_3(&self) -> u32 { 3 }\n+    pub fn step_4(&self) -> u32 { 4 }\n+    pub fn step_5(&self) -> u32 { 5 }\n+    pub fn step_6(&self) -> u32 { 6 }\n+    pub fn step_7(&self) -> u32 { 7 }\n+    pub fn step_8(&self) -> u32 { 8 }\n+    pub fn step_9(&self) -> u32 { 9 }\n+    pub fn step_10(&self) -> u32 { 10 }\n+    pub fn step_11(&self) -> u32 { 11 }\n+    pub fn step_12(&self) -> u32 { 12 }\n+    pub fn step_13(&self) -> u32 { 13 }\n+    pub fn step_14(&self) -> u32 { 14 }\n+    pub fn step_15(&self) -> u32 { 15 }\n+    pub fn step_16(&self) -> u32 { 16 }\n+    pub fn step_17(&self) -> u32 { 17 }\n+    pub fn step_18(&self) -> u32 { 18 }\n+    pub fn step_19(&self) -> u32 { 19 }\n+    pub fn step_20(&self) -> u32 { 20 }\n+    pub fn step_21(&self) -> u32 { 21 }\n+    pub fn step_22(&self) -> u32 { 22 }\n+    pub fn step_23(&self) -> u32 { 23 }\n+    pub fn step_24(&self) -> u32 { 24 }\n+    pub fn step_25(&self) -> u32 { 25 }\n+    pub fn step_26(&self) -> u32 { 26 }\n+    pub fn step_27(&self) -> u32 { 27 }\n+    pub fn step_28(&self) -> u32 { 28 }\n+    pub fn step_29(&self) -> u32 { 29 }\n+    pub fn step_30(&self) -> u32 { 30 }\n+    pub fn step_31(&self) -> u32 { 31 }\n+    pub fn step_32(&self) -> u32 { 32 }\n+    pub fn step_33(&self) -> u32 { 33 }\n+    pub fn step_34(&self) -> u32 { 34 }\n+    pub fn step_35(&self) -> u32 { 35 }\n+    pub fn step_36(&self) -> u32 { 36 }\n+    pub fn step_37(&self) -> u32 { 37 }\n+    pub fn step_38(&self) -> u32 { 38 }\n+    pub fn step_39(&self) -> u32 { 39 }\n+    pub fn step_40(&self) -> u32 { 40 }\n+    pub fn step_41(&self) -> u32 { 41 }\n+    pub fn step_42(&self) -> u32 { 42 }\n+    pub fn step_43(&self) -> u32 { 43 }\n+    pub fn step_44(&self) -> u32 { 44 }\n+    pub fn step_45(&self) -> u32 { 45 }\n+    pub fn step_46(&self) -> u32 { 46 }\n+    pub fn step_47(&self) -> u32 { 47 }\n+    pub fn step_48(&self) -> u32 { 48 }\n+    pub fn step_49(&self) -> u32 { 49 }\n+    pub fn step_50(&self) -> u32 { 50 }\n+    pub fn step_51(&self) -> u32 { 51 }\n+    pub fn step_52(&self) -> u32 { 52 }\n+    pub fn step_53(&self) -> u32 { 53 }\n+    pub fn step_54(&self) -> u32 { 54 }\n+    pub fn step_55(&self) -> u32 { 55 }\n+    pub fn step_56(&self) -> u32 { 56 }\n+    pub fn step_57(&self) -> u32 { 57 }\n+    pub fn step_58(&self) -> u32 { 58 }\n+    pub fn step_59(&self) -> u32 { 59 }\n+    pub fn step_60(&self) -> u32 { 60 }\n+    pub fn step_61(&self) -> u32 { 61 }\n+    pub fn step_62(&self) -> u32 { 62 }\n+    pub fn step_63(&self) -> u32 { 63 }\n+    pub fn step_64(&self) -> u32 { 64 }\n+    pub fn step_65(&self) -> u32 { 65 }\n+    pub fn step_66(&self) -> u32 { 66 }\n+    pub fn step_67(&self) -> u32 { 67 }\n+    pub fn step_68(&self) -> u32 { 68 }\n+    pub fn step_69(&self) -> u32 { 69 }\n+    pub fn step_70(&self) -> u32 { 70 }\n+    pub fn step_71(&self) -> u32 { 71 }\n+    pub fn step_72(&self) -> u32 { 72 }\n+    pub fn step_73(&self) -> u32 { 73 }\n+    pub fn step_74(&self) -> u32 { 74 }\n+    pub fn step_75(&self) -> u32 { 75 }\n+    pub fn step_76(&self) -> u32 { 76 }\n+    pub fn step_77(&self) -> u32 { 77 }\n+    pub fn step_78(&self) -> u32 { 78 }\n+    pub fn step_79(&self) -> u32 { 79 }\n+}\n"
+    },
+    {
+      "id": "change-ff23785f51428be5",
+      "path": "src/lib.rs",
+      "old_start": 1,
+      "old_lines": 7,
+      "new_start": 1,
+      "new_lines": 14,
+      "body_lines": 16,
+      "patch": "@@ -1,7 +1,14 @@\n+//! Showcase library.\n+\n+/// Greets a person.\n pub fn greet(name: &str) -> String {\n-    format!(\"hello, {name}\")\n+    format!(\"hello, {name}!\")\n }\n \n pub fn add(a: i32, b: i32) -> i32 {\n-    a + b\n+    a.saturating_add(b)\n+}\n+\n+pub fn multiply(a: i32, b: i32) -> i32 {\n+    a * b\n }\n"
+    },
+    {
+      "id": "change-53188473c28444dc",
+      "path": "src/new_module.ts",
+      "old_start": 0,
+      "old_lines": 0,
+      "new_start": 1,
+      "new_lines": 3,
+      "body_lines": 3,
+      "patch": "@@ -0,0 +1,3 @@\n+export function greet(name: string): string {\n+  return `hello, ${name}`;\n+}\n"
+    },
+    {
+      "id": "change-ea9dac2d2c558ed2",
+      "path": "src/util.py",
+      "old_start": 1,
+      "old_lines": 2,
+      "new_start": 1,
+      "new_lines": 3,
+      "body_lines": 5,
+      "patch": "@@ -1,2 +1,3 @@\n-def scale(x):\n-    return x * 2\n+def scale(x, factor=2):\n+    \"\"\"Scale a value.\"\"\"\n+    return x * factor\n"
+    }
+  ]
+}
