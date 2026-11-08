@@ -72,12 +72,15 @@ introduces no new vocabulary.
 
 `illustration` is the reviewer's map of the change: how its parts connect, so
 every chunk after it has a place to sit. Give one whenever the change touches
-more than one part. Use `{"kind": "flow", "steps": [...]}` for a sequence —
-the path a request, an event, or a decision takes through the changed code —
-or `{"kind": "diagram", "text": "..."}` for a small ASCII drawing when the
-parts branch or call each other. Keep a diagram under about 12 lines and 70
-columns, name the real symbols, and order it the way the walkthrough will go.
-Omit it only for a change confined to one place. The map covers the whole
+more than one part. Use `{"kind": "flow", "steps": [...]}` for a straight
+sequence — the path a request, an event, or a decision takes through the
+changed code. The desktop app draws those steps as a flowchart. When the parts
+branch or call each other, use `{"kind": "diagram", "text": "..."}` whose text
+is a Mermaid diagram, not an ASCII drawing. Start it with `flowchart`,
+`sequenceDiagram`, `classDiagram`, or `stateDiagram-v2`, name the real
+symbols, and keep it under about 12 nodes. The desktop app draws the diagram;
+the terminal shows the Mermaid source. Omit the illustration only for a change
+confined to one place. The map covers the whole
 change: every part a work item will walk through has a place on it, so a
 review whose sections span several concerns is not mapped by one of them.
 

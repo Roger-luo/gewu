@@ -17,8 +17,8 @@ pub enum Illustration {
         input: String,
         output: String,
     },
-    /// A small ASCII drawing of how the parts of the change connect, shown
-    /// verbatim on the overview.
+    /// A Mermaid diagram of how the parts of the change connect. The desktop
+    /// app draws it; the terminal shows the source.
     Diagram {
         text: String,
     },

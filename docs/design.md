@@ -45,8 +45,11 @@ When an illustration would make the change easier to understand, the overview
 uses the smallest useful form:
 
 - A before/after example for changed behavior or APIs.
-- A short flow for changed control or data movement.
+- A short flow for changed control or data movement, drawn as a flowchart.
 - A concrete input/output example for a new capability.
+- A Mermaid diagram when the parts branch or call each other: `flowchart`,
+  `sequenceDiagram`, `classDiagram`, or `stateDiagram-v2`. The desktop app
+  draws it. The terminal shows the source. ASCII art is not a diagram.
 
 The illustration should clarify the change rather than repeat the summary.
 Routine changes do not need one.

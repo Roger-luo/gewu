@@ -30,8 +30,8 @@
   "chunks": [
     {
       "id": "showcase-ts-greet",
-      "title": "TypeScript greet helper",
-      "summary": "A new module exports greet for the web surface; the added code is the whole story.",
+      "title": "TypeScript `greet` helper",
+      "summary": "A new module exports `greet` for the web surface; the added code is the whole story.",
       "kind": "concept",
       "section": "API surface",
       "confidence": "high",
@@ -61,8 +61,8 @@
     },
     {
       "id": "showcase-python-scale",
-      "title": "Python scale factor",
-      "summary": "Scaling now takes an explicit factor; the diff shows the old signature disappearing.",
+      "title": "Python `scale` takes a factor",
+      "summary": "`scale(x)` becomes `scale(x, factor=2)`; the diff shows the old signature disappearing.",
       "kind": "refactor",
       "section": "API surface",
       "context": {
@@ -164,7 +164,7 @@
     {
       "id": "showcase-lib-math",
       "title": "Rust arithmetic helpers",
-      "summary": "Saturating add and a new multiply complete the library edits.",
+      "summary": "Saturating add and a new `multiply` complete the library edits.",
       "kind": "integration",
       "section": "Rust library \u00b7 2 of 2",
       "content": [

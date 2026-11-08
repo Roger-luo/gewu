@@ -1,7 +1,6 @@
-use std::path::Path;
-
 use gewu_review::{Change, Quote};
 
+use crate::language::SourceLanguage;
 use crate::snapshot::{QuoteLine, QuoteLineKind, QuoteView};
 
 impl QuoteView {
@@ -11,16 +10,21 @@ impl QuoteView {
     pub(crate) fn resolve(quote: &Quote, change: &Change) -> Self {
         let body = change.body(quote.start, quote.end);
         let coords = LineCoords::from(change);
-        let lines = (quote.start..=quote.end)
+        let lines: Vec<_> = (quote.start..=quote.end)
             .zip(body)
             .filter_map(|(body_line, text)| coords.line(body_line, text))
             .collect();
+        let sample = lines
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
         Self {
             change_id: change.id.clone(),
             path: change.path.clone(),
             start: quote.start,
             end: quote.end,
-            language: language_of(&change.path),
+            language: SourceLanguage::detect(&change.path, &sample),
             more_above: quote.start > 1,
             more_below: quote.end < change.body_lines(),
             lines,
@@ -90,36 +94,6 @@ impl LineCoords {
 
 fn strip_marker(text: &str) -> String {
     text.strip_prefix(['+', '-', ' ']).unwrap_or(text).into()
-}
-
-fn language_of(path: &str) -> Option<String> {
-    Path::new(path)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| match ext {
-            "rs" => "rust",
-            "ts" | "tsx" => "typescript",
-            "js" | "jsx" | "mjs" | "cjs" => "javascript",
-            "py" => "python",
-            "go" => "go",
-            "md" | "mdx" => "markdown",
-            "toml" => "toml",
-            "json" => "json",
-            "yaml" | "yml" => "yaml",
-            "sh" | "bash" | "zsh" => "shell",
-            "css" => "css",
-            "html" | "htm" => "html",
-            "c" => "c",
-            "h" | "hh" | "hpp" => "cpp",
-            "cc" | "cpp" | "cxx" => "cpp",
-            "java" => "java",
-            "kt" => "kotlin",
-            "swift" => "swift",
-            "rb" => "ruby",
-            "txt" => "text",
-            other => other,
-        })
-        .map(str::to_owned)
 }
 
 #[cfg(test)]

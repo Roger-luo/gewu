@@ -1,4 +1,6 @@
 import type { QuoteView } from "../protocol";
+import { TokenLine } from "./TokenLine";
+import { useHighlightedLines } from "./useHighlightedLines";
 import { QuoteFrame } from "./QuoteFrame";
 
 export function DiffQuote({
@@ -10,6 +12,11 @@ export function DiffQuote({
   selectedLines: Set<number>;
   onToggleLine: (changeId: string, line: number) => void;
 }) {
+  const highlighted = useHighlightedLines(
+    quote.lines.map((row) => row.text).join("\n"),
+    quote.language,
+  );
+
   return (
     <QuoteFrame quote={quote} presentationLabel="diff">
       <table className="diff-table">
@@ -53,7 +60,9 @@ export function DiffQuote({
                 <td className="marker">
                   {row.kind === "added" ? "+" : row.kind === "removed" ? "-" : " "}
                 </td>
-                <td>{row.text}</td>
+                <td>
+                  <TokenLine tokens={highlighted?.[index]} plain={row.text} />
+                </td>
               </tr>
             );
           })}

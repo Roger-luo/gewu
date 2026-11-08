@@ -6,6 +6,7 @@
 
 mod action;
 mod error;
+mod language;
 mod quote;
 mod snapshot;
 mod workspace;

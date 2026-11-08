@@ -490,6 +490,7 @@ mod tests {
         assert!(investigation.contains("If you can read every change"));
         // Not one of eight generated overviews had a map.
         assert!(investigation.contains("`illustration` is the reviewer's map"));
+        assert!(investigation.contains("a Mermaid diagram, not an ASCII drawing"));
         // A judge found a map covering the Ion files and not the skill's six steps.
         assert!(investigation.contains("The map covers the whole\nchange"));
         assert!(investigation.contains("in the `summary` of the finding it limits"));

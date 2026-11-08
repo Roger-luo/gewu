@@ -90,6 +90,6 @@ pub(crate) fn illustration(illustration: &Illustration) -> String {
         Illustration::Example { input, output } => {
             format!("`{input}` → `{output}`")
         }
-        Illustration::Diagram { text } => format!("```text\n{}\n```", text.trim_end()),
+        Illustration::Diagram { text } => format!("```mermaid\n{}\n```", text.trim_end()),
     }
 }

@@ -1,4 +1,6 @@
+import { mermaidFlow } from "../diagram";
 import type { Illustration } from "../protocol";
+import { DiagramPlot } from "./DiagramPlot";
 
 export function IllustrationView({ illustration }: { illustration: Illustration }) {
   switch (illustration.kind) {
@@ -20,11 +22,7 @@ export function IllustrationView({ illustration }: { illustration: Illustration 
     case "flow":
       return (
         <div className="illustration">
-          <ol className="flow-steps">
-            {illustration.steps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
+          <DiagramPlot source={mermaidFlow(illustration.steps)} />
         </div>
       );
     case "example":
@@ -45,7 +43,7 @@ export function IllustrationView({ illustration }: { illustration: Illustration 
     case "diagram":
       return (
         <div className="illustration">
-          <pre>{illustration.text}</pre>
+          <DiagramPlot source={illustration.text} />
         </div>
       );
   }
