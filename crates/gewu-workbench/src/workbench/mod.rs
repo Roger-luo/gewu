@@ -176,6 +176,7 @@ impl Workbench {
             .ok_or_else(|| WorkbenchError::invalid("no walkthrough has been written yet"))?
             .dispatch(action)?;
         task.progress = None;
+        self.finish_if_written(task, &snapshot)?;
         Ok(snapshot)
     }
 }

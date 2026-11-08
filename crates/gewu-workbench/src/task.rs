@@ -105,6 +105,7 @@ impl Task {
             total: snapshot.summary.total,
             open_issues: snapshot.summary.unresolved_issues.len(),
             remaining_work_items: snapshot.generation.remaining_work_items,
+            decision: snapshot.summary.decision,
         };
         self.progress = Some(progress.clone());
         Some(progress)

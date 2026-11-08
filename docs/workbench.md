@@ -184,6 +184,10 @@ WorkbenchAction =
 
 `create_task` and `continue_task` return immediately with the task in
 `generating`; the batch runs in the background and the UI polls.
+`remove_repository` deletes the repository's reviews first, as `delete_task`
+would; the repository's own files are untouched. When the reviewer marks the
+last step of a walkthrough the agent has finished, the task becomes `complete`
+without another `continue_task`.
 
 ### HTTP
 

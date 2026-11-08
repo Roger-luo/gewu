@@ -8,7 +8,9 @@ use gewu_agent::{AcpRun, AgentEvent, Cancel, EventKind, EventSink, ProjectState}
 use gewu_harness::{DEFAULT_MAX_CHUNKS, HarnessRunner};
 use gewu_review::ReviewSpec;
 
-use crate::{TaskStatus, Workbench, WorkbenchError, home::now};
+use gewu_app::Snapshot;
+
+use crate::{TaskStatus, Workbench, WorkbenchError, home::now, task::Task};
 
 const WAITING: &str = "# Gewu harness: waiting for the reviewer";
 const COMPLETE: &str = "# COMPLETE";
@@ -28,6 +30,14 @@ impl Ended {
             stage,
             message: message.into(),
         }
+    }
+
+    fn cancelled(stage: Option<String>) -> Self {
+        Self::new(
+            TaskStatus::Cancelled,
+            stage,
+            "Cancelled. Continue to resume.",
+        )
     }
 
     /// What the harness prompt says about who acts next, if not the agent.
@@ -104,13 +114,13 @@ impl Workbench {
     }
 
     pub(crate) fn run_batch(&self, task_id: &str, cancel: &Cancel) {
+        // Stopping the agent breaks its pipes, so a cancelled run's error is expected noise.
         let ended = self.batch(task_id, cancel).unwrap_or_else(|error| {
-            let status = if cancel.is_cancelled() {
-                TaskStatus::Cancelled
+            if cancel.is_cancelled() {
+                Ended::cancelled(None)
             } else {
-                TaskStatus::Failed
-            };
-            Ended::new(status, None, Self::failure_message(&error))
+                Ended::new(TaskStatus::Failed, None, Self::failure_message(&error))
+            }
         });
         let Ok(mut state) = self.state() else {
             return;
@@ -130,6 +140,39 @@ impl Workbench {
         task.cancel = None;
         task.reload();
         let _ = self.save_task(&task.record);
+    }
+
+    /// Close a task once the reviewer has read every step of a walkthrough
+    /// the agent has finished, rather than asking them to continue into nothing.
+    pub(crate) fn finish_if_written(
+        &self,
+        task: &mut Task,
+        snapshot: &Snapshot,
+    ) -> Result<(), WorkbenchError> {
+        let read =
+            snapshot.generation.complete && snapshot.summary.reviewed == snapshot.summary.total;
+        let (TaskStatus::AwaitingReviewer, Some(root), true) =
+            (task.record.status, task.record.root.as_deref(), read)
+        else {
+            return Ok(());
+        };
+        let runner = HarnessRunner::in_project(root, DEFAULT_MAX_CHUNKS, false);
+        if !runner.status()?.starts_with(WAITING) {
+            return Ok(());
+        }
+        let Some(ended) =
+            Ended::gate(&runner.next()?).filter(|ended| ended.status == TaskStatus::Complete)
+        else {
+            return Ok(());
+        };
+        let _ = task
+            .log
+            .record(AgentEvent::new(EventKind::Status, &ended.message));
+        let _ = task.log.flush();
+        task.record
+            .set(ended.status, ended.stage, Some(ended.message));
+        task.reload();
+        self.save_task(&task.record)
     }
 
     fn emit(&self, task_id: &str, kind: EventKind, text: impl Into<String>) {
@@ -272,11 +315,7 @@ impl Workbench {
         }
         let stage = Ended::stage(&prompt).or(stage);
         if cancel.is_cancelled() || outcome.stop_reason == "cancelled" {
-            return Ok(Ended::new(
-                TaskStatus::Cancelled,
-                stage,
-                "Cancelled. Continue to resume.",
-            ));
+            return Ok(Ended::cancelled(stage));
         }
         let at = stage.as_deref().unwrap_or("an unknown stage");
         let mut message = format!("The agent stopped at {at} before the reviewer gate.");

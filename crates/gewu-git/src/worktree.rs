@@ -19,6 +19,34 @@ impl Repository<'_> {
 
     /// The commit a revision names.
     pub fn commit(&self, revision: &str) -> Result<String, GitError> {
-        self.git_text(["rev-parse", "--verify", &format!("{revision}^{{commit}}")])
+        self.resolve(revision, true)
+    }
+
+    /// A commit or tree a revision names; Base of a range may be Git's empty tree.
+    pub fn treeish(&self, revision: &str) -> Result<String, GitError> {
+        self.resolve(revision, false)
+    }
+
+    fn resolve(&self, revision: &str, commit_only: bool) -> Result<String, GitError> {
+        let spec = if commit_only {
+            format!("{revision}^{{commit}}")
+        } else {
+            revision.to_owned()
+        };
+        self.git_text(["rev-parse", "--verify", &spec])
+            .map_err(|error| {
+                let message = error.to_string();
+                if message.contains("Needed a single revision")
+                    || message.contains("unknown revision")
+                {
+                    GitError::message(format!(
+                        "`{revision}` is not a {} in this repository. \
+                     Check Base and Head, or pick a recent commit from the list.",
+                        if commit_only { "commit" } else { "revision" }
+                    ))
+                } else {
+                    error
+                }
+            })
     }
 }

@@ -41,18 +41,22 @@ impl Workbench {
         Ok(())
     }
 
+    /// Delete the repository's reviews, then forget it; its own files are untouched.
     fn remove_repository(&self, repository_id: &str) -> Result<(), WorkbenchError> {
-        let mut state = self.state()?;
-        state.repository(repository_id)?;
-        if state
-            .tasks
-            .iter()
-            .any(|task| task.record.repository_id == repository_id)
-        {
-            return Err(WorkbenchError::invalid(
-                "delete this repository's reviews before removing it",
-            ));
+        let reviews: Vec<String> = {
+            let state = self.state()?;
+            state.repository(repository_id)?;
+            state
+                .tasks
+                .iter()
+                .filter(|task| task.record.repository_id == repository_id)
+                .map(|task| task.record.id.clone())
+                .collect()
+        };
+        for task_id in &reviews {
+            self.delete_task(task_id)?;
         }
+        let mut state = self.state()?;
         state.repositories.retain(|known| known.id != repository_id);
         self.save_repositories(&state)
     }

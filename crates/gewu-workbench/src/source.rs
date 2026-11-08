@@ -88,7 +88,7 @@ impl Source {
                     title: None,
                 });
             }
-            Self::CommitRange { base, head } => (git.commit(head)?, Ok(git.commit(base)?), None),
+            Self::CommitRange { base, head } => (git.commit(head)?, Ok(git.treeish(base)?), None),
             Self::PullRequest { number, remote } => {
                 let request = git.pull_request(remote, *number)?;
                 let title = request.title.map(|title| format!("#{number} {title}"));

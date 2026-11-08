@@ -47,12 +47,20 @@ impl Fixture {
     }
 
     fn git(&self, args: &[&str]) {
+        let _ = self.git_text(args);
+    }
+
+    fn git_text(&self, args: &[&str]) -> String {
         let output = Command::new("git")
             .args(args)
             .current_dir(&self.repository)
             .output()
             .expect("git");
         assert!(output.status.success(), "{output:?}");
+        String::from_utf8(output.stdout)
+            .expect("utf8")
+            .trim()
+            .to_owned()
     }
 
     fn write(&self, path: &str, text: &str) {
@@ -116,11 +124,16 @@ fn none() -> AgentChoice {
 }
 
 fn fake(mode: &str) -> AgentChoice {
+    slow_fake(mode, 0.0)
+}
+
+/// The stand-in agent, pausing `delay` seconds between steps.
+fn slow_fake(mode: &str, delay: f32) -> AgentChoice {
     let agent = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/agents/fake_acp_agent.py");
     AgentChoice {
         preset_id: "custom".into(),
         command: Some(format!(
-            "env FAKE_AGENT_MODE={mode} FAKE_AGENT_DELAY=0 python3 {}",
+            "env FAKE_AGENT_MODE={mode} FAKE_AGENT_DELAY={delay} python3 {}",
             agent.display()
         )),
     }
@@ -228,7 +241,8 @@ fn an_acp_agent_writes_one_batch_per_reviewer_gate() {
             )
             .expect("mark reviewed");
     }
-    let last = cont();
+    // Reading the last step of a finished walkthrough closes it; nothing is left to continue.
+    let last = fixture.task(&id);
     assert_eq!(last.status, TaskStatus::Complete, "{last:?}");
     let progress = last.review.expect("progress");
     assert_eq!((progress.reviewed, progress.total), (2, 2));
@@ -245,6 +259,25 @@ fn an_agent_that_edits_the_project_fails_the_task() {
             .as_deref()
             .is_some_and(|message| message.contains("outside .gewu/")),
         "{task:?}"
+    );
+}
+
+#[test]
+fn a_cancelled_batch_says_so_rather_than_reporting_a_crash() {
+    let fixture = Fixture::new();
+    let id = fixture.start(range(), slow_fake("harness", 3.0));
+    std::thread::sleep(Duration::from_millis(1000));
+    fixture
+        .workbench
+        .dispatch(WorkbenchAction::CancelTask {
+            task_id: id.clone(),
+        })
+        .expect("cancel");
+    let task = fixture.settled(&id);
+    assert_eq!(task.status, TaskStatus::Cancelled);
+    assert_eq!(
+        task.message.as_deref(),
+        Some("Cancelled. Continue to resume.")
     );
 }
 
@@ -297,6 +330,23 @@ fn a_missing_directory_fails_with_a_reason() {
 }
 
 #[test]
+fn removing_a_repository_deletes_its_reviews() {
+    let fixture = Fixture::new();
+    let id = fixture.start(range(), none());
+    fixture.settled(&id);
+    let repository_id = fixture.workbench.snapshot().expect("snapshot").repositories[0]
+        .id
+        .clone();
+    let snapshot = fixture
+        .workbench
+        .dispatch(WorkbenchAction::RemoveRepository { repository_id })
+        .expect("remove repository");
+    assert!(snapshot.repositories.is_empty(), "{snapshot:?}");
+    assert!(snapshot.tasks.is_empty(), "{snapshot:?}");
+    assert!(fixture.repository.join("src/a.rs").exists());
+}
+
+#[test]
 fn reviews_survive_a_restart() {
     let fixture = Fixture::new();
     let id = fixture.start(range(), none());
@@ -308,4 +358,20 @@ fn reviews_survive_a_restart() {
     assert_eq!(snapshot.repositories.len(), 1);
     assert_eq!(snapshot.tasks[0].id, id);
     assert_eq!(reopened.task_snapshot(&id).expect("review").chunks.len(), 2);
+}
+
+#[test]
+fn a_root_commit_reviews_against_the_empty_tree() {
+    let fixture = Fixture::new();
+    let root = fixture.git_text(&["rev-list", "--max-parents=0", "HEAD"]);
+    let id = fixture.start(
+        Source::CommitRange {
+            base: "4b825dc642cb6eb9a060e54bf8d69288fbee4904".into(),
+            head: root,
+        },
+        none(),
+    );
+    let task = fixture.settled(&id);
+    assert_eq!(task.status, TaskStatus::Complete, "{task:?}");
+    assert!(fixture.chunks(&id) >= 1, "{task:?}");
 }

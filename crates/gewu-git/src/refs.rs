@@ -17,6 +17,15 @@ pub struct CommitSummary {
     pub subject: String,
     pub author: String,
     pub date: String,
+    /// False for the repository's first commit, which has no parent to use as Base.
+    #[serde(default = "CommitSummary::has_parent_default")]
+    pub has_parent: bool,
+}
+
+impl CommitSummary {
+    fn has_parent_default() -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -54,7 +63,12 @@ impl Repository<'_> {
 
     pub fn refs(&self) -> Result<RepositoryRefs, GitError> {
         let log = self
-            .git_text(["log", "-n", COMMITS, "--format=%H%x1f%s%x1f%an%x1f%cI"])
+            .git_text([
+                "log",
+                "-n",
+                COMMITS,
+                "--format=%H%x1f%s%x1f%an%x1f%cI%x1f%P",
+            ])
             .unwrap_or_default();
         let commits = log
             .lines()
@@ -65,6 +79,7 @@ impl Repository<'_> {
                     subject: fields.next()?.to_owned(),
                     author: fields.next()?.to_owned(),
                     date: fields.next()?.to_owned(),
+                    has_parent: !fields.next()?.is_empty(),
                 })
             })
             .collect();

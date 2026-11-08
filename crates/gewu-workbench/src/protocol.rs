@@ -86,6 +86,9 @@ pub struct ReviewProgress {
     pub open_issues: usize,
     /// Work items the agent has not written yet; `None` without a plan.
     pub remaining_work_items: Option<usize>,
+    /// The reviewer's recorded decision, if any.
+    #[serde(default)]
+    pub decision: Option<gewu_review::Decision>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
