@@ -76,6 +76,10 @@ pub enum HarnessValidationError {
     QuoteOutsideRewrite { chunk: String, change: String },
     #[error("chunk `{0}` requests rendered Markdown for a non-Markdown change")]
     InvalidMarkdownPresentation(String),
+    #[error(
+        "the overview diagram is not Mermaid; start its text with flowchart, sequenceDiagram, classDiagram, or stateDiagram-v2, or use a flow for a straight sequence"
+    )]
+    UndrawableIllustration,
 }
 
 #[derive(Debug, Error)]
@@ -101,6 +105,13 @@ impl CheckpointValidator {
         }
         if checkpoint.changes.len() > 5 {
             errors.push(HarnessValidationError::TooManyOverviewChanges);
+        }
+        if checkpoint
+            .illustration
+            .as_ref()
+            .is_some_and(|illustration| !illustration.is_drawable())
+        {
+            errors.push(HarnessValidationError::UndrawableIllustration);
         }
         let known: HashSet<_> = input.changes.iter().map(|change| &change.id).collect();
         let mut seen = HashSet::new();

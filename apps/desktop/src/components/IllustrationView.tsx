@@ -1,4 +1,4 @@
-import { mermaidFlow } from "../diagram";
+import { diagramLabel, flowLabel, mermaidFlow } from "../diagram";
 import type { Illustration } from "../protocol";
 import { DiagramPlot } from "./DiagramPlot";
 
@@ -22,7 +22,10 @@ export function IllustrationView({ illustration }: { illustration: Illustration 
     case "flow":
       return (
         <div className="illustration">
-          <DiagramPlot source={mermaidFlow(illustration.steps)} />
+          <DiagramPlot
+            source={mermaidFlow(illustration.steps)}
+            label={flowLabel(illustration.steps)}
+          />
         </div>
       );
     case "example":
@@ -43,7 +46,7 @@ export function IllustrationView({ illustration }: { illustration: Illustration 
     case "diagram":
       return (
         <div className="illustration">
-          <DiagramPlot source={illustration.text} />
+          <DiagramPlot source={illustration.text} label={diagramLabel(illustration.text)} />
         </div>
       );
   }

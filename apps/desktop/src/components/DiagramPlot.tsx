@@ -3,8 +3,11 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { prefersDark } from "../highlight";
 
-/** Renders a Mermaid diagram. Text that is not Mermaid stays readable as source. */
-export function DiagramPlot({ source }: { source: string }) {
+/**
+ * Renders a Mermaid diagram. Text that is not Mermaid stays readable as source.
+ * `label` names the drawing for assistive technology, which cannot read the SVG.
+ */
+export function DiagramPlot({ source, label }: { source: string; label: string }) {
   const reactId = useId().replace(/:/g, "");
   const serial = useRef(0);
   const [drawing, setDrawing] = useState<{ source: string; svg: string | null } | null>(null);
@@ -15,13 +18,23 @@ export function DiagramPlot({ source }: { source: string }) {
     const renderId = `gewu-${reactId}-${serial.current}`;
     void import("mermaid")
       .then(async ({ default: mermaid }) => {
+        // Labels must be SVG text: the sanitizer drops the foreignObject
+        // that HTML labels need, which leaves empty boxes.
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
           theme: prefersDark() ? "dark" : "neutral",
           fontFamily: "inherit",
+          suppressErrorRendering: true,
+          htmlLabels: false,
+          flowchart: { htmlLabels: false },
         });
-        const rendered = await mermaid.render(renderId, source);
+        if (!(await mermaid.parse(source, { suppressErrors: true }))) {
+          throw new Error("not a Mermaid diagram");
+        }
+        const rendered = await mermaid.render(renderId, source).finally(() => {
+          document.getElementById(`d${renderId}`)?.remove();
+        });
         const clean = DOMPurify.sanitize(rendered.svg, {
           USE_PROFILES: { svg: true, svgFilters: true },
         });
@@ -41,7 +54,14 @@ export function DiagramPlot({ source }: { source: string }) {
 
   const ready = drawing?.source === source ? drawing : null;
   if (ready?.svg) {
-    return <div className="illustration-plot" dangerouslySetInnerHTML={{ __html: ready.svg }} />;
+    return (
+      <div
+        className="illustration-plot"
+        role="img"
+        aria-label={label}
+        dangerouslySetInnerHTML={{ __html: ready.svg }}
+      />
+    );
   }
   if (ready && !ready.svg) {
     return (
@@ -51,5 +71,9 @@ export function DiagramPlot({ source }: { source: string }) {
       </div>
     );
   }
-  return <p className="muted">Drawing the diagram…</p>;
+  return (
+    <p className="muted" data-gewu-pending="diagram">
+      Drawing the diagram…
+    </p>
+  );
 }

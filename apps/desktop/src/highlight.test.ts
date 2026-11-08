@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mermaidFlow } from "./diagram";
+import { diagramLabel, mermaidFlow } from "./diagram";
 import { highlightCode } from "./highlight";
 
 describe("syntax highlighting", () => {
@@ -25,6 +25,12 @@ describe("diagrams", () => {
   it("turns a sequence into a flowchart", () => {
     expect(mermaidFlow(["read the lock", 'write "Ion.lock"'])).toBe(
       ['flowchart TD', '  s0["read the lock"]', '  s1["write \'Ion.lock\'"]', "  s0 --> s1"].join("\n"),
+    );
+  });
+
+  it("names a diagram by its node labels", () => {
+    expect(diagramLabel('flowchart TD\n  A["review pr N"] --> B[GenerateArgs::run]\n  B --> C(fetch)')).toBe(
+      "Diagram of review pr N, GenerateArgs::run, fetch",
     );
   });
 });

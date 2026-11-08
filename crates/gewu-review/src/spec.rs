@@ -24,6 +24,31 @@ pub enum Illustration {
     },
 }
 
+impl Illustration {
+    /// Mermaid diagram types the desktop app is expected to draw.
+    pub const MERMAID_KINDS: [&str; 6] = [
+        "flowchart",
+        "graph",
+        "sequenceDiagram",
+        "classDiagram",
+        "stateDiagram",
+        "stateDiagram-v2",
+    ];
+
+    /// Whether a diagram opens with a Mermaid type, skipping blank lines and
+    /// `%%` comments. Other illustration kinds are always drawable.
+    pub fn is_drawable(&self) -> bool {
+        let Self::Diagram { text } = self else {
+            return true;
+        };
+        text.lines()
+            .map(str::trim)
+            .find(|line| !line.is_empty() && !line.starts_with("%%"))
+            .and_then(|line| line.split_whitespace().next())
+            .is_some_and(|kind| Self::MERMAID_KINDS.contains(&kind))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Overview {
     pub intent: String,

@@ -1,6 +1,6 @@
 use gewu_review::{
-    Change, ChangePresentation, ChunkBlock, ChunkKind, Quote, ReviewChunk, ReviewInput,
-    SourceIdentity,
+    Change, ChangePresentation, ChunkBlock, ChunkKind, Illustration, Quote, ReviewChunk,
+    ReviewInput, SourceIdentity,
     harness::{
         Expansion, HARNESS_SCHEMA_VERSION, HarnessStage, HarnessState, HarnessStore,
         HarnessValidationError, InvestigationCheckpoint, InvestigationFinding, ReviewOrigin,
@@ -378,4 +378,39 @@ fn investigation_must_account_for_every_change() {
     };
 
     investigation.validate(&input).expect("valid investigation");
+}
+
+/// Found by running the desktop app on a real walkthrough: an agent sent an
+/// ASCII drawing as a `diagram`, and Mermaid drew a syntax-error graphic.
+#[test]
+fn an_overview_diagram_must_be_mermaid() {
+    let input = input();
+    let mut investigation = InvestigationCheckpoint {
+        schema_version: HARNESS_SCHEMA_VERSION,
+        source: input.source.clone(),
+        intent: "Change behavior.".into(),
+        changes: vec!["Behavior changes.".into()],
+        concepts: vec![],
+        illustration: Some(Illustration::Diagram {
+            text: "mise.toml + scripts/build.sh\n   |\n   +--> diagrams/".into(),
+        }),
+        findings: vec![InvestigationFinding {
+            evidence_spans: vec![],
+            change_ids: input
+                .changes
+                .iter()
+                .map(|change| change.id.clone())
+                .collect(),
+            summary: "The changes work together.".into(),
+            evidence: vec!["src/lib.rs".into()],
+        }],
+    };
+
+    let errors = investigation.validate(&input).expect_err("ascii art").0;
+    assert_eq!(errors, vec![HarnessValidationError::UndrawableIllustration]);
+
+    investigation.illustration = Some(Illustration::Diagram {
+        text: "%% the build\nflowchart LR\n  toml --> script".into(),
+    });
+    investigation.validate(&input).expect("a Mermaid flowchart");
 }
