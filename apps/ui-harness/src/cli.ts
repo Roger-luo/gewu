@@ -2,6 +2,8 @@
 import { writeBrief } from "./brief.js";
 import { capture } from "./capture.js";
 import { runJourneys } from "./journeys/index.js";
+import { act } from "./qa/act.js";
+import { runSandbox } from "./qa/sandbox.js";
 import { rank } from "./rank.js";
 import { formatScoreSummary, score } from "./score.js";
 import { parseViewports } from "./viewport.js";
@@ -16,6 +18,9 @@ Usage:
   gewu-ui rank --runs <dirA> <dirB> ... [--out <file.md>]
   gewu-ui journeys --out <runDir> [--gewu <bin>] [--static <dir>] [--only 1,2]
                    [--viewport 1440x900] [--color-scheme light|dark]
+  gewu-ui sandbox --dir <dir> [--gewu <bin>] [--static <dir>] [--viewport 1440x900]
+                  [--repo name=path ...]
+  gewu-ui act --sandbox <dir> <action> [args]   (run with no action for the list)
 
 capture options:
   --viewports <list>     e.g. 1440x900,1024x700 (default 1440x900)
@@ -147,6 +152,36 @@ async function main(argv: string[]): Promise<void> {
       }
       console.log(`Wrote ${pathJoin(out, "journeys.json")}`);
       if (result.blocked > 0) process.exitCode = 1;
+      break;
+    }
+    case "sandbox": {
+      const dir = flagValue(args, "--dir");
+      if (!dir) throw new Error("sandbox requires --dir");
+      const gewu = flagValue(args, "--gewu");
+      const staticDir = flagValue(args, "--static");
+      const vp = flagValue(args, "--viewport");
+      const viewport = vp ? parseViewports(vp)[0] : undefined;
+      const repositories = Object.fromEntries(
+        restAfter(args, "--repo").map((pair) => {
+          const at = pair.indexOf("=");
+          if (at < 1) throw new Error(`--repo expects name=path, got "${pair}"`);
+          return [pair.slice(0, at), pair.slice(at + 1)];
+        }),
+      );
+      await runSandbox({
+        dir,
+        repositories,
+        ...(gewu !== undefined ? { gewu } : {}),
+        ...(staticDir !== undefined ? { staticDir } : {}),
+        ...(viewport ? { viewport: { width: viewport.width, height: viewport.height } } : {}),
+      });
+      break;
+    }
+    case "act": {
+      const dir = flagValue(args, "--sandbox");
+      if (!dir) throw new Error("act requires --sandbox <dir>");
+      const at = args.indexOf("--sandbox");
+      console.log(await act(dir, [...args.slice(0, at), ...args.slice(at + 2)]));
       break;
     }
     default:

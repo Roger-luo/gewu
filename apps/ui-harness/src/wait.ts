@@ -1,5 +1,18 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
+
+/** An unused local TCP port. */
+export function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => (typeof address === "object" && address ? resolve(address.port) : reject(new Error("no port"))));
+    });
+  });
+}
 
 export async function waitForUrl(
   url: string,

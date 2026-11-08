@@ -40,6 +40,34 @@ pnpm --dir apps/ui-harness ui rank --runs output/run-1 output/run-2 --out rank.m
 `mise run ui-journeys` builds the UI, captures review pages, and runs the six
 journeys into `.gewu/ui-runs/<label>`.
 
+## QA
+
+Journeys replay fixed stories; QA finds the stories nobody wrote down. A
+scenario writer reads only the user docs and writes workflows; QA testers then
+walk them in the real app, one user action at a time, and report what fails a
+reviewer.
+
+1. Write scenarios: give a subagent `prompts/qa-scenarios.md` with an output
+   directory → `<out>/scenarios.json`.
+2. Start one sandbox per tester and leave it running:
+   `mise run ui-sandbox .gewu/qa/<round>/sb1`. It serves `gewu ui serve` on
+   throwaway `shop` and `notes` repositories (an origin with pull request #7,
+   a fake `gh`) and keeps one browser open. `sandbox.json` lists the URL,
+   repository paths, and custom agent commands that write batches, write them
+   slowly, or fail.
+3. Give each tester `prompts/qa-tester.md`, its sandbox, and a few scenarios.
+   Testers act only through `ui act`, which clicks, types, and presses keys by
+   accessible role and name, then prints the accessibility tree and saves a
+   screenshot under `<sandbox>/shots/`:
+
+   ```bash
+   pnpm --dir apps/ui-harness ui act --sandbox "$PWD/.gewu/qa/r1/sb1" click button "Open review"
+   ```
+
+4. Each writes `report.json` with reproducible steps per issue. Fix, rebuild,
+   start fresh sandboxes, and rerun with testers rotated across scenarios
+   until no issues remain. Stop a sandbox with Ctrl-C.
+
 Bin: `gewu-ui` (via `tsx src/cli.ts`). Override rubric with `--rubric <file>`;
 by default the highest `rubric/vN.json` is used.
 

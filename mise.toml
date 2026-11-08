@@ -96,6 +96,20 @@ pnpm --dir apps/ui-harness ui journeys --out "$PWD/$run"
 echo "Captured $run; brief a judge with: pnpm --dir apps/ui-harness ui brief --run $PWD/$run"
 '''
 
+[tasks.ui-sandbox]
+description = "Serve the workbench on throwaway repositories for a QA agent to drive: mise run ui-sandbox <dir>"
+usage = '''
+arg "<dir>" help="Sandbox directory; holds sandbox.json and every action's screenshot"
+'''
+run = '''
+set -euo pipefail
+cargo build --bin gewu
+pnpm --dir apps/desktop build
+dir="$(cd "$(dirname "${usage_dir}")" && pwd)/$(basename "${usage_dir}")"
+rm -rf "$dir"
+exec pnpm --dir apps/ui-harness ui sandbox --dir "$dir"
+'''
+
 [tasks.ui-real]
 description = "Capture a generated walkthrough of a real repository, plus the journeys: mise run ui-real <label> <repo>"
 usage = '''

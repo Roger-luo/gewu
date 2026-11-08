@@ -1,13 +1,12 @@
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import path from "node:path";
 import { chromium } from "playwright";
 import { aggregateChecks, attachConsoleCollector } from "../checks/index.js";
 import { gitHeadAndDirty } from "../git.js";
 import { packageRoot } from "../rubric.js";
 import type { CheckFinding } from "../types.js";
-import { killProcessTree, waitForUrl } from "../wait.js";
+import { freePort, killProcessTree, waitForUrl } from "../wait.js";
 import { createFixture } from "./fixture.js";
 import { Journey, type JourneyRecord } from "./runner.js";
 import { STORIES } from "./stories.js";
@@ -31,17 +30,6 @@ export interface JourneysFile {
   color_scheme: "light" | "dark";
   journeys: JourneyRecord[];
   blocked: number;
-}
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      server.close(() => (typeof address === "object" && address ? resolve(address.port) : reject(new Error("no port"))));
-    });
-  });
 }
 
 /** Run the user-story journeys against a real `gewu ui serve` and a throwaway fixture. */
