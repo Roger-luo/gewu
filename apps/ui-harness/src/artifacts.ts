@@ -10,7 +10,10 @@ export { pad };
 
 export async function waitReady(page: Page, timeoutMs = 15_000): Promise<void> {
   await page.waitForFunction(
-    () => document.documentElement.dataset.gewuReady === "true",
+    () =>
+      document.documentElement.dataset.gewuReady === "true" &&
+      !document.querySelector("[data-gewu-pending]"),
+    undefined,
     { timeout: timeoutMs },
   );
 }

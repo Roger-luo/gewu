@@ -72,10 +72,12 @@ describe("capture", () => {
     const misaligned = checks.findings.filter((f) => f.key === "layout.misaligned");
     expect(misaligned.map((f) => f.selector)).toContain("span.caption");
 
-    expect(checks.findings.filter((f) => f.key === "code.unhighlighted").map((f) => f.selector)).toContain(
-      "pre.code-plain",
-    );
-    expect(checks.findings.map((f) => f.key)).toContain("illustration.ascii");
+    const unhighlighted = checks.findings.filter((f) => f.key === "code.unhighlighted");
+    expect(unhighlighted.map((f) => f.selector)).toContain("pre.code-plain");
+    expect(unhighlighted.map((f) => f.selector)).toContain("table.diff-table");
+    const diagrams = checks.findings.filter((f) => f.key === "illustration.ascii");
+    expect(diagrams.some((f) => f.description.includes("parser"))).toBe(true);
+    expect(diagrams.some((f) => f.description.includes("no labels"))).toBe(true);
     expect(manifest.interactions.length).toBeGreaterThanOrEqual(1);
   }, 90_000);
 });

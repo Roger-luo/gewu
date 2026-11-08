@@ -54,6 +54,8 @@ export async function runLayoutChecks(
       ) as HTMLElement[]
     ).filter((el) => {
       if (el.closest("[inert], [aria-hidden='true']")) return false;
+      // A closed <details> keeps laying out its body but does not render it.
+      if (!el.checkVisibility()) return false;
       // A modal's backdrop covers the page; only score controls inside it.
       if (modal && !modal.closest(".dialog-backdrop")?.contains(el)) return false;
       return true;

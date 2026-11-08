@@ -31,6 +31,31 @@ export async function runSourceChecks(
       });
     }
 
+    for (const table of Array.from(document.querySelectorAll("table.diff-table"))) {
+      if (table.querySelector("code span[style*='color']")) continue;
+      const text = Array.from(table.querySelectorAll("code"))
+        .map((cell) => cell.textContent ?? "")
+        .join("\n");
+      const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+      const assignments = lines.filter((line) => line.includes(" = ")).length;
+      const patterns = lines.filter((line) => /^[#/*!]/.test(line) || line.endsWith("/")).length;
+      if (lines.length < 2 || text.trim().length < 40 || (assignments < 1 && patterns < 2)) continue;
+      out.push({
+        key: "code.unhighlighted",
+        selector: "table.diff-table",
+        description: `Source shown without syntax color: "${text.trim().slice(0, 80)}"`,
+      });
+    }
+
+    for (const svg of Array.from(document.querySelectorAll(".illustration svg"))) {
+      if ((svg.textContent ?? "").trim()) continue;
+      out.push({
+        key: "illustration.ascii",
+        selector: ".illustration svg",
+        description: "Diagram drew no labels: its boxes are empty",
+      });
+    }
+
     for (const el of Array.from(document.querySelectorAll(".illustration-ascii, .illustration"))) {
       if (el.classList.contains("illustration") && (el.querySelector("svg") || el.querySelector(".illustration-ascii"))) {
         continue;

@@ -110,6 +110,27 @@ export const STORIES: Story[] = [
         await j.click("button", "Start guided review");
         await j.screen("chunk");
       });
+      await j.step("Request a change on the step", async () => {
+        await j.click("button", "Request changes", j.control("group", "Leave feedback"));
+        const dialog = j.control("dialog", "Request changes");
+        await dialog.waitFor();
+        await j.fill("Body", "Round the total before printing it.");
+        await j.click("button", "Save", dialog);
+        await j.see("Round the total before printing it.", 5_000, j.page.locator("main"));
+        await j.see(/open change request/i, 5_000, j.page.locator("main"));
+      });
+      await j.step("Resolve the request", async () => {
+        await j.click("button", /^Resolve: Round the total/);
+        await j.see("Resolved", 5_000, j.page.locator(".feedback-list"));
+      });
+      await j.step("Confirm deleting the request", async () => {
+        await j.click("button", /^Delete: Round the total/);
+        await j.control("dialog", "Delete feedback?").waitFor();
+      });
+      await j.step("Delete it", async () => {
+        await j.click("button", "Delete", j.control("dialog", "Delete feedback?"));
+        await j.see("No feedback on this chunk yet.", 5_000, j.page.locator("main"));
+      });
       await j.step("Mark the first step reviewed and land on the next", async () => {
         if ((await markReviewedAndAdvance(j)) !== "chunk") {
           throw new Error("marking the first of two steps reviewed did not open the second");

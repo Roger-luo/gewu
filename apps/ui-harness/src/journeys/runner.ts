@@ -107,7 +107,13 @@ export class Journey {
 
   private async settle(): Promise<void> {
     await this.page
-      .waitForFunction(() => document.documentElement.dataset.gewuReady === "true", undefined, { timeout: 10_000 })
+      .waitForFunction(
+        () =>
+          document.documentElement.dataset.gewuReady === "true" &&
+          !document.querySelector("[data-gewu-pending]"),
+        undefined,
+        { timeout: 10_000 },
+      )
       .catch(() => undefined);
     await this.page.waitForTimeout(120);
   }
