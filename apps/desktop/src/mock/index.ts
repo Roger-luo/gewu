@@ -1,4 +1,6 @@
 import type { Snapshot } from "../protocol";
+import { pairedSnapshot } from "./paired";
+import { paletteSnapshot } from "./palette";
 import { selfReviewSnapshot } from "./self-review";
 import { showcaseSnapshot } from "./showcase";
 import { showcaseFeedbackSnapshot } from "./showcase-feedback";
@@ -7,6 +9,8 @@ const mocks: Record<string, () => Snapshot> = {
   showcase: showcaseSnapshot,
   "showcase-feedback": showcaseFeedbackSnapshot,
   "self-review": selfReviewSnapshot,
+  palette: paletteSnapshot,
+  paired: pairedSnapshot,
 };
 
 export function createMockSnapshot(name: string): Snapshot {
@@ -18,4 +22,10 @@ export function createMockSnapshot(name: string): Snapshot {
   return factory();
 }
 
-export { showcaseSnapshot, showcaseFeedbackSnapshot, selfReviewSnapshot };
+export {
+  showcaseSnapshot,
+  showcaseFeedbackSnapshot,
+  selfReviewSnapshot,
+  paletteSnapshot,
+  pairedSnapshot,
+};

@@ -33,6 +33,7 @@ const LANG_LOADERS: Record<string, () => Promise<LangModule>> = {
   make: () => import("shiki/langs/make.mjs"),
   dockerfile: () => import("shiki/langs/dockerfile.mjs"),
   diff: () => import("shiki/langs/diff.mjs"),
+  typst: () => import("shiki/langs/typst.mjs"),
 };
 
 /** Shiki ships no gitignore grammar; these scopes color in the GitHub themes. */

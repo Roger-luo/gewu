@@ -14,6 +14,16 @@ describe("syntax highlighting", () => {
     expect(new Set(html?.match(/color:[^;"]+/g))).not.toHaveLength(1);
   });
 
+  it("colors a Typst library so it is not one color", async () => {
+    const html = await highlightCode(
+      '#let accent = rgb("0072B2")\n#let dot(x, y) = {\n  place(dx: x * 1pt, circle(radius: 3.5pt))\n}\n',
+      "typst",
+      false,
+    );
+    expect(html).toContain("shiki");
+    expect(new Set(html?.match(/color:[^;"]+/g)).size).toBeGreaterThan(1);
+  });
+
   it("colors a gitignore comment differently from a pattern", async () => {
     const html = await highlightCode("# generated\n/build/\n*.synctex.gz\n", "gitignore", true);
     expect(html).toContain("shiki");

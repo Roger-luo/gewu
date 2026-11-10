@@ -13,6 +13,11 @@ binary's `harness` and `review` commands; reading files needs no shell.
 3. When the harness says it is waiting for the reviewer, stop. Do not advance it
    yourself and do not open the review: the human reads the batch, and Gewu
    runs you again afterwards. Stop also when it prints `# COMPLETE`.
+4. When it prints `# Gewu harness: proofread` after you wrote or rewrote chunks
+   in this session, stop: a reader who did not write them scores them, and
+   Gewu starts that reader for you. If you have written no chunks in this
+   session, the proofread is yours; score honestly, and if the harness then
+   asks you to polish, rewrite the chunks and stop at the next proofread.
 
 Rules:
 

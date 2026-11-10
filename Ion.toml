@@ -5,6 +5,7 @@ rust-best-practices = { source = "apollographql/skills/rust-best-practices" }
 gewu-review = { type = "local", path = "harness/skills/gewu-review" }
 gewu-dogfood = { type = "local", path = ".agents/skills/gewu-dogfood" }
 gewu-self-review = { type = "local", path = ".agents/skills/gewu-self-review" }
+gewu-app = { type = "local", path = ".agents/skills/gewu-app" }
 
 [options]
 

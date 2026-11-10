@@ -42,8 +42,8 @@ def capture(root, binary):
 
 def checked(judge):
     problems = []
-    if judge.get("rubric_version") not in (2, 3):
-        problems.append("tui judge must use rubric_version 3")
+    if judge.get("rubric_version") not in (3, 4):
+        problems.append("tui judge must use rubric_version 4")
     for group in ("dimensions", "degraded"):
         for name in DIMENSIONS:
             dimension = judge.get(group, {}).get(name, {})

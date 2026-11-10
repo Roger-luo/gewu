@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { anchorLabel } from "../anchors";
 import type { Action, Feedback } from "../protocol";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -74,7 +75,7 @@ function FeedbackItem({
         <span className="muted">
           on {item.target}
           {item.anchor
-            ? ` · ${item.anchor.path}:${item.anchor.start_line}`
+            ? ` · ${anchorLabel(item.anchor)}`
             : " · whole chunk"}
         </span>
         {item.resolved && <span className="chip">Resolved</span>}

@@ -70,6 +70,8 @@ const STAGES: Record<string, string> = {
   expand: "Writing steps",
   checkpoint: "Checking the batch",
   rewrite: "Revising a step",
+  proofread: "Proofreading the batch",
+  polish: "Improving weak steps",
 };
 
 /** What the agent is doing now, or `null` for a stage with nothing to say. */

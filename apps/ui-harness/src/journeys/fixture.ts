@@ -45,6 +45,66 @@ async function shop(repo: string, origin: string): Promise<void> {
   await write(repo, "src/pricing/mod.rs", "pub mod discount;\n");
   await write(repo, "src/pricing/discount.rs", "pub fn apply(total: u32, _code: &str) -> u32 {\n    total\n}\n");
   await write(repo, "docs/guide.md", "# Guide\n\nAdd items, then check out.\n");
+  await write(
+    repo,
+    "diagrams/lib/illustration.typ",
+    `// Neutral palette.
+#let ink = rgb("243746")
+#let muted = rgb("526575")
+#let quiet = rgb("D2DCE3")
+
+// Semantic hues (Okabe-Ito derived).
+#let accent = rgb("0072B2")
+#let data = rgb("009E73")
+#let feedback = rgb("B86A00")
+#let sw-base = 1.5pt
+
+// Polyline through points ((x, y) pairs) with an arrowhead at the last point.
+#let route(points, paint: ink, thickness: sw-base, dash: "solid", head: true) = {
+  if points.len() < 2 or dash == "missing" { return [] }
+  let (x1, y1) = points.at(-2)
+  let (x2, y2) = points.at(-1)
+  let dx = (x2 - x1) / 1pt
+  let dy = (y2 - y1) / 1pt
+  let d = calc.sqrt(dx * dx + dy * dy)
+  let ux = dx / d
+  let uy = dy / d
+  let head-length = 9pt
+  let head-half = 4.5pt
+  let neck = (x2 - ux * head-length, y2 - uy * head-length)
+  let wing-a = (neck.at(0) - uy * head-half, neck.at(1) + ux * head-half)
+  let wing-b = (neck.at(0) + uy * head-half, neck.at(1) - ux * head-half)
+  block({
+    curve(
+      stroke: paint + thickness,
+      curve.move(points.first()),
+      ..points.slice(1, -1).map(p => curve.line(p)),
+      curve.line(if head { neck } else { (x2, y2) }),
+    )
+    if head {
+      place(top + left, polygon(fill: paint, (x2, y2), wing-a, wing-b))
+    }
+  })
+}
+`,
+  );
+  await write(
+    repo,
+    "diagrams/lib/atoms.typ",
+    `// Grid of dots. Each dot is placed, so the file itself draws an empty page.
+#let accent = rgb("0072B2")
+#let dot(x, y, r: 3.5, fill: accent, paint: accent) = {
+  place(dx: x * 1pt, dy: y * 1pt, circle(radius: r * 1pt, fill: paint))
+}
+#let atoms(x, y, nx: 4, ny: 3, step: 12, r: 3.5, fill: accent) = {
+  for i in range(nx) {
+    for j in range(ny) {
+      dot(x + i * step, y + j * step, r: r, fill: fill, paint: fill)
+    }
+  }
+}
+`,
+  );
   git(repo, "add", ".");
   git(repo, "commit", "-qm", "feat: initial cart");
   await write(repo, "src/pricing/discount.rs", "/// Percent off for each known code.\nconst CODES: &[(&str, u32)] = &[(\"SPRING\", 10), (\"VIP\", 25)];\n\npub fn apply(total: u32, code: &str) -> u32 {\n    let percent = CODES\n        .iter()\n        .find(|(known, _)| *known == code)\n        .map_or(0, |(_, percent)| *percent);\n    total - total * percent / 100\n}\n");

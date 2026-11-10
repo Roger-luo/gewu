@@ -55,6 +55,14 @@ impl Repository<'_> {
             .collect())
     }
 
+    /// A file as it stood at a revision, so a walkthrough can show what a
+    /// change replaced even where the diff shows only part of it.
+    pub fn file_at(&self, revision: &str, path: &str) -> Result<String, GitError> {
+        let object = format!("{revision}:{path}");
+        let bytes = self.git_bytes(&["show", &object], false)?;
+        Ok(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
     /// Whether any text file of a tree-ish contains `text` verbatim.
     pub fn tree_contains(&self, head: &str, text: &str) -> Result<bool, GitError> {
         let args = [

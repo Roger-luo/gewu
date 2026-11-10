@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{DEFAULT_MAX_CHUNK_LINES, SCHEMA_VERSION};
+use crate::{DEFAULT_MAX_CHUNK_LINES, SCHEMA_VERSION, Side};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceIdentity {
@@ -178,29 +178,7 @@ impl Change {
     /// Removed and metadata lines have no new-side location.
     #[must_use]
     pub fn new_line_at(&self, body_line: usize) -> Option<u32> {
-        let mut next = self.new_start;
-        for (index, text) in self
-            .patch
-            .lines()
-            .skip(usize::from(self.patch.starts_with("@@ ")))
-            .enumerate()
-        {
-            let current = index + 1;
-            if text.starts_with('-') {
-                if current == body_line {
-                    return None;
-                }
-                continue;
-            }
-            let line = text.starts_with(['+', ' ']).then_some(next);
-            if current == body_line {
-                return line;
-            }
-            if line.is_some() {
-                next = next.saturating_add(1);
-            }
-        }
-        None
+        self.line_at(body_line, Side::New)
     }
 }
 

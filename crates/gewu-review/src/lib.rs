@@ -7,18 +7,25 @@ pub mod handover;
 pub mod harness;
 mod height;
 mod input;
+mod publication;
 pub mod research;
 mod session;
+mod side;
 mod spec;
 mod validation;
 
 pub use handover::Handover;
 pub use height::{CHUNK_HEIGHT_GUIDANCE, HeightBreakdown, chunk_height, pane_height};
 pub use input::{Change, ReviewInput, SourceIdentity};
+pub use publication::{
+    GEWU_REPOSITORY, GitHubRequest, InlineComment, IssueBundle, IssueDraft, Note, Plan,
+    PullRequestDraft, Venue,
+};
 pub use session::{
     Decision, EventLog, Feedback, FeedbackKind, FeedbackTarget, LineAnchor, ReviewEvent,
     ReviewSession, SessionError,
 };
+pub use side::Side;
 pub use spec::{
     ChangePresentation, ChunkBlock, ChunkContext, ChunkKind, GenerationStatus, Illustration,
     Overview, Quote, ReviewChunk, ReviewSpec,

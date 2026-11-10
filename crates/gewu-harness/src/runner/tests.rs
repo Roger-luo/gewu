@@ -12,13 +12,13 @@ use gewu_review::{
 use super::HarnessRunner;
 use crate::artifacts;
 
-struct Fixture {
+pub(in crate::runner) struct Fixture {
     _directory: tempfile::TempDir,
-    runner: HarnessRunner,
-    input: ReviewInput,
+    pub(in crate::runner) runner: HarnessRunner,
+    pub(in crate::runner) input: ReviewInput,
 }
 
-fn fixture() -> Fixture {
+pub(in crate::runner) fn fixture() -> Fixture {
     let directory = tempfile::tempdir().expect("temporary directory");
     let runner = HarnessRunner::at(directory.path());
     let input = ReviewInput::new(
@@ -38,6 +38,17 @@ fn fixture() -> Fixture {
 impl Fixture {
     /// Runs investigate and plan, then expands the first item.
     fn expand_first(&self) -> WorkList {
+        let (list, awaiting) = self.append_first();
+        assert!(
+            awaiting.starts_with("# Gewu harness: waiting for the reviewer"),
+            "{awaiting}"
+        );
+        list
+    }
+
+    /// Runs investigate and plan, appends the first item's expansion, and
+    /// returns what the harness asked for next.
+    pub(in crate::runner) fn append_first(&self) -> (WorkList, String) {
         self.runner
             .start(
                 "review-test".into(),
@@ -68,12 +79,8 @@ impl Fixture {
         );
 
         self.stage_expansion(&list.items[0]);
-        let awaiting = self.runner.next().expect("append expansion");
-        assert!(
-            awaiting.starts_with("# Gewu harness: waiting for the reviewer"),
-            "{awaiting}"
-        );
-        list
+        let next = self.runner.next().expect("append expansion");
+        (list, next)
     }
 
     fn investigation(&self) -> InvestigationCheckpoint {
@@ -141,7 +148,7 @@ impl Fixture {
         artifacts::write(self.runner.store.expansion_path(), &expansion).expect("write expansion");
     }
 
-    fn spec(&self) -> ReviewSpec {
+    pub(in crate::runner) fn spec(&self) -> ReviewSpec {
         artifacts::read(&self.runner.spec_path).expect("spec")
     }
 

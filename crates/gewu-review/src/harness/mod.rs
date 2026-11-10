@@ -1,5 +1,7 @@
 mod model;
 mod progress;
+mod proofread;
+mod proofreading;
 mod store;
 mod validation;
 
@@ -8,6 +10,8 @@ pub use model::{
     ReviewOrigin, Revision, WorkItem, WorkList,
 };
 pub use progress::{Verdict, next_step};
+pub use proofread::{ChunkProofread, Proofread};
+pub use proofreading::Proofreading;
 pub use store::{HarnessStore, HarnessStoreError};
 pub use validation::{HarnessValidationError, HarnessValidationErrors};
 

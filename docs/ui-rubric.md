@@ -5,7 +5,7 @@ Judges see screenshots (1440×900 and 1024×700, light and possibly dark), aria
 snapshots, mechanical `checks.json`, and interaction screenshots. They do not
 read application source. This note explains what v1 measures, why, and how to
 revise it. The machine-readable rubric is the highest `apps/ui-harness/rubric/vN.json`
-(currently v4).
+(currently v5).
 
 The product criteria come from `docs/design.md` and `docs/desktop.md`: guided
 review is orientation, intent before mechanics, prose with quoted code, a
@@ -184,6 +184,42 @@ sharper anchors over more dimensions. Product-rule changes belong in
 
 ## Changelog
 
+- **v9** — A chunk that presents a new form of an existing structure has to
+  show the difference. `representation_contrast` (weight 3) scores 1 when the
+  title names the property, such as a compact word, and the prose only
+  restates the new fields, or the previous definition is not on the page.
+  Score 3 requires the prose to say what the earlier definition stored and
+  which difference earns the claim, with that earlier definition in the diff
+  or in the refactor context pane. A capture that replaces no structure
+  scores 3 with that noted. v8 scored whether the pane crowded the code, so
+  a dry chunk with no pane still passed.
+- **v8** — Status labels in one list form one column. A row with an action
+  button beside it and a row without one show the status at the same x
+  position. `visual_hierarchy` and `multi_review_navigation` ask for it, and
+  `layout.column_drift` caps the aggregate at 80. v7 only checked the center
+  line of a button against its caption (`layout.misaligned`), which skips
+  grid rows, so a status pushed sideways by its button passed review. v8 also
+  asks that the picture beside a quote sit on the code's surface. The picture
+  column used its own, darker box that stopped partway down the quote, which
+  left a visible step in dark mode; the look-for is judged by screenshot in
+  both schemes.
+- **v7** — The ground behind a drawing has to be the whole figure, or no
+  separate page at all. A white fill that covers only part of the marks, with
+  the rest on the app background, scores 1 on `shown_result`, and
+  `preview.backdrop` caps the aggregate at 60. v6 asked that the viewport
+  include every mark, so the dots were no longer cropped, and the page fill
+  stayed the old page size.
+- **v6** — The picture beside a quote has to be the whole result. A panel
+  that cuts off part of the drawing scores 1 on `shown_result`, and
+  `preview.clipped` caps the aggregate at 60. v5 only asked whether anything
+  was drawn, so a grid of dots cropped down to the corner of the page still
+  counted as showing the code's result.
+- **v5** — A quote of something a reviewer judges by looking must show that
+  result. `shown_result` (weight 3) scores 0 when a color, a diagram, or a
+  drawing function is paired with a blank rendered panel or with no picture.
+  `preview.blank` caps the aggregate at 60. v4 never asked, so compiling a
+  Typst library into an empty page beside `route` still scored as a readable
+  quote.
 - **v4** — Overview diagrams must be readable, not merely drawn. A label
   shorter than body text on screen (about 14px) fails `overview_intent`, and
   `illustration.too_small` caps the score at 70. v3 missed this: it asked only

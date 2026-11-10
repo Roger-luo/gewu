@@ -1,18 +1,24 @@
 import { useState } from "react";
 
+import type { Venue } from "../publication";
 import type { Decision, Snapshot, ReviewTarget } from "../protocol";
 import { FeedbackJumpList } from "./FeedbackJumpList";
 import { InlineMarkdown } from "./Markdown";
+import { PublicationPreview } from "./PublicationPreview";
 
 /** How many unreviewed chunks show before the list folds. */
 const UNREVIEWED_PREVIEW = 5;
 
 export function SummaryScreen({
   snapshot,
+  venue,
+  reviewTitle,
   onNavigate,
   onDecide,
 }: {
   snapshot: Snapshot;
+  venue: Venue;
+  reviewTitle: string;
   onNavigate: (target: ReviewTarget) => void;
   onDecide: (decision: Decision) => void;
 }) {
@@ -165,6 +171,13 @@ export function SummaryScreen({
           )}
         </section>
       </div>
+
+      <PublicationPreview
+        venue={venue}
+        reviewTitle={reviewTitle}
+        chunks={chunks}
+        feedback={feedback}
+      />
     </main>
   );
 }

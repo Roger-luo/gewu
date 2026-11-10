@@ -41,6 +41,12 @@ enum ContextCommand {
         #[arg(long)]
         numbered: bool,
     },
+    /// Print a file as it stood at the review's base revision, numbered, to
+    /// find the definition a change replaced.
+    Base {
+        #[arg(long)]
+        path: String,
+    },
 }
 
 impl ContextArgs {
@@ -50,6 +56,12 @@ impl ContextArgs {
         )?;
         let reader = ContextReader::new(&input, self.max_bytes);
         let output = match self.command {
+            ContextCommand::Base { path } => gewu_git::Repository::new(std::path::Path::new("."))
+                .file_at(&input.source.base, &path)?
+                .lines()
+                .zip(1..)
+                .map(|(text, line)| format!("{line:>5} │{text}\n"))
+                .collect(),
             ContextCommand::Search { query } => {
                 let cursor = self
                     .cursor

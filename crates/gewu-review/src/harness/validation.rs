@@ -74,6 +74,22 @@ pub enum HarnessValidationError {
     UnexpectedRewrite(String),
     #[error("rewritten chunk `{chunk}` quotes lines of `{change}` the original did not show")]
     QuoteOutsideRewrite { chunk: String, change: String },
+    #[error("chunk `{0}` of this batch was not proofread")]
+    MissingProofread(String),
+    #[error("chunk `{0}` is not in the batch being proofread")]
+    UnexpectedProofread(String),
+    #[error("chunk `{chunk}` has no `{dimension}` score")]
+    MissingScore { chunk: String, dimension: String },
+    #[error("chunk `{chunk}` is scored on `{dimension}`, which the proofread rubric does not have")]
+    UnknownDimension { chunk: String, dimension: String },
+    #[error("chunk `{chunk}` scores {score} on `{dimension}`; scores run from 0 to 3")]
+    InvalidScore {
+        chunk: String,
+        dimension: String,
+        score: u8,
+    },
+    #[error("chunk `{0}` scores below 2 but `problems` does not say what to fix")]
+    UnexplainedScore(String),
     #[error("chunk `{0}` requests rendered Markdown for a non-Markdown change")]
     InvalidMarkdownPresentation(String),
     #[error(

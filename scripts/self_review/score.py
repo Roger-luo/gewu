@@ -1,4 +1,4 @@
-"""Rubric version 2: mechanical audit gates plus a checked judge verdict.
+"""Rubric version 4: mechanical audit gates plus a checked judge verdict.
 
 The judge's labels are evidence, not trust: the score refuses a judgement that
 skips, duplicates, or invents a sentence, or that scores without evidence.
@@ -7,12 +7,12 @@ import hashlib
 
 from . import tui
 
-RUBRIC_VERSION = 3
+RUBRIC_VERSION = 4
 LABELS = {"fact", "decision", "anchor", "orientation", "redundant", "filler", "narrates-review",
           "unsupported", "verdict"}
 KEPT = {"fact", "decision", "anchor", "orientation"}
 DIMENSIONS = ("reference_usefulness", "decision_surfacing", "change_framing", "learning_order",
-              "big_picture", "chunk_connection")
+              "big_picture", "chunk_connection", "representation_contrast")
 QUESTION_KINDS = {"purpose": 2, "connection": 2, "behaviour": 2}
 # A reviewer who read only the walkthrough must get five of six right.
 COLD_READER = 5 / 6

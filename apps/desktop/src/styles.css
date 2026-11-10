@@ -28,7 +28,7 @@
   --radius: 10px;
   --radius-sm: 6px;
   --nav-width: 240px;
-  --context-width: 280px;
+  --context-width: 560px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -143,6 +143,7 @@ main[data-gewu-screen] {
   overflow: auto;
   padding: var(--space-4) var(--space-6) var(--space-6);
   min-width: 0;
+  container-type: inline-size;
 }
 
 .screen-title:focus {
@@ -191,9 +192,41 @@ main[data-gewu-screen] {
 }
 
 .navigator {
-  overflow: auto;
-  padding: var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
   background: var(--bg);
+}
+
+.nav-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: var(--space-4) var(--space-3);
+}
+
+.github-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.github-status img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.github-login {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
 }
 
 .navigator h1 {
@@ -576,9 +609,10 @@ main[data-gewu-screen] {
 }
 
 .chunk-summary {
-  font-size: 15px;
-  margin: 0 0 var(--space-3);
-  max-width: 46rem;
+  font-size: 16.5px;
+  line-height: 1.55;
+  margin: 0 0 var(--space-4);
+  max-width: 42rem;
 }
 
 .block {
@@ -608,11 +642,13 @@ main[data-gewu-screen] {
 }
 
 .markdown {
-  max-width: 46rem;
+  max-width: 42rem;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .markdown p {
-  margin: 0 0 0.75em;
+  margin: 0 0 0.85em;
 }
 
 .markdown p:last-child {
@@ -650,6 +686,96 @@ main[data-gewu-screen] {
   padding: 0;
 }
 
+.quote-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.quote-row + .quote-row {
+  margin-top: var(--space-4);
+}
+
+.quote-row-code {
+  min-width: 0;
+}
+
+@container (min-width: 48rem) {
+  .quote-row.has-note {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 24rem);
+    gap: var(--space-5);
+  }
+}
+
+.quote-note {
+  font-size: 15.5px;
+  line-height: 1.6;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.quote-note .markdown {
+  max-width: none;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.quote-note .comment-actions {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.quote-row-code > .comment-actions {
+  justify-content: flex-end;
+}
+
+.publication {
+  margin-top: var(--space-4);
+}
+
+.publication-destination + .publication-destination {
+  margin-top: var(--space-4);
+}
+
+.publication-destination-title {
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.publication-request {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+}
+
+.publication-item {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.publication-item h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+}
+
+.publication-item p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
 .quote-frame {
   margin: 0;
   border: 1px solid var(--border);
@@ -668,6 +794,62 @@ main[data-gewu-screen] {
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.quote-body.with-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+}
+
+.quote-source {
+  min-width: 0;
+  overflow: auto;
+}
+
+.quote-preview {
+  align-self: start;
+  position: sticky;
+  top: var(--space-3);
+  border-left: 1px solid var(--border);
+  padding: var(--space-3);
+  /* Share the quote frame's surface, so the column does not end in a step. */
+  background: transparent;
+}
+
+.quote-preview-label {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.quote-preview svg,
+.quote-preview img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: transparent;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 0.4em;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  vertical-align: -0.1em;
+}
+
+@media (max-width: 800px) {
+  .quote-body.with-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quote-preview {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
 }
 
 .quote-gutter .path {
@@ -831,14 +1013,23 @@ main[data-gewu-screen] {
   font-style: normal;
 }
 
+.context-code.code-plain,
 .context-code .shiki {
   margin: 0;
   padding: var(--space-2);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 12.5px;
-  line-height: 1.5;
-  white-space: pre-wrap;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.context-code .dropped-field {
+  background: var(--removed-bg);
+  border-radius: 3px;
+  box-shadow: inset 0 -2px 0 var(--danger);
 }
 
 .illustration-plot {
@@ -866,6 +1057,30 @@ main[data-gewu-screen] {
   top: 0;
   align-self: start;
   max-height: 100%;
+  min-width: 0;
+}
+
+.context-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.context-resize:hover,
+.context-resize:focus-visible {
+  background: var(--accent);
+}
+
+.dropped-hint {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .toolbar-actions {
@@ -922,24 +1137,6 @@ main[data-gewu-screen] {
 
 .context-pane .field + .field {
   margin-top: var(--space-3);
-}
-
-.context-pane .signatures {
-  margin-top: var(--space-3);
-}
-
-.context-pane .signatures summary {
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: var(--space-2);
-}
-
-.context-pane .signatures[open] summary {
-  margin-bottom: var(--space-3);
 }
 
 .feedback-jump {
@@ -1159,6 +1356,10 @@ main[data-gewu-screen] {
     max-height: none;
     border-left: none;
     border-top: 1px solid var(--border);
+  }
+
+  .context-resize {
+    display: none;
   }
 
   .illustration .pair {

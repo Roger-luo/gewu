@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { plainInline } from "../markdown";
 import { chunkNavState } from "../navigation";
 import type { Snapshot, ReviewTarget } from "../protocol";
+import { GitHubStatus } from "./GitHubStatus";
 import { InlineMarkdown } from "./Markdown";
 
 export function Navigator({
@@ -30,6 +31,7 @@ export function Navigator({
 
   return (
     <nav className="navigator" aria-label="Review navigator" ref={nav}>
+      <div className="nav-scroll">
       {taskTitle ? (
         <>
           <p className="eyebrow">Gewu review</p>
@@ -79,6 +81,8 @@ export function Navigator({
           </li>
         ))}
       </ul>
+      </div>
+      <GitHubStatus />
     </nav>
   );
 }

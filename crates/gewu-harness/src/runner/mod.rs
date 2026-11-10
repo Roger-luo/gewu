@@ -29,9 +29,19 @@ pub struct HarnessRunner {
     reviews_root: PathBuf,
     max_chunks: usize,
     force: bool,
+    proofread_rounds: u32,
 }
 
 impl HarnessRunner {
+    /// Proofreads each batch a run started by this runner expands, allowing up
+    /// to `rounds` rewrites before the reviewer sees it. Zero, the default,
+    /// hands batches straight to the reviewer.
+    #[must_use]
+    pub fn with_proofread(mut self, rounds: u32) -> Self {
+        self.proofread_rounds = rounds;
+        self
+    }
+
     pub fn expansion_guide(&self) -> Result<String> {
         let run = self.run()?;
         if !matches!(run.state.stage, HarnessStage::Expand | HarnessStage::Repair) {
@@ -95,6 +105,7 @@ impl HarnessRunner {
             reviews_root: REVIEWS_ROOT.into(),
             max_chunks,
             force,
+            proofread_rounds: 0,
         }
     }
 
@@ -110,6 +121,7 @@ impl HarnessRunner {
             reviews_root: project.join(REVIEWS_ROOT),
             max_chunks,
             force,
+            proofread_rounds: 0,
         }
     }
 
@@ -123,6 +135,7 @@ impl HarnessRunner {
             reviews_root: root.join("reviews"),
             max_chunks: crate::DEFAULT_MAX_CHUNKS,
             force: false,
+            proofread_rounds: 0,
         }
     }
 
@@ -144,8 +157,9 @@ impl HarnessRunner {
         }
         artifacts::write(&self.input_path, &input)?;
         artifacts::remove(&self.spec_path)?;
-        self.store
-            .save_state(&HarnessState::new(review_id, input.source, origin))?;
+        self.store.save_state(
+            &HarnessState::new(review_id, input.source, origin).proofread(self.proofread_rounds),
+        )?;
         Ok(prompts::investigate())
     }
 
@@ -156,6 +170,8 @@ impl HarnessRunner {
             HarnessStage::Plan => self.finish_plan(&mut run),
             HarnessStage::Expand | HarnessStage::Repair => self.finish_expansion(&mut run),
             HarnessStage::Revise => self.finish_revision(&mut run),
+            HarnessStage::Proofread => self.finish_proofread(&mut run),
+            HarnessStage::Polish => self.finish_polish(&mut run),
             HarnessStage::Await => self.evaluate(&mut run),
             HarnessStage::Complete => Ok(prompts::complete(&run.state.review_id)),
         }
@@ -225,6 +241,15 @@ impl HarnessRunner {
                     prompts::measured(&revision.chunks, &run.input)
                 )),
                 _ => self.prompt_revise(&run, &run.state.revising.clone()),
+            },
+            HarnessStage::Proofread => self.prompt_proofread(&run),
+            HarnessStage::Polish => match self.store.revision() {
+                Ok(Some(revision)) => Ok(format!(
+                    "{}\nRewrite `.gewu/harness/revision.json` until every chunk fits, then run \
+                     `gewu harness next`.\n",
+                    prompts::measured(&revision.chunks, &run.input)
+                )),
+                _ => self.prompt_polish(&run),
             },
             // What the reviewer has done since decides what is being waited
             // for, so the verdict is recomputed — without acting on it, which
@@ -346,6 +371,11 @@ impl HarnessRunner {
             ));
         }
         let mut spec = self.spec_so_far(run)?;
+        let batch = expansion
+            .chunks
+            .iter()
+            .map(|chunk| chunk.id.clone())
+            .collect();
         // Each chunk carries the item it was written for, so the reviewer can
         // see which part of the walkthrough they are in.
         spec.chunks
@@ -361,8 +391,7 @@ impl HarnessRunner {
         artifacts::write(&self.spec_path, &spec)?;
         self.store.save_work_list(&work)?;
         self.store.discard_expansion()?;
-        self.advance(&mut run.state, HarnessStage::Await)?;
-        Ok(prompts::awaiting(&spec, work.remaining()))
+        self.after_batch(run, batch)
     }
 
     /// Applies the continue gates once the reviewer has had the current batch.
@@ -461,15 +490,7 @@ impl HarnessRunner {
         if let Err(errors) = revision.validate(&run.input, &originals) {
             return self.retry_revision(run, &wanted, &error_strings(errors.0));
         }
-        let mut rewritten = revision.chunks;
-        for chunk in &mut spec.chunks {
-            if let Some(position) = rewritten.iter().position(|other| other.id == chunk.id) {
-                // A rewrite changes how a chunk reads, not where it belongs.
-                let section = chunk.section.take();
-                *chunk = rewritten.remove(position);
-                chunk.section = section;
-            }
-        }
+        replace_chunks(&mut spec, revision.chunks);
         if let Err(errors) = ValidatedReview::validate_partial(run.input.clone(), spec.clone()) {
             return self.retry_revision(run, &wanted, &error_strings(errors.0));
         }
@@ -679,5 +700,18 @@ fn error_strings(errors: Vec<impl ToString>) -> Vec<String> {
     errors.into_iter().map(|error| error.to_string()).collect()
 }
 
+/// Puts rewritten chunks in place of the chunks with their ids.
+fn replace_chunks(spec: &mut ReviewSpec, mut rewritten: Vec<ReviewChunk>) {
+    for chunk in &mut spec.chunks {
+        if let Some(position) = rewritten.iter().position(|other| other.id == chunk.id) {
+            // A rewrite changes how a chunk reads, not where it belongs.
+            let section = chunk.section.take();
+            *chunk = rewritten.remove(position);
+            chunk.section = section;
+        }
+    }
+}
+
+mod proofread;
 #[cfg(test)]
 mod tests;

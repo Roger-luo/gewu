@@ -40,6 +40,29 @@ dimension:
 Do not invent pages, checks, or files. If something cannot be judged from the
 artifacts, say so and score low with that limitation in the rationale.
 
+On `shown_result`: a quote of a color, a diagram, or a function that draws
+must show that result beside the source. A panel that claims to be rendered
+output and is a blank page scores 0, and is a major finding. A picture that
+is cut off, so only part of the drawing is in the frame, scores 1, and is a
+major finding. A white page fill that covers only part of the drawing, leaving
+the rest on the app background, scores 1, and is a major finding. Do not treat the blank, the crop, or that patch as an acceptable empty
+state, and do not give credit because the source itself is readable. A picture column that
+sits on a different shade from the code beside it and ends partway down the
+quote, leaving a step in the surface, scores at most 2 on `shown_result`. Judge
+it in dark mode as well as light.
+
+On lists: status labels in one list that start at different x positions, for
+example because a button beside one row pushes its status sideways, score at
+most 2 on `visual_hierarchy` and `multi_review_navigation`. Cite the list
+screenshot and `checks.json` `layout.column_drift`. A status at the far edge
+of a row with no button, beside rows with buttons, is that defect.
+
+On `representation_contrast`: a chunk whose title claims a new or more compact
+structure, encoding, or codec must say how it differs from the previous one,
+and the previous definition must be on that page (in the diff, or in a
+Refactor context pane). Prose that only restates the new fields scores 1, and
+is a major finding. Score 3 with a note when the capture replaces no structure.
+
 ## Findings
 
 List concrete defects under `findings` with severity `blocker`, `major`, or
@@ -53,7 +76,7 @@ you the id). Do not edit screenshots, checks, or the rubric. Schema:
 
 ```json
 {
-  "rubric_version": 2,
+  "rubric_version": 9,
   "judge": "<id>",
   "dimensions": [
     {

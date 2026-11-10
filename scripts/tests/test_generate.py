@@ -9,6 +9,72 @@ import unittest
 
 from test_research_cli import BINARY
 
+# A stand-in agent that follows the brief through the harness: it writes the
+# first batch and stops at the proofread, or, started fresh, scores the batch
+# — failing it once, then passing the rewrite.
+AUTHOR = r'''#!/usr/bin/env python3
+import json, pathlib, subprocess
+
+GEWU = "{{gewu}}"
+HERE = pathlib.Path(__file__).parent
+STATE = pathlib.Path(".gewu/harness")
+DIMENSIONS = ["grounded", "change_framing", "rationale", "representation_contrast",
+              "minimality", "connection"]
+
+
+def harness(*args):
+    return subprocess.run([GEWU, "harness", *args], capture_output=True, text=True, check=True).stdout
+
+
+def write(name, value):
+    (STATE / name).write_text(json.dumps(value))
+
+
+manifest = json.loads(pathlib.Path(".gewu/review-input.json").read_text())
+source, change = manifest["source"], manifest["changes"][0]
+quote = {"change_id": change["id"], "start": 1, "end": change["body_lines"]}
+wrote = False
+while True:
+    prompt = harness("status")
+    stage = prompt.splitlines()[0].removeprefix("# Gewu harness: ").split()[0]
+    if stage == "investigate":
+        write("investigation.json", {
+            "schema_version": 1, "source": source, "intent": "Raise the value.",
+            "changes": ["`VALUE` becomes 2."], "concepts": [],
+            "findings": [{"change_ids": [change["id"]], "summary": "One constant changes.",
+                          "evidence": []}]})
+    elif stage == "plan":
+        write("worklist.json", {"schema_version": 1, "source": source, "items": [{
+            "id": "item-0", "title": "The value", "purpose": "Raise it.",
+            "covers": [quote], "expanded": False}]})
+    elif stage == "expand":
+        write("expansion.json", {"schema_version": 1, "source": source, "item_id": "item-0",
+            "chunks": [{"id": "value", "title": "The value", "summary": "`VALUE` becomes 2.",
+                        "kind": "other", "content": [{"type": "changes", "quotes": [quote],
+                                                      "presentation": "diff"}]}]})
+        wrote = True
+        with open(HERE / "runs.txt", "a") as runs:
+            runs.write("expand\n")
+    elif stage == "proofread":
+        if wrote:
+            break
+        with open(HERE / "runs.txt", "a") as runs:
+            runs.write("proofread\n")
+        scored = len((HERE / "runs.txt").read_text().split()) > 2
+        write("proofread.json", {"schema_version": 1, "source": source, "chunks": [{
+            "id": "value", "scores": {name: 3 if scored else 1 for name in DIMENSIONS},
+            "problems": [] if scored else ["Say what the old definition held."]}]})
+    elif stage == "polish":
+        chunk = json.loads(pathlib.Path(".gewu/review-spec.json").read_text())["chunks"][0]
+        chunk.pop("section", None)
+        chunk["summary"] = "`VALUE` becomes 2; the old definition held 1."
+        write("revision.json", {"schema_version": 1, "source": source, "chunks": [chunk]})
+        wrote = True
+    else:
+        break
+    harness("next")
+'''
+
 
 class GenerateTests(unittest.TestCase):
     def setUp(self):
@@ -135,6 +201,21 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual([change["path"] for change in manifest["changes"]], ["b.rs"])
         again = review()
         self.assertIn("Continuing the review already started", again.stdout)
+
+    def test_a_fresh_agent_proofreads_each_batch_until_it_passes(self):
+        # A walkthrough reads as complete to whoever wrote it, so the author
+        # stops at the proofread and Gewu starts another agent to score it.
+        script = self.root.parent / "author.py"
+        script.write_text(AUTHOR.replace("{{gewu}}", str(BINARY.resolve())))
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        result = self.generate(script, "--base", "HEAD^", "--head", "HEAD")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("A fresh agent proofreads"), 2, result.stdout)
+        self.assertIn("A batch is ready for you", result.stdout)
+        runs = (self.root.parent / "runs.txt").read_text().split()
+        self.assertEqual(runs, ["expand", "proofread", "proofread"], "the author never scores its own batch")
+        spec = json.loads((self.root / ".gewu/review-spec.json").read_text())
+        self.assertIn("old definition", spec["chunks"][0]["summary"], "the polished chunk was kept")
 
     def test_nothing_to_continue_and_no_provider_are_refused(self):
         idle = self.agent("exit 0")

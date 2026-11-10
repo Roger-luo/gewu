@@ -1,4 +1,4 @@
-# Judge a Gewu walkthrough (rubric version 3)
+# Judge a Gewu walkthrough (rubric version 4)
 
 You are an independent reviewer of a generated code-review walkthrough. You did
 not write it and have not seen the instructions that produced it. Do not read
@@ -48,7 +48,7 @@ without them.
 Every label other than `fact`, `decision`, `anchor`, and `orientation` needs a `reason` naming
 what makes it so: the earlier sentence it repeats, the line that contradicts it.
 
-## Score six dimensions, 0–3
+## Score seven dimensions, 0–3
 
 0 absent or wrong, 1 material problems, 2 usable with small gaps, 3 clear and
 supported. Each needs `evidence`: chunk ids and what in them earned the score.
@@ -67,9 +67,21 @@ supported. Each needs `evidence`: chunk ids and what in them earned the score.
 - `chunk_connection`: each chunk makes clear what it adds to that picture and
   how it relates to the chunks around it. Score 1 if chunks read as isolated
   notes the reader has to connect alone.
+- `representation_contrast`: when a chunk's point is a new form of a structure
+  the repository already had — a data type, an encoding, a stored word, a
+  codec — the prose says what the earlier definition stored, what the new one
+  stores, and which difference earns a property the chunk claims, such as
+  being more compact. The earlier definition is on the page: in a diff quote
+  that includes the removal, or in a refactor context pane (`before`, `after`,
+  `reason`). Score 1 when the title names the property and the prose only
+  restates the new fields. Score 3, and say so, when no chunk replaces or
+  redefines a structure. Check the claimed difference against the two
+  definitions; a motive the repository does not show is `unsupported` on the
+  sentence and scores at most 1 here.
 
 You read the source and the spec, so you know the picture before you start;
-the reviewer does not. Score these two as the reviewer would meet them.
+the reviewer does not. Score `big_picture`, `chunk_connection`, and
+`representation_contrast` as the reviewer would meet them.
 
 ## Write questions for a cold reader
 
@@ -81,6 +93,10 @@ teaches the change. Write exactly six multiple-choice questions:
 - two about how its parts connect: which piece calls, feeds, or depends on
   which, or why one chunk comes before another;
 - two about a consequential behaviour a reviewer must understand to judge it.
+  When a chunk replaces a representation, one of these asks what the previous
+  definition stored, or which difference makes the new one smaller. Take the
+  correct answer from the two definitions. A walkthrough that never teaches
+  it should make the cold reader miss.
 
 Each has four options, one correct and three plausible to someone who skimmed,
 and a `kind` of `purpose`, `connection`, or `behaviour`.
@@ -99,7 +115,7 @@ Write `.gewu/self-review/judge.json` and nothing else:
 
 ```json
 {
-  "rubric_version": 3,
+  "rubric_version": 4,
   "labels": [{"id": "s1", "label": "fact"}, {"id": "s2", "label": "redundant", "reason": "repeats s1"}],
   "dimensions": {
     "reference_usefulness": {"score": 2, "evidence": ["chunk-x: ..."]},
@@ -107,7 +123,8 @@ Write `.gewu/self-review/judge.json` and nothing else:
     "change_framing": {"score": 2, "evidence": ["..."]},
     "learning_order": {"score": 3, "evidence": ["..."]},
     "big_picture": {"score": 2, "evidence": ["overview: ..."]},
-    "chunk_connection": {"score": 2, "evidence": ["chunk-x: ..."]}
+    "chunk_connection": {"score": 2, "evidence": ["chunk-x: ..."]},
+    "representation_contrast": {"score": 1, "evidence": ["chunk-y: title claims a compact word; prose restates the new struct; the old definition is not on the page"]}
   },
   "questions": [
     {"id": "q1", "kind": "purpose", "question": "...", "options": ["...", "...", "...", "..."], "answer": 2}

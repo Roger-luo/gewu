@@ -78,6 +78,18 @@ pub struct QuoteView {
     pub more_above: bool,
     pub more_below: bool,
     pub lines: Vec<QuoteLine>,
+    /// A picture of what this quote produces, when the source is not enough to judge it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<QuotePreview>,
+}
+
+/// A render beside a quote: SVG markup, or a PNG as base64.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct QuotePreview {
+    pub label: String,
+    /// `image/svg+xml` (`data` is markup) or `image/png` (`data` is base64).
+    pub media: String,
+    pub data: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

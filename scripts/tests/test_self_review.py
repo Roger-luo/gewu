@@ -29,7 +29,7 @@ def judge_all(numbered, **overrides):
                   "options": ["a", "b", "c", "d"], "answer": 1}
                  for index, kind in enumerate(["purpose", "purpose", "connection", "connection",
                                                "behaviour", "behaviour"])]
-    return {"rubric_version": 3, "labels": labels, "findings": [], "questions": questions,
+    return {"rubric_version": 4, "labels": labels, "findings": [], "questions": questions,
             "dimensions": {name: evidence for name in DIMENSIONS}}
 
 
@@ -129,7 +129,7 @@ class SelfReviewTests(unittest.TestCase):
         self.assertFalse(gates_only["passes"])
         evidence = {"score": 3, "evidence": ["001-...-p1.txt"]}
         degraded = {"score": 1, "evidence": ["80x24 001-...-p2.txt"]}
-        tui_judge = {"rubric_version": 3, "dimensions": {name: evidence for name in tui.DIMENSIONS},
+        tui_judge = {"rubric_version": 4, "dimensions": {name: evidence for name in tui.DIMENSIONS},
                      "degraded": {name: degraded for name in tui.DIMENSIONS},
                      "findings": [{"stage": "x", "size": "80x24", "page": 1, "category": "page-break",
                                    "detail": "breaks mid sentence"}]}
@@ -179,6 +179,16 @@ class SelfReviewTests(unittest.TestCase):
         self.assertFalse(score("fixture", numbered, judge, audit)["passes"], "unassessed is not a pass")
         with self.assertRaisesRegex(ValueError, "two each of purpose"):
             score("fixture", numbered, {**judge, "questions": judge["questions"][:5]}, audit)
+
+    def test_representation_contrast_is_required(self):
+        numbered = [{"id": "s1", "location": "c", "field": "summary", "text": "Declares `VALUE`."}]
+        audit = {"coverage": {"missing_paths": [], "changes": []},
+                 "references": {"unresolved": [], "forward": [], "distant": []}}
+        judge = judge_all(numbered)
+        self.assertIn("representation_contrast", judge["dimensions"])
+        del judge["dimensions"]["representation_contrast"]
+        with self.assertRaisesRegex(ValueError, "representation_contrast"):
+            score("fixture", numbered, judge, audit)
 
     def test_sentences_skip_fences_and_split_bullets(self):
         markdown = "Adds `Quote`. It covers lines.\n\n```rust\nlet x = 1;\n```\n- First item.\n- Second."

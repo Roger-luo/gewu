@@ -53,6 +53,15 @@ Read the draft back, one chunk at a time, and answer for each:
 - Does every quote start and end at a readable semantic boundary? Do not leave
   one chunk ending and the next beginning in the middle of the same sentence,
   declaration, or example.
+- When this chunk presents a new form of a structure that already existed, can
+  a reviewer see the earlier definition — its fields, not an alias that keeps
+  its name — beside the new one? Does the prose name the fields that were
+  dropped or added, say what the new form buys, and say why the change needed
+  it? A sentence that restates the new fields does not answer it. The earlier
+  definition is in the diff quote or in a refactor `context` (`before`,
+  `after`, `reason`).
+- Does the chunk say why its change was made, not only what it is? A reviewer
+  who must guess the motive cannot judge whether the change achieves it.
 - Is each product rule or concept defined once before use, with later chunks
   referring back instead of restating it?
 - Is every introduced term defined at the level needed to judge the change,

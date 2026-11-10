@@ -15,6 +15,9 @@ use crate::{TaskStatus, Workbench, WorkbenchError, home::now, task::Task};
 const WAITING: &str = "# Gewu harness: waiting for the reviewer";
 const COMPLETE: &str = "# COMPLETE";
 const HEADING: &str = "# Gewu harness: ";
+const PROOFREADING: [&str; 2] = ["# Gewu harness: proofread", "# Gewu harness: polish"];
+/// Rewrites a batch may get after a fresh agent scores it against the rubric.
+const PROOFREAD_ROUNDS: u32 = 2;
 
 /// Where a batch left the task.
 struct Ended {
@@ -222,11 +225,13 @@ impl Workbench {
                     format!("{files} change(s) to review"),
                 );
                 if record.uses_agent() {
-                    HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false).start(
-                        format!("review-{:x}", now()),
-                        prepared.input,
-                        prepared.origin,
-                    )?;
+                    HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false)
+                        .with_proofread(PROOFREAD_ROUNDS)
+                        .start(
+                            format!("review-{:x}", now()),
+                            prepared.input,
+                            prepared.origin,
+                        )?;
                 } else {
                     Self::fallback(&prepared.root, &prepared.input)?;
                 }
@@ -282,41 +287,58 @@ impl Workbench {
         if let Some(ended) = Ended::gate(&prompt) {
             return Ok(ended);
         }
-        let stage = Ended::stage(&prompt);
+        let mut stage = Ended::stage(&prompt);
         let command = record.preset()?.command(record.agent.command.as_deref());
-        self.update(
-            task_id,
-            stage.clone(),
-            "The agent is writing the next batch",
-        )?;
-        self.emit(task_id, EventKind::Status, "Starting the agent");
-        let before = ProjectState::capture(root)?;
-        let sink: EventSink = {
-            let workbench = self.clone();
-            let id = task_id.to_owned();
-            Arc::new(move |event: AgentEvent| workbench.emit(&id, event.kind, event.text))
+        // The author stops where proofreading begins, and a fresh agent reads
+        // the batch: a walkthrough reads as complete to whoever wrote it. Each
+        // rewrite takes one more run, and the last reading one more.
+        let mut fresh = 0;
+        let outcome = loop {
+            let (message, start) = if fresh == 0 {
+                ("The agent is writing the next batch", "Starting the agent")
+            } else {
+                (
+                    "A fresh agent is proofreading the batch",
+                    "Starting a fresh agent to proofread the batch against the rubric",
+                )
+            };
+            self.update(task_id, stage.clone(), message)?;
+            self.emit(task_id, EventKind::Status, start);
+            let before = ProjectState::capture(root)?;
+            let sink: EventSink = {
+                let workbench = self.clone();
+                let id = task_id.to_owned();
+                Arc::new(move |event: AgentEvent| workbench.emit(&id, event.kind, event.text))
+            };
+            let outcome = AcpRun::new(root, command.clone(), &self.inner.gewu).run(sink, cancel);
+            if ProjectState::capture(root)? != before {
+                return Ok(Ended::new(
+                    TaskStatus::Failed,
+                    stage,
+                    format!(
+                        "The agent changed files outside .gewu/. Inspect them with `git status` \
+                         in {} before continuing.",
+                        root.display()
+                    ),
+                ));
+            }
+            let outcome = outcome?;
+            let prompt = runner.status()?;
+            if let Some(ended) = Ended::gate(&prompt) {
+                return Ok(ended);
+            }
+            stage = Ended::stage(&prompt).or(stage);
+            if cancel.is_cancelled() || outcome.stop_reason == "cancelled" {
+                return Ok(Ended::cancelled(stage));
+            }
+            let proofreading = PROOFREADING
+                .iter()
+                .any(|heading| prompt.starts_with(heading));
+            if !proofreading || !outcome.denials.is_empty() || fresh > PROOFREAD_ROUNDS {
+                break outcome;
+            }
+            fresh += 1;
         };
-        let outcome = AcpRun::new(root, command, &self.inner.gewu).run(sink, cancel);
-        if ProjectState::capture(root)? != before {
-            return Ok(Ended::new(
-                TaskStatus::Failed,
-                stage,
-                format!(
-                    "The agent changed files outside .gewu/. Inspect them with `git status` in {} \
-                     before continuing.",
-                    root.display()
-                ),
-            ));
-        }
-        let outcome = outcome?;
-        let prompt = runner.status()?;
-        if let Some(ended) = Ended::gate(&prompt) {
-            return Ok(ended);
-        }
-        let stage = Ended::stage(&prompt).or(stage);
-        if cancel.is_cancelled() || outcome.stop_reason == "cancelled" {
-            return Ok(Ended::cancelled(stage));
-        }
         let at = stage.as_deref().unwrap_or("an unknown stage");
         let mut message = format!("The agent stopped at {at} before the reviewer gate.");
         if let Some(denied) = outcome.denials.last() {

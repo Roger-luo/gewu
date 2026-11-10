@@ -6,7 +6,7 @@ use std::{
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-use super::{Expansion, HarnessState, InvestigationCheckpoint, Revision, WorkList};
+use super::{Expansion, HarnessState, InvestigationCheckpoint, Proofread, Revision, WorkList};
 
 #[derive(Debug, Error)]
 pub enum HarnessStoreError {
@@ -104,6 +104,19 @@ impl HarnessStore {
 
     pub fn discard_revision(&self) -> Result<(), HarnessStoreError> {
         self.discard(&self.revision_path())
+    }
+
+    #[must_use]
+    pub fn proofread_path(&self) -> PathBuf {
+        self.root.join("proofread.json")
+    }
+
+    pub fn proofread(&self) -> Result<Option<Proofread>, HarnessStoreError> {
+        self.read_optional(&self.proofread_path())
+    }
+
+    pub fn discard_proofread(&self) -> Result<(), HarnessStoreError> {
+        self.discard(&self.proofread_path())
     }
 
     fn discard(&self, path: &Path) -> Result<(), HarnessStoreError> {

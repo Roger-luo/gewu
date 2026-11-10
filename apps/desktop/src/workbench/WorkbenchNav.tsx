@@ -1,3 +1,4 @@
+import { GitHubStatus } from "../components/GitHubStatus";
 import type { RepositoryView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 
 /** The leading sidebar: start a review, and filter reviews by repository. */
@@ -21,6 +22,7 @@ export function WorkbenchNav({
   const home = route.screen === "home";
   return (
     <nav className="navigator workbench-nav" aria-label="Workbench">
+      <div className="nav-scroll">
       <h1>Gewu</h1>
       <button
         type="button"
@@ -68,6 +70,8 @@ export function WorkbenchNav({
       <button type="button" className="btn nav-secondary" onClick={onAddRepository}>
         Add repository
       </button>
+      </div>
+      <GitHubStatus />
     </nav>
   );
 }

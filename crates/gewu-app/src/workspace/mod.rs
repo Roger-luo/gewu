@@ -4,11 +4,12 @@ use std::{
 };
 
 use gewu_review::{
-    EventLog, Feedback, LineAnchor, ReviewEvent, ReviewInput, ReviewSession, ReviewSpec,
-    ValidatedReview,
+    EventLog, Feedback, ReviewEvent, ReviewInput, ReviewSession, ReviewSpec, ValidatedReview,
 };
 
-use crate::{Action, AnchorRef, AppError, Snapshot};
+use crate::{Action, AppError, Snapshot};
+
+mod anchor;
 
 /// A review workspace root and the reviewer's live session against it.
 pub struct ReviewWorkspace {
@@ -62,7 +63,9 @@ impl ReviewWorkspace {
 
     #[must_use]
     pub fn snapshot(&self) -> Snapshot {
-        Snapshot::from_review(&self.review, &self.session)
+        let mut snapshot = Snapshot::from_review(&self.review, &self.session);
+        crate::preview::attach(self.root(), &mut snapshot);
+        snapshot
     }
 
     /// Apply an action, appending to the event log. Rejected actions leave
@@ -147,56 +150,6 @@ impl ReviewWorkspace {
             .contains_key(feedback_id)
             .then_some(())
             .ok_or_else(|| AppError::UnknownFeedback(feedback_id.into()))
-    }
-
-    /// Fill path, side, and patch hash, and check the new-side lines appear in
-    /// this chunk's quotes for the named change — matching the terminal UI's
-    /// line-picker anchors.
-    fn resolve_anchor(
-        &self,
-        chunk_id: &str,
-        reference: &AnchorRef,
-    ) -> Result<LineAnchor, AppError> {
-        if reference.start_line == 0
-            || reference.end_line == 0
-            || reference.end_line < reference.start_line
-        {
-            return Err(AppError::AnchorOutsideQuote);
-        }
-        let change = self
-            .review
-            .input()
-            .changes
-            .iter()
-            .find(|change| change.id == reference.change_id)
-            .ok_or_else(|| AppError::UnknownChange(reference.change_id.clone()))?;
-        let chunk = self
-            .review
-            .spec()
-            .chunks
-            .iter()
-            .find(|chunk| chunk.id == chunk_id)
-            .ok_or_else(|| AppError::UnknownChunk(chunk_id.into()))?;
-        let quoted_new: std::collections::HashSet<u32> = chunk
-            .quotes()
-            .filter(|quote| quote.change_id == change.id)
-            .flat_map(|quote| {
-                (quote.start..=quote.end).filter_map(|body_line| change.new_line_at(body_line))
-            })
-            .collect();
-        for line in reference.start_line..=reference.end_line {
-            if !quoted_new.contains(&line) {
-                return Err(AppError::AnchorOutsideQuote);
-            }
-        }
-        Ok(LineAnchor {
-            change_id: change.id.clone(),
-            path: change.path.clone(),
-            side: "new".into(),
-            start_line: reference.start_line,
-            end_line: reference.end_line,
-            patch_sha256: change.patch_sha256(),
-        })
     }
 }
 

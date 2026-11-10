@@ -6,7 +6,7 @@ use std::{
 };
 
 use gewu_app::{Action, ReviewWorkspace, Snapshot};
-use gewu_review::{FeedbackKind, FeedbackTarget};
+use gewu_review::{FeedbackKind, FeedbackTarget, Side};
 
 fn ui_fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/ui")
@@ -157,6 +157,7 @@ fn dispatch_adds_feedback_with_filled_anchor() {
                 change_id: quote.change_id.clone(),
                 start_line: new_line,
                 end_line: new_line,
+                side: Side::New,
             }),
         })
         .expect("add feedback");
@@ -194,8 +195,98 @@ fn dispatch_rejects_empty_body_and_bad_anchor() {
                     change_id: "change-missing".into(),
                     start_line: 1,
                     end_line: 1,
+                    side: Side::New,
                 }),
             })
             .is_err()
     );
+}
+
+/// The first chunk quote that carries an old-side line, with its path and the
+/// old-side span of the lines the quote shows.
+fn quote_with_old_lines(workspace: &ReviewWorkspace) -> (String, String, u32, u32) {
+    let snapshot = workspace.snapshot();
+    let quote = snapshot
+        .chunks
+        .iter()
+        .flat_map(|chunk| chunk.blocks.iter())
+        .find_map(|block| match block {
+            gewu_app::BlockView::Changes { quotes, .. } => quotes.iter().find(|quote| {
+                quote
+                    .lines
+                    .iter()
+                    .any(|line| line.old_line.is_some() && line.new_line.is_none())
+            }),
+            gewu_app::BlockView::Narrative { .. } => None,
+        })
+        .expect("a quote with a removed line");
+    let old: Vec<u32> = quote
+        .lines
+        .iter()
+        .filter_map(|line| line.old_line)
+        .collect();
+    (
+        quote.change_id.clone(),
+        quote.path.clone(),
+        *old.iter().min().expect("old line"),
+        *old.iter().max().expect("old line"),
+    )
+}
+
+#[test]
+fn dispatch_anchors_a_span_on_the_old_side() {
+    let root = copy_fixture("showcase");
+    let mut workspace = ReviewWorkspace::open(root.path()).expect("open");
+    let (change_id, path, start, end) = quote_with_old_lines(&workspace);
+    let chunk_id = workspace
+        .snapshot()
+        .chunks
+        .iter()
+        .find(|chunk| {
+            chunk.blocks.iter().any(|block| match block {
+                gewu_app::BlockView::Changes { quotes, .. } => {
+                    quotes.iter().any(|quote| quote.change_id == change_id)
+                }
+                gewu_app::BlockView::Narrative { .. } => false,
+            })
+        })
+        .expect("chunk")
+        .id
+        .clone();
+
+    let snapshot = workspace
+        .dispatch(Action::AddFeedback {
+            chunk_id: chunk_id.clone(),
+            kind: FeedbackKind::Issue,
+            target: FeedbackTarget::Code,
+            body: "Removed on purpose?".into(),
+            anchor: Some(gewu_app::AnchorRef {
+                change_id: change_id.clone(),
+                start_line: start,
+                end_line: end,
+                side: Side::Old,
+            }),
+        })
+        .expect("old-side anchor");
+    let anchor = snapshot
+        .feedback
+        .last()
+        .and_then(|item| item.anchor.clone())
+        .expect("anchor");
+    assert_eq!(anchor.side, "old");
+    assert_eq!(anchor.path, path);
+
+    let outside = workspace.dispatch(Action::AddFeedback {
+        chunk_id,
+        kind: FeedbackKind::Issue,
+        target: FeedbackTarget::Code,
+        body: "Too far.".into(),
+        anchor: Some(gewu_app::AnchorRef {
+            change_id,
+            start_line: end + 100,
+            end_line: end + 100,
+            side: Side::Old,
+        }),
+    });
+    assert!(outside.is_err(), "a line outside the quote is rejected");
 }

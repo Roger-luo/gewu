@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { anchorInput, anchorLabel, type CommentRequest } from "./anchors";
 import type { Backend } from "./backend";
 import { ChunkScreen } from "./components/ChunkScreen";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -13,6 +14,7 @@ import { useKeyboard } from "./hooks/useKeyboard";
 import { useReviewApp } from "./hooks/useReviewApp";
 import { useTestApi, type TestApiHost } from "./hooks/useTestApi";
 import { firstUnreviewed } from "./navigation";
+import { reviewVenue } from "./publication";
 import type { FeedbackAnchorInput, FeedbackTarget, ReviewPlace } from "./protocol";
 import { TaskBar } from "./workbench/TaskBar";
 import type { TaskView } from "./workbench/protocol";
@@ -73,7 +75,22 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     };
   }, [lineSelection]);
 
+  // A comment opened from a block or an explanation carries its own span,
+  // which wins over the line-number selection.
+  const commentOn = app.feedbackRequest;
+  const openComment = useCallback(
+    (request: CommentRequest) => {
+      app.openFeedback(request.kind, { target: request.target, span: request.span });
+    },
+    [app],
+  );
+
+  const dialogAnchor = commentOn ? anchorInput(commentOn.span) : anchor;
+
   const anchorSummary = useMemo(() => {
+    if (commentOn) {
+      return anchorLabel(commentOn.span);
+    }
     if (!anchor || !app.snapshot || app.chunkIndex === null) {
       return null;
     }
@@ -84,11 +101,16 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
       }
       const quote = block.quotes.find((item) => item.change_id === anchor.change_id);
       if (quote) {
-        return `${quote.path}:${anchor.start_line}-${anchor.end_line}`;
+        return anchorLabel({
+          path: quote.path,
+          side: "new",
+          start_line: anchor.start_line,
+          end_line: anchor.end_line,
+        });
       }
     }
     return `${anchor.change_id}:${anchor.start_line}-${anchor.end_line}`;
-  }, [anchor, app.chunkIndex, app.snapshot]);
+  }, [anchor, app.chunkIndex, app.snapshot, commentOn]);
 
   if (app.loadError) {
     return (
@@ -125,7 +147,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
       kind: app.feedbackKind,
       target,
       body,
-      anchor,
+      anchor: dialogAnchor,
     });
     if (result) {
       setLineSelection(null);
@@ -171,11 +193,18 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             onRequestChange={() => app.openFeedback("issue")}
             lineSelection={lineSelection}
             onToggleLine={toggleLine}
+            onComment={openComment}
           />
         )}
         {app.screen === "summary" && (
           <SummaryScreen
             snapshot={snapshot}
+            venue={reviewVenue(
+              task?.view.source ?? null,
+              task?.view.repository_name ?? "this repository",
+              snapshot,
+            )}
+            reviewTitle={task?.view.title ?? "This review"}
             onNavigate={(target) => void app.goto(target)}
             onDecide={(decision) =>
               void app.dispatch({ type: "set_decision", decision })
@@ -191,6 +220,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
         <FeedbackDialog
           kind={app.feedbackKind}
           anchorSummary={anchorSummary}
+          initialTarget={commentOn?.target}
           onCancel={app.closeOverlay}
           onSubmit={(body, target) => void submitFeedback(body, target)}
         />

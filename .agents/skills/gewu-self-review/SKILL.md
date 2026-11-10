@@ -1,6 +1,6 @@
 ---
 name: gewu-self-review
-description: Develops Gewu by reviewing Gewu. Freezes a corpus from this repository's history, has a subagent generate the walkthrough with the binary under test, audits and independently judges it under rubric version 2, records findings in a ledger, and drives each finding to a verified fix. Use when improving review quality, after changing the harness or prompts, or when asked to find and fix issues by using Gewu on itself.
+description: Develops Gewu by reviewing Gewu. Freezes a corpus from this repository's history, has a subagent generate the walkthrough with the binary under test, audits and independently judges it under self-review rubric version 4, records findings in a ledger, and drives each finding to a verified fix. Use when improving review quality, after changing the harness or prompts, or when asked to find and fix issues by using Gewu on itself.
 allowed-tools: Bash, Read, Write, Edit, Agent
 ---
 
@@ -37,7 +37,7 @@ $S frames <run>                              # every page at 80x24 and 120x40 ->
 $S generate <run> --agent claude             # `gewu review generate` writes it, batch by batch
 $S sentences <run>                           # numbered prose -> sentences.json
 $S cold-pack <run>                           # judge's questions, without answers, for the cold reader
-$S score <run>                               # checks judge.json, rubric v2 -> result.json
+$S score <run>                               # checks judge.json, rubric v4 -> result.json
 $S record <run>                              # ledger; prints delta against last run
 $S findings                                  # open and regressed findings
 $S resolve <key> --status fixed --note "<test or commit>"

@@ -95,6 +95,7 @@ impl SourceLanguage {
             "env" => "dotenv",
             "mk" => "make",
             "diff" | "patch" => "diff",
+            "typ" => "typst",
             _ => return None,
         })
     }
@@ -171,6 +172,14 @@ mod tests {
         assert_eq!(
             SourceLanguage::detect(".gitignore", "/build/\n*.synctex.gz\n").as_deref(),
             Some("gitignore")
+        );
+    }
+
+    #[test]
+    fn a_typst_file_is_typst() {
+        assert_eq!(
+            SourceLanguage::detect("lib/illustration.typ", "#let ink = rgb(\"243746\")").as_deref(),
+            Some("typst")
         );
     }
 

@@ -203,7 +203,17 @@ pub fn revise(chunks: &[&ReviewChunk], session: &ReviewSession, max_chunk_lines:
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let current = chunks
+    REVISE
+        .replace("{{count}}", &chunks.len().to_string())
+        .replace("{{requests}}", &requests)
+        .replace("{{chunks}}", &chunk_json(chunks))
+        .replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
+        .replace("{{rubric}}", rubric())
+}
+
+/// Chunks as the JSON a rewrite starts from, one fenced block each.
+pub fn chunk_json(chunks: &[&ReviewChunk]) -> String {
+    chunks
         .iter()
         .map(|chunk| {
             let json = serde_json::to_string_pretty(chunk)
@@ -211,13 +221,11 @@ pub fn revise(chunks: &[&ReviewChunk], session: &ReviewSession, max_chunk_lines:
             format!("```json\n{json}\n```")
         })
         .collect::<Vec<_>>()
-        .join("\n\n");
-    REVISE
-        .replace("{{count}}", &chunks.len().to_string())
-        .replace("{{requests}}", &requests)
-        .replace("{{chunks}}", &current)
-        .replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
-        .replace("{{rubric}}", RUBRIC.trim_end())
+        .join("\n\n")
+}
+
+pub fn rubric() -> &'static str {
+    RUBRIC.trim_end()
 }
 
 pub fn revised(chunk_ids: &[String]) -> String {
@@ -599,6 +607,14 @@ mod tests {
         assert!(prompt.contains("contradict the earlier investigation overview"));
         assert!(prompt.contains("unchanged boilerplate reviewed as one coherent unit"));
         assert!(prompt.contains("every field of its selected shape is required"));
+        assert!(prompt.contains("new form of a structure that already existed"));
+        assert!(prompt.contains("refactor `context`"));
+        assert!(
+            prompt.contains("A type alias"),
+            "an alias that keeps the old name is not the old definition"
+        );
+        assert!(prompt.contains("why the change needed it"));
+        assert!(prompt.contains("gewu harness context base"));
         assert!(!prompt.contains("optional supporting definition"));
         assert!(prompt.contains("trace the literal characters across"));
         assert!(prompt.contains("serialized JSON"));

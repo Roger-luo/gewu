@@ -21,6 +21,12 @@ A sandbox serves the real app with two throwaway Git repositories:
 - `shop`: a small project with commits, uncommitted changes, a `main` branch,
   and an origin with pull request #7.
 - `notes`: a second, smaller repository.
+- `shop` also contains `diagrams/lib/illustration.typ`, a Typst library of
+  named colors and a `route` function that draws a polyline with an arrowhead.
+  `diagrams/lib/atoms.typ` places a grid of dots. Compiling either file by
+  itself draws an empty page, and the dots are placed past the edge of that
+  page. No PDF, PNG, or SVG of them is committed. A directory review of
+  `diagrams` (No agent) shows each file as newly added code.
 
 There are three custom agent commands, typed into the "Custom command" agent
 option: `batches` writes a walkthrough in several batches, `slow_batches` does
@@ -64,6 +70,35 @@ Cover real workflows end to end, not single widgets:
 - Leaving a review halfway and coming back, including after new batches arrive.
 - Juggling two reviews and two repositories.
 - Narrow windows and recovering from mistakes, such as bad paths or empty ranges.
+- Judging what the code produces, not only what it says. When a change is a
+  color, a diagram, a drawing function, a rendered document, or anything a
+  person checks by looking, the reviewer must see that result beside the
+  source — including a result that was never committed. One scenario must open
+  the Typst library in `shop` and expect each color to be visible as a color.
+  The same scenario, or another, must reach `route` and expect a drawn
+  connector or arrowhead beside that code, and must reach `atoms` and expect
+  the whole grid of dots, not a corner of it, on one ground. A white patch
+  smaller than the grid fails the scenario. An empty rendered panel fails
+  the scenario, and so does a panel that cuts the drawing off: a blank page,
+  a cropped one, or a page fill that does not cover the marks does not show
+  what the function does. Expect the picture column to sit on the same surface
+  as the code beside it, with no step in shade where the picture box ends;
+  judge that in dark mode as well as light.
+
+A chunk that presents a new form of an existing structure must teach the
+difference. When a walkthrough has such a chunk, one scenario opens it and
+expects the prose to say what the previous definition stored and which
+difference earns the title's claim (for example, why a stored word is more
+compact). The previous definition is on the same page, in the diff or in a
+Refactor context pane. A title with a restatement of the new fields fails
+the scenario.
+
+The review list must read as a column. One scenario must start a review with
+`slow_batches`, leave it generating, and look at the list while other reviews
+have action buttons (for example "Open review" or "See how to fix"). Expect the
+status labels to start at the same x position in every row, so the generating
+row, which has no button, does not push its status to the far edge. A status
+that sits at a different x from its neighbors fails the scenario.
 
 Make each `expect` an observable outcome a user would care about, not an
 implementation detail. Return the path you wrote.

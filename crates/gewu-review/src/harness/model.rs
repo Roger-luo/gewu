@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Quote, ReviewChunk, ReviewInput, SourceIdentity};
 
-use super::{HARNESS_SCHEMA_VERSION, HarnessValidationErrors, validation::CheckpointValidator};
+use super::{
+    HARNESS_SCHEMA_VERSION, HarnessValidationErrors, Proofreading, validation::CheckpointValidator,
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -17,6 +19,10 @@ pub enum HarnessStage {
     Expand,
     /// Repair an expansion that failed validation.
     Repair,
+    /// Score the batch just expanded against the proofread rubric.
+    Proofread,
+    /// Rewrite the chunks the proofread scored too low.
+    Polish,
     /// Wait for the human to review what has been expanded.
     Await,
     /// Every item is expanded and reviewed.
@@ -51,6 +57,13 @@ pub struct HarnessState {
     /// reviewer may have moved on in.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revising: Vec<String>,
+    /// Rewrites a batch may get after proofreading before it goes to the
+    /// reviewer anyway. Zero skips proofreading.
+    #[serde(default)]
+    pub proofread_rounds: u32,
+    /// The chunks of the batch being proofread, and the rewrites spent on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proofreading: Option<Proofreading>,
 }
 
 impl HarnessState {
@@ -65,12 +78,17 @@ impl HarnessState {
             revision: 0,
             research_required: false,
             revising: Vec::new(),
+            proofread_rounds: 0,
+            proofreading: None,
         }
     }
 
     pub fn advance(&mut self, stage: HarnessStage) {
         if stage != HarnessStage::Revise {
             self.revising.clear();
+        }
+        if !matches!(stage, HarnessStage::Proofread | HarnessStage::Polish) {
+            self.proofreading = None;
         }
         self.stage = stage;
         self.revision = self.revision.saturating_add(1);

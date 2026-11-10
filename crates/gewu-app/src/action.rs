@@ -1,4 +1,4 @@
-use gewu_review::{Decision, FeedbackKind, FeedbackTarget};
+use gewu_review::{Decision, FeedbackKind, FeedbackTarget, Side};
 use serde::{Deserialize, Serialize};
 
 /// A reviewer action. Tagged by `type` in JSON.
@@ -35,11 +35,14 @@ pub enum Action {
     },
 }
 
-/// New-side line span the reviewer picked. Path, side, and patch hash are
+/// A line span the reviewer picked, counted on `side`. Path and patch hash are
 /// filled from the review input when the action is applied.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AnchorRef {
     pub change_id: String,
     pub start_line: u32,
     pub end_line: u32,
+    /// Omitted means the new side, which is what the terminal UI picks.
+    #[serde(default)]
+    pub side: Side,
 }

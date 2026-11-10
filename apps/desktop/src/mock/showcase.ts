@@ -192,9 +192,12 @@ export function showcaseSnapshot(): Snapshot {
         section: "Cleanup",
         context: {
           kind: "refactor",
-          before: "events_file(root, spec.id())",
-          after: "events_path(root, spec.session_key())",
-          reason: "Name matches PathBuf return and accepts the stable key.",
+          before:
+            "fn events_file(root: &Path, id: &str) -> PathBuf { root.join(\".gewu/reviews\").join(id) }",
+          after:
+            "fn events_path(root: &Path, key: &str) -> PathBuf { root.join(\".gewu/reviews\").join(key) }",
+          reason:
+            "The name matches the `PathBuf` it returns. The parameter `id` is replaced by the stable session key.",
         },
         blocks: [
           narrative(

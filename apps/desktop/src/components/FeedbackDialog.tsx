@@ -5,17 +5,20 @@ import type { FeedbackKind, FeedbackTarget } from "../protocol";
 export function FeedbackDialog({
   kind,
   anchorSummary,
+  initialTarget = "code",
   onCancel,
   onSubmit,
 }: {
   kind: FeedbackKind;
   anchorSummary: string | null;
+  /** The target the reviewer opened the dialog on, e.g. a note's explanation. */
+  initialTarget?: FeedbackTarget;
   onCancel: () => void;
   onSubmit: (body: string, target: FeedbackTarget) => void;
 }) {
   const titleId = useId();
   const [body, setBody] = useState("");
-  const [target, setTarget] = useState<FeedbackTarget>("code");
+  const [target, setTarget] = useState<FeedbackTarget>(initialTarget);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

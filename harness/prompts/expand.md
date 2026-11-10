@@ -88,7 +88,12 @@ Rules:
   the reader pages through an oversized chunk, so a smaller view still wins
   whenever the unit is not indivisible.
 - Alternate prose and views. Say what to look for, show the lines that prove it,
-  move on. A view of five well-chosen lines beats a view of thirty.
+  move on. A view of five well-chosen lines beats a view of thirty. When one
+  change has several call sites, each view gets the sentence for that site in
+  the narrative block immediately before it. Do not gather every line range
+  into one paragraph above a changes block that holds all of the views: the
+  reviewer reads the sentence beside the view whose lines it names, and a
+  sentence that lists several ranges is split across them.
 - Choose `kind` by the decision the chunk supports: `concept` introduces a new
   name or model; `refactor` compares behavior-preserving structure;
   `integration` covers wiring across components; `test` covers verification;
@@ -113,6 +118,29 @@ Rules:
   this change introduces — and keep it to what they need to read the code in
   front of them. It is still drawn, so it is not free to their patience: keep it
   under half the row budget, and the measurement says when it is not.
+- When the chunk's point is a new form of a structure that already existed —
+  a struct, an enum, an encoding, a stored word, a codec — the reviewer has
+  to see both shapes and be told why one replaced the other. Show the earlier
+  definition itself: the old struct or enum with its fields, from the diff's
+  removed lines or the base revision (`gewu harness context base --path
+  <path>`). A type alias
+  or a re-export that keeps the old name is not that definition — it says what
+  the name means now, not what it held. Then say, explicitly:
+  - which fields or variants were dropped, packed together, or added, by name;
+  - what that buys — the property the title claims, such as fewer bytes per
+    word, a `Copy` type, or one allocation instead of two — and the lines that
+    show it;
+  - why the change needed it: the caller, test, document, or commit message
+    that motivates it. When the repository does not say, state what the new
+    form enables and put the open question in `confidence`; never invent a
+    motive.
+
+  If the quote shows only the new definition, put the earlier one in a
+  refactor `context`: `before` is the old definition as written, `after` the
+  new one, and `reason` names the dropped fields and the advantage. A diff
+  quote that includes the removed definition already puts it on the page, but
+  the narrative still names what was dropped. Restating the new fields, or
+  the chunk title, answers none of this.
 - Put code in a context `example` as code text, without an outer Markdown fence;
   Gewu supplies the visual code boundary. Keep explanation and headings in the
   `definition` or `relation` fields instead of embedding them in the example.

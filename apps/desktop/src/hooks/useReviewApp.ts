@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { CommentRequest } from "../anchors";
 import type { Backend } from "../backend";
 import { BackendError } from "../backend";
 import { afterReviewed, neighborTarget, pagesFromSnapshot, resumeTarget } from "../navigation";
@@ -31,6 +32,9 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
   const [chunkIndex, setChunkIndex] = useState<number | null>(place?.chunkIndex ?? null);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("note");
+  // Set when the reviewer opened feedback on a block or an explanation; null
+  // means the dialog anchors to the line-number selection, or the whole chunk.
+  const [feedbackRequest, setFeedbackRequest] = useState<CommentRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -187,13 +191,18 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
     void goto(resumeTarget(snapshot, place));
   }, [goto, place, snapshot]);
 
-  const openFeedback = useCallback((kind: FeedbackKind) => {
-    setFeedbackKind(kind);
-    setOverlay("feedback");
-  }, []);
+  const openFeedback = useCallback(
+    (kind: FeedbackKind, on?: Omit<CommentRequest, "kind">) => {
+      setFeedbackKind(kind);
+      setFeedbackRequest(on ? { kind, ...on } : null);
+      setOverlay("feedback");
+    },
+    [],
+  );
 
   const closeOverlay = useCallback(() => {
     setOverlay(null);
+    setFeedbackRequest(null);
   }, []);
 
   const toggleHelp = useCallback(() => {
@@ -235,6 +244,7 @@ export function useReviewApp(backend: Backend, options: ReviewOptions = {}) {
     chunkIndex,
     overlay,
     feedbackKind,
+    feedbackRequest,
     error,
     busy,
     loadError,

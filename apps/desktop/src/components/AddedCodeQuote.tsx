@@ -48,7 +48,7 @@ export function AddedCodeQuote({
                 </td>
                 <td>
                   <code className="diff-code">
-                    <TokenLine tokens={highlighted?.[index]} plain={row.text} />
+                    <TokenLine tokens={highlighted?.[index]} plain={row.text} language={quote.language} />
                   </code>
                 </td>
               </tr>

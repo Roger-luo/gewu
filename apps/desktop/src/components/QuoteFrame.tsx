@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { QuoteView } from "../protocol";
+import { QuotePreview } from "./QuotePreview";
 
 export function QuoteFrame({
   quote,
@@ -20,7 +21,10 @@ export function QuoteFrame({
       {quote.more_above && (
         <div className="cue">⋯ Hunk continues above; not part of this step</div>
       )}
-      {children}
+      <div className={quote.preview ? "quote-body with-preview" : "quote-body"}>
+        <div className="quote-source">{children}</div>
+        {quote.preview && <QuotePreview preview={quote.preview} />}
+      </div>
       {quote.more_below && (
         <div className="cue below">⋯ Hunk continues below; not part of this step</div>
       )}

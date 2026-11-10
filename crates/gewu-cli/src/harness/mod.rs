@@ -56,7 +56,8 @@ impl HarnessCommand {
             Self::Research(args) => return args.run(),
             Self::Context(args) => return args.run(),
             Self::Start(args) => {
-                let runner = HarnessRunner::new(args.max_chunks, false);
+                let runner = HarnessRunner::new(args.max_chunks, false)
+                    .with_proofread(args.proofread_rounds);
                 let (review_id, input, origin) = args.begin()?;
                 runner.start(review_id, input, origin)?
             }
@@ -94,6 +95,11 @@ pub struct StartArgs {
     /// Chunks one work item may expand into.
     #[arg(long, default_value_t = DEFAULT_MAX_CHUNKS)]
     max_chunks: usize,
+    /// Score each expanded batch against the rubric before the reviewer reads
+    /// it, allowing this many rewrites. A fresh agent should do the scoring;
+    /// `gewu review generate` arranges that and proofreads by default.
+    #[arg(long, default_value_t = 0)]
+    proofread_rounds: u32,
 }
 
 impl StartArgs {
@@ -106,6 +112,7 @@ impl StartArgs {
             working_tree,
             max_chunk_lines: gewu_review::DEFAULT_MAX_CHUNK_LINES,
             max_chunks: DEFAULT_MAX_CHUNKS,
+            proofread_rounds: 0,
         }
     }
 

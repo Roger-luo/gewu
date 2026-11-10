@@ -7,6 +7,7 @@
 mod action;
 mod error;
 mod language;
+mod preview;
 mod quote;
 mod scope;
 mod snapshot;
@@ -16,7 +17,7 @@ pub use action::{Action, AnchorRef};
 pub use error::AppError;
 pub use scope::FileView;
 pub use snapshot::{
-    BlockView, ChunkStatus, ChunkView, GenerationView, QuoteLine, QuoteLineKind, QuoteView,
-    Snapshot, SourceView, SummaryView,
+    BlockView, ChunkStatus, ChunkView, GenerationView, QuoteLine, QuoteLineKind, QuotePreview,
+    QuoteView, Snapshot, SourceView, SummaryView,
 };
 pub use workspace::ReviewWorkspace;

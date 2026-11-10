@@ -67,7 +67,7 @@ function resolveAnchor(
       return {
         change_id: anchor.change_id,
         path: quote.path,
-        side: "new",
+        side: anchor.side ?? "new",
         start_line: anchor.start_line,
         end_line: anchor.end_line,
         patch_sha256: "mock-patch",

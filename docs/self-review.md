@@ -8,7 +8,8 @@ measure against frozen corpora, compare against a baseline binary, and review
 the whole repository only at milestones.
 
 This extends `repository-scale-review.md`. Its gates A–F and rubric version 1
-remain the record of past evidence; new evaluations use rubric version 2 below.
+remain the record of past evidence. Rubric version 3 is the record of the
+big-picture and cold-reader gates. New evaluations use rubric version 4.
 
 ## Tiers
 
@@ -44,6 +45,26 @@ same binary; between milestones, the T2 corpora carry the signal.
 
 Every evaluation records the corpus, binary hash, rubric version, judge model,
 and author usage. Scores compare only within one rubric version.
+
+## Rubric version 4
+
+Version 4 is version 3 plus one judged dimension, `representation_contrast`.
+A chunk whose point is a new form of a structure the repository already had
+has to say what the earlier definition stored, what the new one stores, and
+which difference earns a property the chunk claims, such as being more compact.
+The earlier definition is on the page with the new one: in a diff quote that
+includes the removal, or in a refactor context pane. A title that names the
+property, with prose that only restates the new fields, scores 1. A
+walkthrough that replaces no structure scores 3, with that noted. The minimum
+is 2 of 3, same as the other judged dimensions.
+
+The cold reader inherits this. When a chunk replaces a representation, one
+behaviour question asks what the previous definition stored or which
+difference makes the new one smaller. The correct answer comes from the two
+definitions, so a walkthrough that never shows them loses the question.
+
+Version 3 remains the record of runs scored before this dimension. Do not
+compare a version 3 score with a version 4 score.
 
 ## Rubric version 3
 
@@ -135,6 +156,7 @@ Each score cites chunk ids and sentences.
 | Reference usefulness | definitions are in view where a sentence depends on them; each distant reference the audit reported is either re-shown or judged unneeded | 2 of 3 |
 | Decision surfacing | each chunk gives the reviewer something concrete to judge | 2 of 3 |
 | Change framing | for diffs, what changed and why, not only what the code does | 2 of 3 |
+| Representation contrast (v4) | a new form of an existing structure shows the earlier definition and the difference that earns the claimed property | 2 of 3 |
 | Learning order | prerequisites before consumers; cross-file relationships explicit | 2 of 3 |
 | Big picture | before the first chunk the reader knows what the change is for, which parts it touches, and how they connect | 2 of 3 |
 | Chunk connection | each chunk says what it adds to that picture and how it relates to its neighbours | 2 of 3 |
@@ -203,8 +225,13 @@ Before a rubric version is trusted, the judge must, without the answer key,
 reject seeded examples of each defect and accept a concise accurate one. For
 version 2 that adds, beyond the version 1 set: padding and review narration, a
 view with no prose, a dangling symbol, a verdict sentence, a re-explained
-definition, and a needed re-anchor that is missing. The audit gates are
-calibrated by their tests in `crates/gewu-review/tests/audit.rs`.
+definition, and a needed re-anchor that is missing. Version 4 adds a seeded
+chunk titled for a compact stored word: the prose restates the new struct,
+and the struct it replaces is neither described nor shown. That scores 1 on
+`representation_contrast`. The same chunk with both definitions on the page,
+and a sentence naming which dropped or packed fields make it smaller, scores
+3. The audit gates are calibrated by their tests in
+`crates/gewu-review/tests/audit.rs`.
 
 ## The loop
 
@@ -217,7 +244,11 @@ The `gewu-self-review` skill drives each round, and
 2. **Generate.** `run_self_review.py generate <run> --agent claude` runs
    `gewu review generate` in the frozen copy, the same command a reviewer
    uses, so the product's own agent path is what gets measured. (Earlier
-   rounds used an author subagent following the harness directly.) Between batches,
+   rounds used an author subagent following the harness directly.) That
+   command proofreads each batch with a fresh agent and up to two rewrites, so
+   a run measures the author and the proofreader together; a judged finding
+   that survives it means the proofread rubric, `harness/prompts/proofread.md`,
+   missed it too. Between batches,
    `advance` stands in for the reader, and it refuses to run outside a marked
    frozen copy.
 3. **Measure.** `audit` runs the mechanical gates, and `frames` renders every
@@ -260,3 +291,6 @@ fix four batches and $2.24 (2.1M tokens). A batch averaged about 480k tokens,
 $0.52, and 85 seconds; the first, which also investigates and plans, about
 half again as much. Once a review has a batch on record, its own average
 replaces these, so the estimate tracks the code and model actually in use.
+Those figures predate proofreading, which adds one to three agent runs per
+batch; a batch's runs are recorded as one entry, so the review's own average
+includes them.

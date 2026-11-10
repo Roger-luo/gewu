@@ -176,9 +176,11 @@
   max-width: 64rem;
 }
 
+/* The status and action columns have fixed widths, so the status starts at the
+   same x in every row, whether or not the row has a button beside it. */
 .task-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 11rem 9rem;
   grid-template-areas:
     "title status open"
     "meta meta open";
@@ -224,10 +226,22 @@
 
 .task-row .status-text {
   grid-area: status;
+  justify-self: start;
 }
 
 .task-row-open {
   grid-area: open;
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .task-row {
+    grid-template-columns: minmax(0, 1fr) 9rem;
+    grid-template-areas:
+      "title open"
+      "status open"
+      "meta meta";
+  }
 }
 
 .task-row-meta {

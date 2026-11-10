@@ -61,7 +61,7 @@ Write `.gewu/self-review/tui-judge.json` and nothing else:
 
 ```json
 {
-  "rubric_version": 3,
+  "rubric_version": 4,
   "dimensions": {
     "orientation": {"score": 3, "evidence": ["002-...-p1.txt: ..."]},
     "legibility": {"score": 3, "evidence": ["..."]},

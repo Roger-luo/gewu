@@ -27,6 +27,8 @@ use super::{StartArgs, watch::Watch};
 const BRIEF: &str = include_str!("../../../../harness/prompts/agent.md");
 const WAITING: &str = "# Gewu harness: waiting for the reviewer";
 const COMPLETE: &str = "# COMPLETE";
+const PROOFREAD: &str = "# Gewu harness: proofread";
+const POLISH: &str = "# Gewu harness: polish";
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum Agent {
@@ -62,6 +64,11 @@ pub struct GenerateArgs {
     /// without starting a review or running the agent.
     #[arg(long)]
     estimate: bool,
+    /// How many times a fresh agent may send a batch back for rewriting after
+    /// scoring it against the rubric, before the reviewer reads it anyway.
+    /// Applies when a review starts; zero skips proofreading.
+    #[arg(long, default_value_t = 2)]
+    proofread_rounds: u32,
     /// Run this program in place of the agent's CLI, with the same arguments.
     #[arg(long, hide = true)]
     agent_program: Option<PathBuf>,
@@ -76,7 +83,8 @@ impl GenerateArgs {
     }
 
     pub fn run(self) -> Result<()> {
-        let runner = HarnessRunner::new(DEFAULT_MAX_CHUNKS, false);
+        let runner =
+            HarnessRunner::new(DEFAULT_MAX_CHUNKS, false).with_proofread(self.proofread_rounds);
         let requested = self.requested()?;
         if self.estimate {
             return self.print_estimate(requested);
@@ -105,6 +113,80 @@ impl GenerateArgs {
         let review_id = Self::review_id().unwrap_or_default();
         let estimate = self.estimate_for(&review_id)?;
         println!("{estimate}");
+        // A batch is every run it took, recorded as one, so the estimate's
+        // per-batch average includes proofreading.
+        let mut spent = Vec::new();
+        let batch = self.batch(&runner, &estimate, &mut spent);
+        if !spent.is_empty() {
+            let usage = Usage::total(&spent);
+            usage.record(&review_id)?;
+            let total = Usage::total(&Usage::recorded(&review_id));
+            println!(
+                "This batch took {} and used {} (${:.2}); this review so far: {} (${:.2}).\n",
+                estimate::duration(usage.seconds),
+                estimate::tokens(usage.tokens),
+                usage.cost_usd,
+                estimate::tokens(total.tokens),
+                total.cost_usd
+            );
+        }
+        let (status, denied, prompt) = batch?;
+        let refused = denied.join("\n- ");
+        // A refused call the agent worked around is worth knowing; one that
+        // stopped it is the reason it stopped.
+        if !denied.is_empty() && Self::stopped(&prompt).is_some() {
+            eprintln!("note: the agent was refused, and worked around:\n- {refused}");
+        }
+        match Self::stopped(&prompt) {
+            Some(stop) => println!("{stop}"),
+            None if !denied.is_empty() => bail!(
+                "the agent stopped before the reviewer gate after being refused:\n- {refused}\nfix \
+                 the permissions or the brief, then run this again"
+            ),
+            None if status.success() => println!(
+                "The agent stopped before the reviewer gate, at:\n{}\nRun the same command again \
+                 to continue.",
+                prompt.lines().next().unwrap_or_default()
+            ),
+            None => bail!("the agent exited with {status} before the reviewer gate"),
+        }
+        Ok(())
+    }
+
+    /// Runs the author, then a fresh agent for each proofreading pass, until
+    /// the harness leaves proofreading or the rounds are spent. Returns how
+    /// the last run exited, what it was refused, and where the harness is.
+    fn batch(
+        &self,
+        runner: &HarnessRunner,
+        estimate: &Estimate,
+        spent: &mut Vec<Usage>,
+    ) -> Result<(std::process::ExitStatus, Vec<String>, String)> {
+        let (mut status, mut denied) = self.agent_run(estimate, spent)?;
+        let mut prompt = runner.status()?;
+        // The author stops where proofreading begins: a walkthrough reads as
+        // complete to whoever wrote it, so each reading is a fresh session.
+        // Each rewrite needs one, and the last reading one more.
+        for _ in 0..=self.proofread_rounds {
+            let proofreading = prompt.starts_with(PROOFREAD) || prompt.starts_with(POLISH);
+            if !proofreading || !status.success() || !denied.is_empty() {
+                break;
+            }
+            println!("A fresh agent proofreads the batch against the rubric.");
+            (status, denied) = self.agent_run(estimate, spent)?;
+            prompt = runner.status()?;
+        }
+        Ok((status, denied, prompt))
+    }
+
+    /// Runs the agent once, adds what it cost to `spent`, and refuses to
+    /// continue if it changed anything outside `.gewu/`. Returns how it exited
+    /// and the tool calls it was refused.
+    fn agent_run(
+        &self,
+        estimate: &Estimate,
+        spent: &mut Vec<Usage>,
+    ) -> Result<(std::process::ExitStatus, Vec<String>)> {
         let before = Self::project_state()?;
         let mut command = self.agent_command()?;
         let (status, stdout) = self.run_watched(&mut command, estimate.seconds_per_batch())?;
@@ -127,18 +209,7 @@ impl GenerateArgs {
                 (Vec::new(), None)
             }
         };
-        if let Some(usage) = usage {
-            usage.record(&review_id)?;
-            let total = Usage::total(&Usage::recorded(&review_id));
-            println!(
-                "This batch took {} and used {} (${:.2}); this review so far: {} (${:.2}).\n",
-                estimate::duration(usage.seconds),
-                estimate::tokens(usage.tokens),
-                usage.cost_usd,
-                estimate::tokens(total.tokens),
-                total.cost_usd
-            );
-        }
+        spent.extend(usage);
         let after = Self::project_state()?;
         if before != after {
             bail!(
@@ -146,27 +217,7 @@ impl GenerateArgs {
                  `git diff` before continuing"
             );
         }
-        let prompt = runner.status()?;
-        let refused = denied.join("\n- ");
-        // A refused call the agent worked around is worth knowing; one that
-        // stopped it is the reason it stopped.
-        if !denied.is_empty() && Self::stopped(&prompt).is_some() {
-            eprintln!("note: the agent was refused, and worked around:\n- {refused}");
-        }
-        match Self::stopped(&prompt) {
-            Some(stop) => println!("{stop}"),
-            None if !denied.is_empty() => bail!(
-                "the agent stopped before the reviewer gate after being refused:\n- {refused}\nfix \
-                 the permissions or the brief, then run this again"
-            ),
-            None if status.success() => println!(
-                "The agent stopped before the reviewer gate, at:\n{}\nRun the same command again \
-                 to continue.",
-                prompt.lines().next().unwrap_or_default()
-            ),
-            None => bail!("the agent exited with {status} before the reviewer gate"),
-        }
-        Ok(())
+        Ok((status, denied))
     }
 
     fn missing(&self) -> String {

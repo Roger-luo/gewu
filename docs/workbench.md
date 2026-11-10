@@ -115,6 +115,10 @@ created ──▶ generating ──▶ awaiting_reviewer ──(continue)──�
 
 - `generating`: an agent batch (or the instant `none` preset) is running.
   `stage` names the harness stage (`investigate`, `plan`, `expand`, …).
+  Within one batch, after the author writes its chunks, a fresh agent session
+  scores them against the proofread rubric (`proofread`) and failing chunks
+  are rewritten (`polish`), at most two times, before the batch reaches the
+  reviewer.
 - `awaiting_reviewer`: a batch is ready; the review can be opened. The
   reviewer asks for the next batch with `continue_task`.
 - `complete`: the walkthrough is complete.
@@ -217,7 +221,8 @@ dialog) for adding a repository.
 
 - **Home** (`main[data-gewu-screen="home"]`): repositories in a sidebar;
   tasks as a list with title, source, agent, status, stage, review progress,
-  and updated time. Primary action "New review". Empty state explains the
+  and updated time. Status labels line up in one column whether or not a row
+  has an action button. Primary action "New review". Empty state explains the
   first step.
 - **New review** (`data-gewu-screen="new-review"`): repository, source type
   (tabs: Commit range, Uncommitted changes, Pull request, Directory) with

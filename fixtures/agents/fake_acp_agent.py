@@ -168,6 +168,20 @@ class Agent:
                              "item_id": item["id"], "chunks": [chunk]})
             self.pause()
             code, status = self.run([gewu, "harness", "next"])
+        elif status.startswith("# Gewu harness: proofread"):
+            # Started fresh at a proofread: the batch is someone else's, so
+            # score it. An agent that just wrote a batch stops instead.
+            listed = status.split("Check every claim", 1)[0]
+            ids = re.findall(r'^\s*"id": "([^"]+)"', listed, re.M)
+            self.say(f"Proofreading {len(ids)} step(s).\n")
+            scores = {name: 3 for name in ("grounded", "change_framing", "rationale",
+                                           "representation_contrast", "minimality",
+                                           "connection")}
+            self.write_file(".gewu/harness/proofread.json", {
+                "schema_version": 1, "source": source,
+                "chunks": [{"id": id, "scores": scores, "problems": []} for id in ids]})
+            self.pause()
+            code, status = self.run([gewu, "harness", "next"])
         self.say("Stopped: " + status.splitlines()[0] if status else "Stopped.")
 
     def serve(self):

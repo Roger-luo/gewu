@@ -28,6 +28,7 @@ impl QuoteView {
             more_above: quote.start > 1,
             more_below: quote.end < change.body_lines(),
             lines,
+            preview: None,
         }
     }
 }

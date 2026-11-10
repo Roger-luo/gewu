@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { InlineMarkdown, Markdown } from "./Markdown";
+import type { CommentRequest } from "../anchors";
 import { plainInline } from "../markdown";
+import { assignNotes } from "../quoteNotes";
 import { sectionPosition } from "../navigation";
 import type { Action, Snapshot } from "../protocol";
 import { ChangesBlock } from "./ChangesBlock";
@@ -17,6 +19,7 @@ export function ChunkScreen({
   onRequestChange,
   lineSelection,
   onToggleLine,
+  onComment,
 }: {
   snapshot: Snapshot;
   chunkIndex: number;
@@ -26,6 +29,7 @@ export function ChunkScreen({
   onRequestChange: () => void;
   lineSelection: { changeId: string; lines: Set<number> } | null;
   onToggleLine: (changeId: string, line: number) => void;
+  onComment: (request: CommentRequest) => void;
 }) {
   const chunk = snapshot.chunks[chunkIndex];
   const [narrow, setNarrow] = useState(() => {
@@ -141,20 +145,12 @@ export function ChunkScreen({
           </div>
         )}
 
-        {chunk.blocks.map((block, index) =>
-          block.type === "narrative" ? (
-            <div className="block" key={`narrative-${index}`}>
-              <Markdown source={block.markdown} />
-            </div>
-          ) : (
-            <ChangesBlock
-              key={`changes-${index}`}
-              block={block}
-              selected={lineSelection}
-              onToggleLine={onToggleLine}
-            />
-          ),
-        )}
+        <ChunkBody
+          blocks={chunk.blocks}
+          lineSelection={lineSelection}
+          onToggleLine={onToggleLine}
+          onComment={onComment}
+        />
 
         {chunk.status.open_issues > 0 && (
           <p className="notice feedback-jump" role="status">
@@ -173,6 +169,52 @@ export function ChunkScreen({
       {showAside && chunk.context && <ContextPane context={chunk.context} language={language} />}
     </div>
   );
+}
+
+function ChunkBody({
+  blocks,
+  lineSelection,
+  onToggleLine,
+  onComment,
+}: {
+  blocks: Snapshot["chunks"][number]["blocks"];
+  lineSelection: { changeId: string; lines: Set<number> } | null;
+  onToggleLine: (changeId: string, line: number) => void;
+  onComment: (request: CommentRequest) => void;
+}) {
+  const rendered: ReactNode[] = [];
+  let pending = "";
+  const flushLead = (key: string) => {
+    const markdown = pending;
+    pending = "";
+    if (!markdown) return;
+    rendered.push(
+      <div className="block" key={key}>
+        <Markdown source={markdown} />
+      </div>,
+    );
+  };
+  blocks.forEach((block, index) => {
+    if (block.type === "narrative") {
+      pending = pending ? `${pending}\n\n${block.markdown}` : block.markdown;
+      return;
+    }
+    const assigned = assignNotes(pending, block.quotes);
+    pending = assigned.lead;
+    flushLead(`lead-${index}`);
+    rendered.push(
+      <ChangesBlock
+        key={`changes-${index}`}
+        block={block}
+        notes={assigned.notes}
+        selected={lineSelection}
+        onToggleLine={onToggleLine}
+        onComment={onComment}
+      />,
+    );
+  });
+  flushLead("lead-end");
+  return <>{rendered}</>;
 }
 
 function ChunkStatusChip({

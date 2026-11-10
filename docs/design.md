@@ -84,6 +84,13 @@ presentation, so the reviewer never has to guess where Gewu's explanation ends
 and the reviewed material begins. Code quotes carry their new-side file line
 numbers.
 
+When the quoted code is something a person judges by looking — a color, a
+diagram, a drawing function, a rendered document — the quote shows that result
+beside the source. A picture that was never committed still counts. A library
+draws nothing by itself, so the step is shown through a small example of what
+is on screen: the named colors, or a call to the function the step is about.
+An empty page is not that example, and neither is a frame that cuts the example off. The reviewer has to see the whole result. The page's own white fill is not part of that result when it covers only some of the marks; those marks sit on the preview surface instead of on a patch of paper.
+
 The generated spec chooses the presentation that best supports review:
 
 - Use a diff when removed-versus-added behavior matters. Added diff lines use a
@@ -109,7 +116,10 @@ can raise it when starting the harness.
 A chunk quotes spans of a hunk that the agent chose, not fragments a splitter
 cut in advance. Where a view begins and ends belongs to the explanation: a
 thirty-line hunk becomes as many views as the walkthrough needs, each introduced
-by prose saying what to look for.
+by prose saying what to look for. That prose is shown beside the view whose
+lines it names, not as one paragraph above a stack of diffs. A sentence that
+names several ranges is split, one note per view, so each block says how to
+read it.
 
 Views may overlap. Showing lines 1-25, then lines 10-50, repeats the middle on
 purpose, because the reader needs the earlier context again to follow what
@@ -148,6 +158,23 @@ When a chunk is primarily a refactor, its summary states:
 A small before/after representation may be shown when it communicates the
 structural change more clearly than prose.
 
+##### A new representation of an existing structure
+
+When a chunk's point is a new form of something the repository already had —
+a data type, an encoding, a stored word, a codec — the reviewer sees both
+shapes. The prose says what the earlier definition stored, what the new one
+stores, which fields were dropped, packed, or added, and which of those
+differences earns a property the chunk claims, such as being more compact.
+It also says, in a sentence of its own, why the change was wanted: the caller,
+test, or document that motivates it, or — when the repository does not say —
+what the new form enables, with the open question marked as one.
+The earlier definition stays on the page with the new one: in the diff, when
+the removal is part of the quoted change, or in the context pane when the
+quote shows only the new definition. That definition is the old structure
+with its fields; a type alias that keeps the old name says what the name means
+now, not what it held. A title that names the property, and prose that
+restates the new fields, does not do this.
+
 #### 3. Context pane
 
 A right-side context pane appears only when the current chunk benefits from
@@ -166,6 +193,14 @@ For a refactor, the pane may show:
 - The previous structure.
 - The new structure.
 - The reason for the transition.
+
+When the chunk replaces or redefines a structure and the quote shows only
+the new definition, the pane is that side reference: the previous definition,
+the new one, and the difference between them. Both definitions are on the
+page from the start, laid out one field per line when the source arrived as a
+single line. A field the reason names that the new definition drops is marked
+in the old code. The pane is wide enough to read a signature and can be
+dragged wider or narrower; the chosen width is remembered.
 
 The pane is a snapshot, not full documentation. It must not duplicate the
 chunk summary or force the user to read it before understanding the diff.
@@ -193,13 +228,32 @@ For each chunk, the user can:
 - Mark it reviewed.
 - Add a non-blocking comment, optionally attached to a specific line.
 - Request a change, optionally attached to a specific line.
+- Comment on a code block or on the explanation beside it. Each block and each
+  explanation has its own buttons, so the comment points at the lines it is
+  about without any line picking.
 - Select one piece of feedback already left on the chunk, then reopen, resolve,
   or delete it.
 
 Comments record context without blocking completion. Change requests remain
 visible in the review progress and must be revisited before the final decision.
 Line attachment is an advanced option inside the change-request flow rather
-than a separate primary action.
+than a separate primary action. A code block and the explanation beside it
+each have their own buttons, so a note can name that block's lines without
+picking them one by one.
+
+Where a note is published depends on what it is about:
+
+- A note on the code of an open pull request becomes a review comment on that
+  pull request. A note that names lines is attached to them. Notes with no
+  line are written together as the review's single summary comment.
+- A note on the walkthrough Gewu wrote becomes an issue in the Gewu
+  repository, so someone can pick it up separately from the change under review.
+- A note on a directory, a working tree, or commits that are not an open pull
+  request becomes an issue in the reviewed repository.
+
+Each note is its own issue. When a review raises more than one, Gewu also
+opens a tracking issue that lists them. The summary screen shows these drafts
+before anything is sent. Reading the preview does not call GitHub.
 
 Resolving and deleting act on a selected item, so they are offered only once
 the user has picked one out rather than standing as chunk-wide actions.
@@ -254,6 +308,21 @@ ordered set of items, each a coherent part of the walkthrough, together
 covering every line of the change set at least once. Only the topmost
 unexpanded item is turned into chunks, which are appended to the review. Then
 generation stops and the human reads.
+
+Before the human reads, the batch can be **proofread**. An agent that did not
+write it scores each chunk from 0 to 3 on six dimensions — grounded, change
+framing, rationale, representation contrast, minimality, and connection —
+and names, for every score below 2, what a rewrite has to fix. Failing chunks
+go to a **polish** stage, which rewrites them under the same constraints as a
+reviewer-requested rewrite (same ids, same quoted lines), and the batch is read
+again. The loop ends when every chunk scores at least 2 on every dimension, or
+after a fixed number of rewrites; then the batch reaches the reviewer anyway,
+with the chunks still below the bar named so the gap is not hidden. The author
+never scores its own work: a walkthrough reads as complete to whoever wrote
+it. `gewu review generate` and the desktop workbench proofread with two rewrites
+by default (`--proofread-rounds` changes it); `gewu harness start` proofreads
+only when asked, because an agent driving the harness by hand would be grading
+itself.
 
 Expansion of the next item resumes only when all of the following hold:
 

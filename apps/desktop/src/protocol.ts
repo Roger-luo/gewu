@@ -64,6 +64,15 @@ export interface QuoteView {
   more_above: boolean;
   more_below: boolean;
   lines: QuoteLine[];
+  /** A picture of what this quote produces, when the source is not enough to judge it. */
+  preview?: QuotePreview | null;
+}
+
+export interface QuotePreview {
+  label: string;
+  /** `image/svg+xml` (`data` is markup) or `image/png` (`data` is base64). */
+  media: string;
+  data: string;
 }
 
 export type BlockView =
@@ -149,6 +158,8 @@ export interface Snapshot {
 
 export type FeedbackAnchorInput = {
   change_id: string;
+  /** Omitted means the new side. */
+  side?: "new" | "old";
   start_line: number;
   end_line: number;
 } | null;

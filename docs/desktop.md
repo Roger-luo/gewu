@@ -73,6 +73,7 @@ QuoteView {
   more_above: bool, more_below: bool,      // hunk lines exist outside the span
   lines: { kind: "added" | "removed" | "context",
            old_line: number | null, new_line: number | null, text: string }[],
+  preview: { label, media, data } | null,  // omitted when there is nothing to draw
 }
 
 SummaryView {
@@ -94,15 +95,61 @@ returns an error with a human-readable message and changes nothing.
 { type: "visit", chunk_id }
 { type: "set_reviewed", chunk_id, reviewed }
 { type: "add_feedback", chunk_id, kind: "note" | "issue", target: "code" | "explanation",
-  body, anchor: { change_id, start_line, end_line } | null }   // new-side lines
+  body, anchor: { change_id, side?: "new" | "old", start_line, end_line } | null }
 { type: "resolve_feedback", feedback_id, resolved }
 { type: "delete_feedback", feedback_id }
 { type: "retarget_feedback", feedback_id, target }
 { type: "set_decision", decision }
 ```
 
-The service assigns feedback ids and fills an anchor's path, side, and patch
-hash from the review input.
+The service assigns feedback ids and fills an anchor's path and patch hash from
+the review input. `side` defaults to `new`; `old` counts the file before the
+change, which is the only side a block of pure deletions has. An anchor must
+name lines that a chunk quote shows on that side, so a comment on a whole block
+anchors to that block's lines.
+
+The summary screen's publication preview is the text those notes would become.
+`apps/desktop/src/publication.ts` and `crates/gewu-review/src/publication`
+build the same draft: pull-request review comments, issues on the reviewed
+repository, and issues on `gewu`. A destination with more than one issue also
+has a tracking issue. The preview labels each GitHub request `Not sent`. The
+account chip at the bottom of the sidebar stores `localStorage` key
+`gewu.github` and draws the avatar locally, so linking an account does not
+call GitHub either. `Plan::github_requests` is the request list a later send
+step would POST.
+
+Comments on a block and on an explanation do not need line numbers picked by
+hand. The block's buttons anchor to the block's span; the explanation beside a
+block targets `explanation` with the same span, so the walkthrough text and the
+code it describes stay tied together.
+
+A publishing step would map each anchor onto a GitHub review comment:
+`side: "new"` to `RIGHT` and `side: "old"` to `LEFT`, with `start_line` and
+`end_line` as the comment's line range and the patch hash to confirm the diff
+still matches the reviewed head. Explanation comments describe Gewu's
+walkthrough rather than the code, so they are not code review comments.
+
+### Seeing what the code produces
+
+A quote of source is not always enough to judge the change. When the file is
+Typst (`.typ`):
+
+- Each `rgb(...)` and `luma(...)` literal is drawn as that color, on its line,
+  so a reviewer can see whether `#243746` is the ink they expect.
+- Beside the source, Gewu shows a picture of the result. A PNG, SVG, or PDF
+  with the same name sitting next to the file is that picture, even when it is
+  not part of the commit, and only when that picture actually draws something.
+  A Typst document is rendered when the `typst` tool is available. A library,
+  which draws nothing by itself, becomes a small example of the step: a sheet
+  of the named colors, or a call to the function the step quotes (for example
+  `route` drawn as a polyline with an arrowhead, or `atoms` drawn as the whole
+  grid of dots). An empty page is not shown, and a viewport that cuts off part
+  of the drawing is widened so every mark is on screen. A white page fill that
+  would cover only some of those marks is left out, so the figure is not a
+  small white square on the surrounding surface.
+
+`preview.media` is `image/svg+xml` (`data` is the markup) or `image/png`
+(`data` is base64). The picture is absent when nothing above can be drawn.
 
 ### Transports
 
