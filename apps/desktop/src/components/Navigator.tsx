@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { plainInline } from "../markdown";
 import { chunkNavState } from "../navigation";
 import type { Snapshot, ReviewTarget } from "../protocol";
+import type { GitHubState } from "../hooks/useGitHub";
 import { GitHubStatus } from "./GitHubStatus";
 import { InlineMarkdown } from "./Markdown";
 
@@ -12,6 +13,7 @@ export function Navigator({
   chunkIndex,
   onNavigate,
   taskTitle,
+  github,
 }: {
   snapshot: Snapshot;
   screen: "overview" | "chunk" | "summary";
@@ -19,6 +21,7 @@ export function Navigator({
   onNavigate: (target: ReviewTarget) => void;
   /** The workbench task this review belongs to. */
   taskTitle?: string;
+  github: GitHubState;
 }) {
   const { reviewed, total } = snapshot.summary;
   const nav = useRef<HTMLElement>(null);
@@ -82,7 +85,7 @@ export function Navigator({
         ))}
       </ul>
       </div>
-      <GitHubStatus />
+      <GitHubStatus github={github} />
     </nav>
   );
 }

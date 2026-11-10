@@ -1,7 +1,8 @@
 import { HttpBackend, request } from "../backend/http";
 import { command } from "../backend/tauri";
-import type { Backend } from "../backend/types";
+import type { Backend, GitHubAccount, GitHubBackend } from "../backend/types";
 import type { Action, Snapshot } from "../protocol";
+import type { Publication, Receipt } from "../publication";
 import type {
   RepositoryRefs,
   TaskLog,
@@ -17,6 +18,8 @@ export interface WorkbenchBackend {
   log(taskId: string, after: number): Promise<TaskLog>;
   /** The review of one task, as the review screens consume it. */
   review(taskId: string): Backend;
+  /** The GitHub account publishing posts as. */
+  github?: GitHubBackend;
   /** A native folder picker, where the platform has one. */
   pickDirectory?: () => Promise<string | null>;
 }
@@ -24,6 +27,8 @@ export interface WorkbenchBackend {
 const path = (id: string) => encodeURIComponent(id);
 
 export class HttpWorkbench implements WorkbenchBackend {
+  github = httpGitHub;
+
   workbench() {
     return request<WorkbenchSnapshot>("/api/workbench");
   }
@@ -42,11 +47,31 @@ export class HttpWorkbench implements WorkbenchBackend {
 
   review(taskId: string): Backend {
     const base = `/api/tasks/${path(taskId)}`;
-    return new HttpBackend(`${base}/snapshot`, `${base}/dispatch`);
+    const review = new HttpBackend(`${base}/snapshot`, `${base}/dispatch`);
+    return {
+      snapshot: () => review.snapshot(),
+      dispatch: (action: Action) => review.dispatch(action),
+      publication: () => request<Publication>(`${base}/publication`),
+      publish: () => request<Receipt>(`${base}/publish`, {}),
+      github: httpGitHub,
+    };
   }
 }
 
+/** The HTTP server is the UI sandbox: its GitHub records calls and sends nothing. */
+const httpGitHub: GitHubBackend = {
+  account: () => request<GitHubAccount | null>("/api/github/account"),
+  signIn: (token: string) => request<GitHubAccount | null>("/api/github/sign-in", { token }),
+};
+
+const tauriGitHub: GitHubBackend = {
+  account: () => command<GitHubAccount | null>("github_account"),
+  signIn: (token: string) => command<GitHubAccount | null>("github_sign_in", { token }),
+};
+
 export class TauriWorkbench implements WorkbenchBackend {
+  github = tauriGitHub;
+
   workbench() {
     return command<WorkbenchSnapshot>("workbench");
   }
@@ -67,6 +92,9 @@ export class TauriWorkbench implements WorkbenchBackend {
     return {
       snapshot: () => command<Snapshot>("task_snapshot", { taskId }),
       dispatch: (action: Action) => command<Snapshot>("task_dispatch", { taskId, action }),
+      publication: () => command<Publication>("publication", { taskId }),
+      publish: () => command<Receipt>("publish", { taskId }),
+      github: tauriGitHub,
     };
   }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import type { Venue } from "../publication";
+import type { GitHubAccount } from "../backend/types";
+import type { PublicationState } from "../hooks/usePublication";
 import type { Decision, Snapshot, ReviewTarget } from "../protocol";
 import { FeedbackJumpList } from "./FeedbackJumpList";
 import { InlineMarkdown } from "./Markdown";
@@ -11,14 +12,14 @@ const UNREVIEWED_PREVIEW = 5;
 
 export function SummaryScreen({
   snapshot,
-  venue,
-  reviewTitle,
+  publication,
+  account,
   onNavigate,
   onDecide,
 }: {
   snapshot: Snapshot;
-  venue: Venue;
-  reviewTitle: string;
+  publication: PublicationState;
+  account: GitHubAccount | null;
   onNavigate: (target: ReviewTarget) => void;
   onDecide: (decision: Decision) => void;
 }) {
@@ -172,12 +173,7 @@ export function SummaryScreen({
         </section>
       </div>
 
-      <PublicationPreview
-        venue={venue}
-        reviewTitle={reviewTitle}
-        chunks={chunks}
-        feedback={feedback}
-      />
+      <PublicationPreview state={publication} account={account} />
     </main>
   );
 }

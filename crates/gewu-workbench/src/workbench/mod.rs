@@ -2,6 +2,9 @@
 //! writing them. Every method is safe to call from several threads.
 
 mod actions;
+mod publication;
+
+pub use publication::Publication;
 
 use std::{
     path::{Path, PathBuf},
@@ -47,6 +50,9 @@ pub(crate) struct Inner {
     /// The Gewu binary agents run harness commands with.
     pub(crate) gewu: PathBuf,
     pub(crate) state: Mutex<State>,
+    /// Held while a publish run is sending, so a second click cannot post
+    /// the same notes twice.
+    pub(crate) publishing: Mutex<()>,
 }
 
 #[derive(Clone)]
@@ -93,6 +99,7 @@ impl Workbench {
                     repositories,
                     tasks,
                 }),
+                publishing: Mutex::new(()),
             }),
         })
     }

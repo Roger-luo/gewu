@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use gewu_http::{ServeOptions, Server};
+use gewu_http::{Mode, ServeOptions, Server};
 
 fn copy_showcase() -> tempfile::TempDir {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/ui/showcase");
@@ -46,7 +46,11 @@ struct RunningServer {
 
 impl RunningServer {
     fn start(root: PathBuf, static_dir: PathBuf) -> Self {
-        let server = Server::start(ServeOptions::new(root, static_dir, 0)).expect("start");
+        Self::serve(ServeOptions::new(root, static_dir, 0))
+    }
+
+    fn serve(options: ServeOptions) -> Self {
+        let server = Server::start(options).expect("start");
         let addr = server.local_addr().to_string();
         let stopper = server.stopper();
         let handle = thread::spawn(move || {
@@ -163,4 +167,35 @@ fn health_snapshot_dispatch_and_static() {
         status, 200,
         "traversal falls back to index rather than escaping"
     );
+}
+
+#[test]
+fn the_sandbox_github_signs_in_without_contacting_github() {
+    let home = tempfile::tempdir().expect("home");
+    let assets = static_dir();
+    let server = RunningServer::serve(ServeOptions {
+        mode: Mode::Workbench {
+            home: home.path().to_path_buf(),
+            gewu: PathBuf::from("gewu"),
+        },
+        static_dir: assets.path().to_path_buf(),
+        port: 0,
+    });
+
+    let (status, _, body) = http_get(&server.addr, "/api/github/account");
+    assert_eq!((status, body.as_str()), (200, "null"));
+
+    let (status, _, body) = http_post(&server.addr, "/api/github/sign-in", r#"{"token":" "}"#);
+    assert_eq!(status, 400, "{body}");
+
+    let (status, _, body) = http_post(
+        &server.addr,
+        "/api/github/sign-in",
+        r#"{"token":"ghp_example"}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains(r#""login":"gewu-sandbox""#), "{body}");
+
+    let (status, _, body) = http_get(&server.addr, "/api/tasks/missing/publication");
+    assert_eq!(status, 404, "{body}");
 }

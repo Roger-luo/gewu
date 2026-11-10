@@ -1,6 +1,8 @@
 import { BackendError } from "../backend/types";
 import { MockBackend } from "../backend/mock";
+import { mockGitHub } from "../backend/mockGitHub";
 import { selfReviewSnapshot, showcaseSnapshot } from "../mock";
+import { reviewVenue } from "../publication";
 import type { Snapshot } from "../protocol";
 import type { WorkbenchBackend } from "./backend";
 import type {
@@ -26,6 +28,7 @@ interface MockTask {
 
 /** An in-memory workbench whose agents finish after `delayMs`. */
 export class MockWorkbench implements WorkbenchBackend {
+  readonly github = mockGitHub;
   private repositories: RepositoryView[] = [];
   private tasks: MockTask[] = [];
   private clock = Date.parse("2026-11-07T09:00:00Z");
@@ -122,6 +125,12 @@ export class MockWorkbench implements WorkbenchBackend {
     return task.review;
   }
 
+  /** A review that publishes to `ada/<repository>`, as its GitHub remote would say. */
+  private reviewFor(task: MockTask, snapshot: Snapshot): MockBackend {
+    const venue = reviewVenue(task.view.source, `ada/${task.view.repository_name}`, snapshot);
+    return new MockBackend(snapshot, { venue, title: task.view.title });
+  }
+
   private addRepository(path: string) {
     const trimmed = path.trim().replace(/\/+$/, "");
     if (!trimmed.startsWith("/") && !trimmed.startsWith("~")) {
@@ -156,7 +165,7 @@ export class MockWorkbench implements WorkbenchBackend {
     }
     const task = this.add(repository, action.source, preset, action.title);
     if (preset.kind === "none") {
-      task.review = new MockBackend(showcaseSnapshot());
+      task.review = this.reviewFor(task, showcaseSnapshot());
       task.review.append([], { remaining_work_items: 0, complete: true });
       this.record(task, "status", "Raw diff in file order; no agent wrote a walkthrough.");
       this.finish(task, "complete", "Raw diff in file order; no agent wrote a walkthrough.");
@@ -215,7 +224,7 @@ export class MockWorkbench implements WorkbenchBackend {
       task.pending = full.chunks.slice(2);
       full.chunks = full.chunks.slice(0, 2);
       full.generation = { remaining_work_items: task.pending.length, complete: false };
-      task.review = new MockBackend(full);
+      task.review = this.reviewFor(task, full);
     } else {
       task.review.append(task.pending, { remaining_work_items: 0, complete: true });
       task.pending = [];
@@ -253,7 +262,7 @@ export class MockWorkbench implements WorkbenchBackend {
       full.chunks = full.chunks.slice(0, 2);
       full.generation = { remaining_work_items: task.pending.length, complete: false };
     }
-    task.review = new MockBackend(full);
+    task.review = this.reviewFor(task, full);
     this.finish(
       task,
       status,

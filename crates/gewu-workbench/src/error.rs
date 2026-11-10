@@ -15,6 +15,8 @@ pub enum WorkbenchError {
     #[error(transparent)]
     Agent(#[from] gewu_agent::AgentError),
     #[error(transparent)]
+    GitHub(#[from] gewu_github::GitHubError),
+    #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Json(#[from] serde_json::Error),

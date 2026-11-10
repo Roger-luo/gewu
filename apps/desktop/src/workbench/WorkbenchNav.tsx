@@ -1,4 +1,5 @@
 import { GitHubStatus } from "../components/GitHubStatus";
+import type { GitHubState } from "../hooks/useGitHub";
 import type { RepositoryView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 
 /** The leading sidebar: start a review, and filter reviews by repository. */
@@ -9,6 +10,7 @@ export function WorkbenchNav({
   onFilter,
   onNavigate,
   onAddRepository,
+  github,
 }: {
   snapshot: WorkbenchSnapshot;
   route: WorkbenchRoute;
@@ -16,6 +18,7 @@ export function WorkbenchNav({
   onFilter: (repositoryId: string | null) => void;
   onNavigate: (route: WorkbenchRoute) => void;
   onAddRepository: () => void;
+  github: GitHubState;
 }) {
   const count = (id: string | null) =>
     snapshot.tasks.filter((task) => id === null || task.repository_id === id).length;
@@ -71,7 +74,7 @@ export function WorkbenchNav({
         Add repository
       </button>
       </div>
-      <GitHubStatus />
+      <GitHubStatus github={github} />
     </nav>
   );
 }

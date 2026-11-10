@@ -18,10 +18,13 @@ use crate::{Feedback, FeedbackTarget};
 pub use github::GitHubRequest;
 
 /// The repository critiques of Gewu's own walkthrough are filed against.
-pub const GEWU_REPOSITORY: &str = "gewu";
+pub const GEWU_REPOSITORY: &str = "Roger-luo/gewu";
 
 /// Where notes about the code can be published. Notes about the walkthrough
 /// always go to [`GEWU_REPOSITORY`], whichever variant this is.
+///
+/// `repository` is `owner/name` when the repository has a GitHub remote, and
+/// only its folder name otherwise; such a plan can be previewed, not sent.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Venue {
@@ -48,7 +51,8 @@ pub enum Venue {
 }
 
 impl Venue {
-    fn repository(&self) -> &str {
+    #[must_use]
+    pub fn repository(&self) -> &str {
         match self {
             Self::PullRequest { repository, .. }
             | Self::Commits { repository, .. }
@@ -84,6 +88,13 @@ pub struct PullRequestDraft {
     /// Notes with no line, written as the review's single summary comment.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// The notes the summary covers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub summarized: Vec<String>,
+    /// The commit that was reviewed. Line comments are placed on it, so a
+    /// push after the review does not shift them onto other lines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -179,6 +190,8 @@ fn pull_request(
         number: *number,
         comments,
         summary,
+        summarized: loose.iter().map(|note| note.feedback.id.clone()).collect(),
+        commit_id: None,
     })
 }
 

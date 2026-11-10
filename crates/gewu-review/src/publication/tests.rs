@@ -39,7 +39,7 @@ fn anchor(path: &str, side: &str, start: u32, end: u32) -> LineAnchor {
 
 fn pull(number: u64) -> Venue {
     Venue::PullRequest {
-        repository: "demo".into(),
+        repository: "acme/demo".into(),
         number,
     }
 }
@@ -66,7 +66,7 @@ fn a_pull_request_keeps_line_notes_inline_and_summarizes_the_rest() {
         &[note(&anchored, "Event path"), note(&loose, "Naming")],
     );
 
-    let requests = plan.clone().github_requests("acme", "gewu-org");
+    let requests = plan.clone().github_requests();
     let review = plan.pull_request.expect("review");
     assert_eq!(review.number, 12);
     assert_eq!(review.comments.len(), 1);
@@ -96,9 +96,14 @@ fn removed_lines_are_the_left_side() {
         false,
     );
     let plan = Plan::draft(&pull(3), "Rename", &[note(&note_on, "Rename")]);
-    let requests = plan.github_requests("acme", "gewu-org");
+    let requests = plan.github_requests();
     assert_eq!(requests[0].body["comments"][0]["side"], "LEFT");
     assert!(requests[0].body["comments"][0].get("start_line").is_none());
+    assert_eq!(
+        requests[0].body["body"],
+        "1 line comment from a review in Gewu."
+    );
+    assert!(requests[0].body.get("commit_id").is_none());
 }
 
 #[test]
@@ -134,7 +139,7 @@ fn walkthrough_notes_become_gewu_issues_with_a_tracking_issue() {
         ],
     );
 
-    let requests = plan.clone().github_requests("acme", "gewu-org");
+    let requests = plan.clone().github_requests();
     assert!(plan.pull_request.is_none());
     let issues = plan.gewu_issues.expect("gewu");
     assert_eq!(issues.repository, GEWU_REPOSITORY);
@@ -153,9 +158,44 @@ fn walkthrough_notes_become_gewu_issues_with_a_tracking_issue() {
     assert!(
         requests
             .iter()
-            .all(|request| request.path == "/repos/gewu-org/gewu/issues")
+            .all(|request| request.path == "/repos/Roger-luo/gewu/issues")
     );
     assert_eq!(requests[2].body["title"], tracking.title);
+}
+
+#[test]
+fn a_tracking_issue_links_the_issues_once_they_exist() {
+    let first = feedback("a", FeedbackTarget::Code, "The root is wrong.", None, false);
+    let second = feedback("b", FeedbackTarget::Code, "Add a test.", None, false);
+    let venue = Venue::WorkingTree {
+        repository: "acme/demo".into(),
+        base: "main".into(),
+    };
+    let plan = Plan::draft(
+        &venue,
+        "Paths",
+        &[note(&first, "One"), note(&second, "Two")],
+    );
+    let bundle = plan.code_issues.expect("issues");
+
+    let linked = bundle.linked_tracking(&[17, 18]).expect("tracking");
+    assert!(linked.body.contains("- [ ] #17 The root is wrong"));
+    assert!(linked.body.contains("- [ ] #18 Add a test"));
+    assert!(linked.body.starts_with("2 separate notes"));
+    assert_eq!(linked.title, bundle.tracking.expect("tracking").title);
+}
+
+#[test]
+fn the_review_summary_records_which_notes_it_covers() {
+    let loose = feedback("whole", FeedbackTarget::Code, "Unclear name.", None, false);
+    let plan = Plan::draft(&pull(9), "Naming", &[note(&loose, "Naming")]);
+    let review = plan.pull_request.expect("review");
+    assert_eq!(review.summarized, vec!["whole".to_string()]);
+    let mut pinned = review.clone();
+    pinned.commit_id = Some("abc123".into());
+    let request = pinned.request();
+    assert_eq!(request.path, "/repos/acme/demo/pulls/9/reviews");
+    assert_eq!(request.body["commit_id"], "abc123");
 }
 
 #[test]
@@ -175,7 +215,7 @@ fn commits_outside_a_pull_request_become_separate_issues() {
         false,
     );
     let venue = Venue::Commits {
-        repository: "demo".into(),
+        repository: "acme/demo".into(),
         base: "main".into(),
         head: "feature".into(),
     };
@@ -185,7 +225,7 @@ fn commits_outside_a_pull_request_become_separate_issues() {
         &[note(&one, "Helper"), note(&two, "Tests")],
     );
 
-    let requests = plan.clone().github_requests("acme", "gewu-org");
+    let requests = plan.clone().github_requests();
     assert!(plan.pull_request.is_none());
     let issues = plan.code_issues.expect("issues");
     assert_eq!(issues.issues.len(), 2);
@@ -193,7 +233,7 @@ fn commits_outside_a_pull_request_become_separate_issues() {
     assert!(
         issues.issues[0]
             .body
-            .contains("commits main..feature on demo")
+            .contains("commits main..feature on acme/demo")
     );
     assert!(issues.tracking.is_some());
     assert!(
@@ -213,7 +253,7 @@ fn one_directory_note_has_no_tracking_issue() {
         false,
     );
     let venue = Venue::Directory {
-        repository: "demo".into(),
+        repository: "acme/demo".into(),
         path: "src".into(),
         reference: "main".into(),
     };
@@ -223,17 +263,17 @@ fn one_directory_note_has_no_tracking_issue() {
     assert!(
         issues.issues[0]
             .body
-            .contains("directory src at main on demo")
+            .contains("directory src at main on acme/demo")
     );
 }
 
 #[test]
 fn an_empty_review_has_nothing_to_publish() {
     let venue = Venue::WorkingTree {
-        repository: "demo".into(),
+        repository: "acme/demo".into(),
         base: "main".into(),
     };
     let plan = Plan::draft(&venue, "Work", &[]);
     assert!(plan.is_empty());
-    assert!(plan.github_requests("acme", "gewu-org").is_empty());
+    assert!(plan.github_requests().is_empty());
 }

@@ -10,11 +10,13 @@ import { Navigator } from "./components/Navigator";
 import { OverviewScreen } from "./components/OverviewScreen";
 import { SummaryScreen } from "./components/SummaryScreen";
 import { useFocusOnNavigate } from "./hooks/useFocusOnNavigate";
+import { useGitHub } from "./hooks/useGitHub";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { usePublication } from "./hooks/usePublication";
 import { useReviewApp } from "./hooks/useReviewApp";
 import { useTestApi, type TestApiHost } from "./hooks/useTestApi";
 import { firstUnreviewed } from "./navigation";
-import { reviewVenue } from "./publication";
+import { localPublication, reviewVenue, type Publication } from "./publication";
 import type { FeedbackAnchorInput, FeedbackTarget, ReviewPlace } from "./protocol";
 import { TaskBar } from "./workbench/TaskBar";
 import type { TaskView } from "./workbench/protocol";
@@ -112,6 +114,26 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     return `${anchor.change_id}:${anchor.start_line}-${anchor.end_line}`;
   }, [anchor, app.chunkIndex, app.snapshot, commentOn]);
 
+  const github = useGitHub(backend.github);
+  const localDraft = (): Publication =>
+    app.snapshot
+      ? localPublication(
+          reviewVenue(
+            task?.view.source ?? null,
+            task?.view.repository_name ?? "this repository",
+            app.snapshot,
+          ),
+          task?.view.title ?? "This review",
+          app.snapshot,
+        )
+      : { plan: {}, requests: [], blocked: null, published: [] };
+  const publication = usePublication(
+    backend,
+    localDraft,
+    JSON.stringify(app.snapshot?.feedback ?? []),
+    app.screen === "summary",
+  );
+
   if (app.loadError) {
     return (
       <div className="boot-error" role="alert">
@@ -163,6 +185,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
         chunkIndex={app.chunkIndex}
         onNavigate={(target) => void app.goto(target)}
         taskTitle={task?.view.title}
+        github={github}
       />
       <div className="app-main-column">
         {task && (
@@ -199,12 +222,8 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
         {app.screen === "summary" && (
           <SummaryScreen
             snapshot={snapshot}
-            venue={reviewVenue(
-              task?.view.source ?? null,
-              task?.view.repository_name ?? "this repository",
-              snapshot,
-            )}
-            reviewTitle={task?.view.title ?? "This review"}
+            publication={publication}
+            account={github.account}
             onNavigate={(target) => void app.goto(target)}
             onDecide={(decision) =>
               void app.dispatch({ type: "set_decision", decision })

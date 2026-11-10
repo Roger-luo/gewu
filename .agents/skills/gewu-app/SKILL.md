@@ -64,12 +64,16 @@ loader there; an unknown language renders as one color.
 The summary screen shows a publication preview of the open notes. A note on
 the code of a pull request becomes a review comment (on its lines, or one
 summary comment when it has none). A note on the walkthrough becomes an issue
-in the `gewu` repository. A note on a directory, a working tree, or commits
+in `Roger-luo/gewu`. A note on a directory, a working tree, or commits
 becomes an issue on the reviewed repository, and more than one issue adds a
-tracking issue. `publication.ts` matches `crates/gewu-review/src/publication`.
-The preview does not call GitHub; `Plan::github_requests` is the unsent
-request list. The sidebar's account chip uses `localStorage` key `gewu.github`
-and a locally drawn avatar.
+tracking issue. For a workbench task the draft comes from
+`Workbench::publication`; `publication.ts` builds the same JSON for the mock
+and a single-review window. Publish sends through `crates/gewu-github` only
+after a confirmation dialog, records posts in the task's `published.json`, and
+never resends a note. Sign-in is the GitHub CLI's (`gh auth login
+--with-token`). Never test publishing against GitHub: use
+`gewu_github::Recorder` in Rust (the `gewu ui serve` sandbox uses it too) and
+the mock in the desktop tests.
 
 `apps/desktop/src/workbench/format.ts` maps harness stage names to the label
 the task list shows. A new stage with no entry shows nothing.

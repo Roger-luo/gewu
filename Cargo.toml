@@ -6,6 +6,7 @@ members = [
     "crates/gewu-cli",
     "crates/gewu-desktop",
     "crates/gewu-git",
+    "crates/gewu-github",
     "crates/gewu-harness",
     "crates/gewu-http",
     "crates/gewu-review",
@@ -38,4 +39,5 @@ gewu-workbench = { path = "crates/gewu-workbench" }
 
 [dev-dependencies]
 gewu-app = { path = "crates/gewu-app" }
+serde_json = "1.0.151"
 tempfile = "3.27.0"

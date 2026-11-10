@@ -1584,6 +1584,7 @@ dependencies = [
  "gewu-review",
  "gewu-tui",
  "gewu-workbench",
+ "serde_json",
  "tempfile",
 ]
 
@@ -1658,6 +1659,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gewu-github"
+version = "0.1.0"
+dependencies = [
+ "gewu-review",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "gewu-harness"
 version = "0.1.0"
 dependencies = [
@@ -1716,6 +1728,7 @@ dependencies = [
  "gewu-agent",
  "gewu-app",
  "gewu-git",
+ "gewu-github",
  "gewu-harness",
  "gewu-review",
  "hex",

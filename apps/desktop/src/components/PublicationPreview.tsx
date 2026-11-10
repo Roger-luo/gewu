@@ -1,85 +1,119 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { anchorLabel } from "../anchors";
-import {
-  draftPlan,
-  planIsEmpty,
-  type IssueBundle,
-  type IssueDraft,
-  type Venue,
-} from "../publication";
-import type { Feedback } from "../protocol";
+import type { GitHubAccount } from "../backend/types";
+import type { PublicationState } from "../hooks/usePublication";
+import { planIsEmpty, type IssueBundle, type IssueDraft, type Receipt } from "../publication";
+import { ConfirmPublish, PublishBar, ReceiptView } from "./PublishControls";
 
-/** The comments and issues a review would post. Rendering it sends nothing. */
+/**
+ * The comments and issues a review would post. Rendering it sends nothing;
+ * Publish sends only after the reviewer confirms the list of requests.
+ */
 export function PublicationPreview({
-  venue,
-  reviewTitle,
-  chunks,
-  feedback,
+  state,
+  account,
 }: {
-  venue: Venue;
-  reviewTitle: string;
-  chunks: { id: string; title: string }[];
-  feedback: Feedback[];
+  state: PublicationState;
+  account: GitHubAccount | null;
 }) {
-  const plan = draftPlan(venue, reviewTitle, chunks, feedback);
+  const { publication, error } = state;
+  const [confirming, setConfirming] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const plan = publication?.plan;
   return (
     <section className="panel publication" aria-label="Publication preview">
       <h3>Publication preview</h3>
       <p className="muted">
-        This is the text Gewu would post. Nothing on this page is sent, so reading
-        it does not call GitHub.
+        This is the text Gewu would post. Nothing is sent until you press Publish
+        and confirm, so reading it does not call GitHub.
       </p>
-      {planIsEmpty(plan) ? (
+      {error && (
+        <p className="publication-failure" role="alert">
+          {error}
+        </p>
+      )}
+      {receipt && <ReceiptView receipt={receipt} />}
+      {publication && publication.published.length > 0 && (
+        <div className="publication-destination">
+          <h4 className="publication-destination-title">Already on GitHub</h4>
+          <ul className="publication-posted">
+            {publication.published.map((posted) => (
+              <li key={posted.url || posted.label}>
+                <a href={posted.url} target="_blank" rel="noreferrer">
+                  {posted.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!plan ? (
+        !error && <p className="muted">Drafting…</p>
+      ) : planIsEmpty(plan) ? (
         <p className="muted">No open notes to publish.</p>
       ) : (
         <>
-          {plan.pullRequest && (
+          {plan.pull_request && (
             <Destination
-              heading={`Pull request #${plan.pullRequest.number} on ${plan.pullRequest.repository}`}
-              request={`POST /repos/{owner}/${plan.pullRequest.repository}/pulls/${plan.pullRequest.number}/reviews`}
+              heading={`Pull request #${plan.pull_request.number} on ${plan.pull_request.repository}`}
+              request={`POST /repos/${plan.pull_request.repository}/pulls/${plan.pull_request.number}/reviews`}
             >
-              {plan.pullRequest.comments.map((comment) => (
-                <article key={comment.feedbackId} className="publication-item">
-                  <h4>
-                    {anchorLabel({
-                      path: comment.path,
-                      side: comment.side,
-                      start_line: comment.startLine,
-                      end_line: comment.endLine,
-                    })}
-                  </h4>
+              {plan.pull_request.comments.map((comment) => (
+                <article key={comment.feedback_id} className="publication-item">
+                  <h4>{anchorLabel(comment)}</h4>
                   <p>{comment.body}</p>
                 </article>
               ))}
-              {plan.pullRequest.summary && (
+              {plan.pull_request.summary && (
                 <article className="publication-item">
                   <h4>Review comment</h4>
-                  <p>{plan.pullRequest.summary}</p>
+                  <p>{plan.pull_request.summary}</p>
                 </article>
               )}
             </Destination>
           )}
-          {plan.codeIssues && (
-            <Issues
-              heading={`Issues on ${plan.codeIssues.repository}`}
-              bundle={plan.codeIssues}
+          {plan.code_issues && <Issues bundle={plan.code_issues} />}
+          {plan.gewu_issues && <Issues bundle={plan.gewu_issues} />}
+          {state.publish && (
+            <PublishBar
+              blocked={publication.blocked}
+              account={account}
+              count={publication.requests.length}
+              onPublish={() => setConfirming(true)}
             />
           )}
-          {plan.gewuIssues && (
-            <Issues heading={`Issues on ${plan.gewuIssues.repository}`} bundle={plan.gewuIssues} />
-          )}
         </>
+      )}
+      {confirming && publication && state.publish && account && (
+        <ConfirmPublish
+          account={account}
+          paths={publication.requests.map((request) => `${request.method} ${request.path}`)}
+          onCancel={() => setConfirming(false)}
+          onConfirm={async () => {
+            const send = state.publish;
+            if (!send) return;
+            try {
+              setReceipt(await send());
+            } catch (err) {
+              setReceipt({ posted: [], failure: err instanceof Error ? err.message : String(err) });
+            }
+            setConfirming(false);
+          }}
+        />
       )}
     </section>
   );
 }
 
-function Issues({ heading, bundle }: { heading: string; bundle: IssueBundle }) {
+function Issues({ bundle }: { bundle: IssueBundle }) {
   return (
-    <Destination heading={heading} request={`POST /repos/{owner}/${bundle.repository}/issues`}>
+    <Destination
+      heading={`Issues on ${bundle.repository}`}
+      request={`POST /repos/${bundle.repository}/issues`}
+    >
       {bundle.issues.map((issue) => (
-        <IssueCard key={issue.feedbackId ?? issue.title} issue={issue} />
+        <IssueCard key={issue.feedback_id ?? issue.title} issue={issue} />
       ))}
       {bundle.tracking && <IssueCard issue={bundle.tracking} />}
     </Destination>

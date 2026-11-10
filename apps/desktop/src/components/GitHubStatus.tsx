@@ -1,84 +1,89 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 
-import { avatarFor, readAccount, writeAccount, type GitHubAccount } from "../githubAccount";
+import type { GitHubState } from "../hooks/useGitHub";
+import { Dialog } from "../workbench/Dialog";
 
-/** Bottom of the sidebar: who is linked, without contacting GitHub. */
-export function GitHubStatus() {
-  const [account, setAccount] = useState<GitHubAccount | null>(() => readAccount());
+/** Bottom of the sidebar: the GitHub account publishing would post as. */
+export function GitHubStatus({ github }: { github: GitHubState }) {
   const [open, setOpen] = useState(false);
-
-  const link = (login: string) => {
-    const next = { login, avatarUrl: avatarFor(login) };
-    writeAccount(next);
-    setAccount(next);
-    setOpen(false);
-  };
-
-  const signOut = () => {
-    writeAccount(null);
-    setAccount(null);
-  };
-
+  if (!github.available) {
+    return null;
+  }
+  const { account } = github;
   return (
     <footer className="github-status" aria-label="GitHub account">
       {account ? (
         <>
-          <img src={account.avatarUrl} alt="" width={28} height={28} />
-          <span className="github-login">{account.login}</span>
-          <button type="button" className="btn small" onClick={signOut}>
-            Sign out
+          <img src={account.avatar_url} alt="" width={28} height={28} />
+          <span className="github-login" title={account.name ?? account.login}>
+            {account.login}
+          </span>
+          <button type="button" className="btn small" onClick={() => setOpen(true)}>
+            Switch
           </button>
         </>
+      ) : github.checking ? (
+        <span className="muted">Checking GitHub…</span>
       ) : (
         <button type="button" className="btn small" onClick={() => setOpen(true)}>
           Sign in to GitHub
         </button>
       )}
-      {open && <LinkDialog onCancel={() => setOpen(false)} onLink={link} />}
+      {github.error && !open && (
+        <p className="github-error" role="status">
+          {github.error}
+        </p>
+      )}
+      {open && <SignInDialog github={github} onClose={() => setOpen(false)} />}
     </footer>
   );
 }
 
-function LinkDialog({
-  onCancel,
-  onLink,
-}: {
-  onCancel: () => void;
-  onLink: (login: string) => void;
-}) {
-  const titleId = useId();
-  const [login, setLogin] = useState("");
+function SignInDialog({ github, onClose }: { github: GitHubState; onClose: () => void }) {
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setBusy(true);
+    const signedIn = await github.signIn(token.trim());
+    setBusy(false);
+    if (signedIn) {
+      onClose();
+    }
+  };
   return (
-    <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <h2 id={titleId}>Link GitHub</h2>
-        <p className="muted">
-          Gewu remembers this login on this computer and draws the avatar locally.
-          Linking does not call GitHub. The publication preview is what would be
-          sent later.
+    <Dialog title="Sign in to GitHub" onClose={onClose}>
+      <p className="muted">
+        Paste a GitHub token that can write issues and pull-request reviews. Gewu
+        hands it to the GitHub CLI (<code>gh auth login --with-token</code>), which
+        keeps it. Gewu does not store it. Signing in posts nothing.
+      </p>
+      <label>
+        <span>GitHub token</span>
+        <input
+          type="password"
+          autoComplete="off"
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+        />
+      </label>
+      {github.error && (
+        <p className="github-error" role="alert">
+          {github.error}
         </p>
-        <label>
-          <span>GitHub login</span>
-          <input
-            value={login}
-            autoFocus
-            onChange={(event) => setLogin(event.target.value)}
-          />
-        </label>
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            disabled={!login.trim()}
-            onClick={() => onLink(login.trim())}
-          >
-            Link account
-          </button>
-        </div>
+      )}
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          disabled={!token.trim() || busy}
+          onClick={() => void submit()}
+        >
+          {busy ? "Signing in…" : "Sign in"}
+        </button>
       </div>
-    </div>
+    </Dialog>
   );
 }

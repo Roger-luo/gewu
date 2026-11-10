@@ -229,6 +229,17 @@ main[data-gewu-screen] {
   font-size: 13px;
 }
 
+.github-status {
+  flex-wrap: wrap;
+}
+
+.github-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
 .navigator h1 {
   font-size: 15px;
   font-weight: 600;
@@ -774,6 +785,53 @@ main[data-gewu-screen] {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.55;
+}
+
+.publication-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.publication-actions p {
+  margin: 0;
+}
+
+.publication-receipt {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.publication-receipt.failed {
+  background: var(--danger-soft);
+}
+
+.publication-receipt p {
+  margin: 0;
+}
+
+.publication-failure {
+  margin: var(--space-2) 0 0;
+  color: var(--danger);
+}
+
+.publication-posted {
+  margin: 0;
+  padding-left: var(--space-5);
+  line-height: 1.7;
+}
+
+.publication-confirm-list {
+  max-height: 40vh;
+  overflow: auto;
+  padding-left: var(--space-5);
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .quote-frame {

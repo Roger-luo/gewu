@@ -36,6 +36,7 @@ mise exec -- prek run --all-files
 - `src/lib.rs`: public facade containing re-exports only.
 - `crates/gewu-review`: interface-independent review domain.
 - `crates/gewu-git`: Git diffs, trees, and pull requests.
+- `crates/gewu-github`: GitHub sign-in and publishing through a `Transport`.
 - `crates/gewu-harness`: progressive generation harness (no terminal I/O).
 - `crates/gewu-tui`: terminal review UI.
 - `crates/gewu-cli`: command parsing and terminal presentation.

@@ -1,13 +1,23 @@
 use gewu_app::Action;
-use gewu_workbench::{Workbench, WorkbenchAction, WorkbenchError};
-use serde::Serialize;
+use gewu_workbench::{Account, Recorder, Workbench, WorkbenchAction, WorkbenchError};
+use serde::{Deserialize, Serialize};
 use tiny_http::{Method, Request};
 
 use crate::response::{Json, Reply};
 
-/// `/api/workbench`, `/api/repositories/<id>/refs`, and `/api/tasks/<id>/…`.
+/// The sandbox's sign-in: any token signs in as this login.
+const SANDBOX_LOGIN: &str = "gewu-sandbox";
+
+#[derive(Deserialize)]
+struct SignIn {
+    token: String,
+}
+
+/// `/api/workbench`, `/api/repositories/<id>/refs`, `/api/tasks/<id>/…`,
+/// and `/api/github/…`.
 pub(super) fn route(
     workbench: &Workbench,
+    github: &Recorder,
     method: &Method,
     path: &str,
     query: &str,
@@ -25,6 +35,21 @@ pub(super) fn route(
         (Method::Get, ["tasks", id, "snapshot"]) => answer(workbench.task_snapshot(id)),
         (Method::Post, ["tasks", id, "dispatch"]) => match Json::body::<Action>(request) {
             Ok(action) => answer(workbench.task_dispatch(id, action)),
+            Err(reply) => reply,
+        },
+        (Method::Get, ["tasks", id, "publication"]) => answer(workbench.publication(id)),
+        (Method::Post, ["tasks", id, "publish"]) => answer(workbench.publish(id, github)),
+        (Method::Get, ["github", "account"]) => {
+            answer(Account::current(github).map_err(Into::into))
+        }
+        (Method::Post, ["github", "sign-in"]) => match Json::body::<SignIn>(request) {
+            Ok(sign_in) if sign_in.token.trim().is_empty() => {
+                Json::error(400, "paste a GitHub token to sign in")
+            }
+            Ok(_) => {
+                github.set_login(Some(SANDBOX_LOGIN));
+                answer(Account::current(github).map_err(Into::into))
+            }
             Err(reply) => reply,
         },
         _ => Json::error(404, "not found"),

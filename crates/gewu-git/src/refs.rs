@@ -54,6 +54,14 @@ impl Repository<'_> {
         Ok((branch != "HEAD").then_some(branch))
     }
 
+    /// The URL of `remote`, or `None` when the repository has no such remote.
+    #[must_use]
+    pub fn remote_url(&self, remote: &str) -> Option<String> {
+        self.git_text(["remote", "get-url", remote])
+            .ok()
+            .filter(|url| !url.is_empty())
+    }
+
     /// Whether anything outside `.gewu/` is uncommitted.
     pub fn dirty(&self) -> Result<bool, GitError> {
         Ok(!self

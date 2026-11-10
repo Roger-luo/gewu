@@ -10,6 +10,7 @@ description = "Repositories, review tasks, and agent orchestration for the Gewu 
 gewu-agent = { path = "../gewu-agent" }
 gewu-app = { path = "../gewu-app" }
 gewu-git = { path = "../gewu-git" }
+gewu-github = { path = "../gewu-github" }
 gewu-harness = { path = "../gewu-harness" }
 gewu-review = { path = "../gewu-review" }
 hex = "0.4.3"

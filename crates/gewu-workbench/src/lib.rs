@@ -18,9 +18,10 @@ mod workbench;
 
 pub use error::WorkbenchError;
 pub use gewu_git::{CommitSummary, PullRequestSummary, RepositoryRefs};
+pub use gewu_github::{Account, GhCli, GitHubError, Posted, Receipt, Recorder, Transport};
 pub use home::Home;
 pub use protocol::{
     AgentChoice, LogEvent, RepositoryView, ReviewProgress, Source, TaskLog, TaskStatus, TaskView,
     WorkbenchAction, WorkbenchSnapshot,
 };
-pub use workbench::Workbench;
+pub use workbench::{Publication, Workbench};

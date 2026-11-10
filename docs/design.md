@@ -252,8 +252,10 @@ Where a note is published depends on what it is about:
   request becomes an issue in the reviewed repository.
 
 Each note is its own issue. When a review raises more than one, Gewu also
-opens a tracking issue that lists them. The summary screen shows these drafts
-before anything is sent. Reading the preview does not call GitHub.
+opens a tracking issue that links them. The summary screen shows these drafts
+before anything is sent, and reading the preview does not call GitHub.
+Publishing is a separate, confirmed step that posts as the reviewer's own
+GitHub account; Gewu never publishes on its own.
 
 Resolving and deleting act on a selected item, so they are offered only once
 the user has picked one out rather than standing as chunk-wide actions.

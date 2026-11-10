@@ -6,6 +6,15 @@ import type {
   LineAnchor,
   Snapshot,
 } from "../protocol";
+import {
+  localPublication,
+  planRequests,
+  type Posted,
+  type Publication,
+  type Receipt,
+  type Venue,
+} from "../publication";
+import { mockGitHub, mockSignedIn } from "./mockGitHub";
 import { BackendError, type Backend } from "./types";
 
 function clone<T>(value: T): T {
@@ -77,14 +86,84 @@ function resolveAnchor(
   throw new BackendError(`Unknown change: ${anchor.change_id}`);
 }
 
+/** Where the mock's notes would be published, and under what title. */
+export interface MockVenue {
+  venue: Venue;
+  title: string;
+}
+
 export class MockBackend implements Backend {
   private state: Snapshot;
   private nextFeedback = 1;
+  private target: MockVenue;
+  private posted: Posted[] = [];
+  private nextNumber = 1;
 
-  constructor(initial: Snapshot) {
+  readonly github = mockGitHub;
+
+  constructor(initial: Snapshot, target?: MockVenue) {
     this.state = clone(initial);
+    this.target = target ?? {
+      venue: {
+        type: "commits",
+        repository: "acme/demo",
+        base: initial.source.base,
+        head: initial.source.head,
+      },
+      title: "This review",
+    };
     rebuildSummary(this.state);
   }
+
+  async publication(): Promise<Publication> {
+    return localPublication(this.target.venue, this.target.title, this.state, clone(this.posted));
+  }
+
+  /** Answers like GitHub would, without sending anything. */
+  async publish(): Promise<Receipt> {
+    if (!mockSignedIn()) {
+      return { posted: [], failure: "Nothing was sent: sign in to GitHub first." };
+    }
+    const publication = await this.publication();
+    if (publication.blocked) {
+      return { posted: [], failure: publication.blocked };
+    }
+    const { plan } = publication;
+    const posted: Posted[] = [];
+    if (plan.pull_request) {
+      const review = plan.pull_request;
+      posted.push({
+        label: `Review on pull request #${review.number}`,
+        url: `https://github.com/${review.repository}/pull/${review.number}#pullrequestreview-${this.nextNumber++}`,
+        feedback_ids: [...review.comments.map((comment) => comment.feedback_id), ...(review.summarized ?? [])],
+      });
+    }
+    for (const bundle of [plan.code_issues, plan.gewu_issues]) {
+      if (!bundle) continue;
+      for (const issue of bundle.issues) {
+        const number = this.nextNumber++;
+        posted.push({
+          label: `Issue #${number} on ${bundle.repository}: ${issue.title}`,
+          url: `https://github.com/${bundle.repository}/issues/${number}`,
+          feedback_ids: issue.feedback_id ? [issue.feedback_id] : [],
+        });
+      }
+      if (bundle.tracking) {
+        const number = this.nextNumber++;
+        posted.push({
+          label: `Tracking issue #${number} on ${bundle.repository}`,
+          url: `https://github.com/${bundle.repository}/issues/${number}`,
+          feedback_ids: [],
+        });
+      }
+    }
+    this.requestsSent += planRequests(plan).length;
+    this.posted.push(...posted);
+    return { posted };
+  }
+
+  /** How many requests the mock pretended to send, for tests. */
+  requestsSent = 0;
 
   async snapshot(): Promise<Snapshot> {
     return clone(this.state);

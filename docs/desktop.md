@@ -109,24 +109,41 @@ name lines that a chunk quote shows on that side, so a comment on a whole block
 anchors to that block's lines.
 
 The summary screen's publication preview is the text those notes would become.
-`apps/desktop/src/publication.ts` and `crates/gewu-review/src/publication`
-build the same draft: pull-request review comments, issues on the reviewed
-repository, and issues on `gewu`. A destination with more than one issue also
-has a tracking issue. The preview labels each GitHub request `Not sent`. The
-account chip at the bottom of the sidebar stores `localStorage` key
-`gewu.github` and draws the avatar locally, so linking an account does not
-call GitHub either. `Plan::github_requests` is the request list a later send
-step would POST.
+For a workbench task the backend builds it (`Workbench::publication`, from
+`crates/gewu-review/src/publication`): pull-request review comments, issues on
+the reviewed repository, and issues on `Roger-luo/gewu`. A destination with
+more than one issue also has a tracking issue. The repository is `owner/name`
+read from the task's Git remote (`origin`, or a pull request's own remote);
+without a github.com remote the draft can be read but not sent. Each
+destination shows its request, such as `Not sent · POST
+/repos/acme/demo/issues`. A single-review window and the mock build the same
+draft in `apps/desktop/src/publication.ts`.
+
+**Publish** sends only after a confirmation dialog that lists every request and
+the account it posts as. `crates/gewu-github` sends them one at a time through
+a `Transport` and stops at the first refusal, so the receipt is exactly what
+exists on GitHub. Each tracking issue is sent last and links its issues by
+number. What was posted is kept in the task's `published.json`; those notes
+drop out of the next draft and the preview lists them under "Already on
+GitHub", so pressing Publish again never posts a note twice.
+
+Sign-in is the GitHub CLI's. The account chip at the bottom of the sidebar
+shows `gh`'s signed-in user and avatar (`GET /user`). **Sign in to GitHub**
+takes a pasted token and passes it to `gh auth login --with-token`, which
+keeps it; Gewu never stores a token. The `gewu ui serve` sandbox answers with
+`gewu_github::Recorder` instead, where any token signs in as `gewu-sandbox`
+and Publish records the requests without sending them, so a QA agent can
+press every button. Tests use the same recorder or the mock and never reach
+GitHub.
 
 Comments on a block and on an explanation do not need line numbers picked by
 hand. The block's buttons anchor to the block's span; the explanation beside a
 block targets `explanation` with the same span, so the walkthrough text and the
 code it describes stay tied together.
 
-A publishing step would map each anchor onto a GitHub review comment:
-`side: "new"` to `RIGHT` and `side: "old"` to `LEFT`, with `start_line` and
-`end_line` as the comment's line range and the patch hash to confirm the diff
-still matches the reviewed head. Explanation comments describe Gewu's
+Publishing maps each anchor onto a GitHub review comment: `side: "new"` to
+`RIGHT` and `side: "old"` to `LEFT`, with `start_line` and `end_line` as the
+comment's line range. Explanation comments describe Gewu's
 walkthrough rather than the code, so they are not code review comments.
 
 ### Seeing what the code produces

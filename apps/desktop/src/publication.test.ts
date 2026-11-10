@@ -43,13 +43,13 @@ describe("publication drafts", () => {
       }),
     ]);
 
-    expect(plan.pullRequest?.comments).toEqual([
-      expect.objectContaining({ path: "src/lib.rs", startLine: 40, endLine: 42 }),
+    expect(plan.pull_request?.comments).toEqual([
+      expect.objectContaining({ path: "src/lib.rs", start_line: 40, end_line: 42 }),
     ]);
-    expect(plan.pullRequest?.summary).toContain("one review comment");
-    expect(plan.pullRequest?.summary).toContain("**Naming.** The name is unclear.");
-    expect(plan.codeIssues).toBeNull();
-    expect(plan.gewuIssues).toBeNull();
+    expect(plan.pull_request?.summary).toContain("one review comment");
+    expect(plan.pull_request?.summary).toContain("**Naming.** The name is unclear.");
+    expect(plan.code_issues).toBeUndefined();
+    expect(plan.gewu_issues).toBeUndefined();
   });
 
   it("files walkthrough notes on gewu, one issue each, plus a tracking issue", () => {
@@ -65,12 +65,12 @@ describe("publication drafts", () => {
       }),
     ]);
 
-    expect(plan.pullRequest).toBeNull();
-    expect(plan.gewuIssues?.repository).toBe("gewu");
-    expect(plan.gewuIssues?.issues).toHaveLength(2);
-    expect(plan.gewuIssues?.issues[0]?.body).toContain("This is about the walkthrough Gewu wrote.");
-    expect(plan.gewuIssues?.tracking?.body).toContain("2 separate notes");
-    expect(plan.gewuIssues?.tracking?.body).toContain("The example never runs");
+    expect(plan.pull_request).toBeUndefined();
+    expect(plan.gewu_issues?.repository).toBe("Roger-luo/gewu");
+    expect(plan.gewu_issues?.issues).toHaveLength(2);
+    expect(plan.gewu_issues?.issues[0]?.body).toContain("This is about the walkthrough Gewu wrote.");
+    expect(plan.gewu_issues?.tracking?.body).toContain("2 separate notes");
+    expect(plan.gewu_issues?.tracking?.body).toContain("The example never runs");
   });
 
   it("turns notes on commits into separate repository issues", () => {
@@ -97,11 +97,11 @@ describe("publication drafts", () => {
       ],
     );
 
-    expect(plan.pullRequest).toBeNull();
-    expect(plan.codeIssues?.issues).toHaveLength(2);
-    expect(plan.codeIssues?.issues[0]?.body).toContain("previous version");
-    expect(plan.codeIssues?.issues[0]?.body).toContain("commits main..feature on demo");
-    expect(plan.codeIssues?.tracking).not.toBeNull();
+    expect(plan.pull_request).toBeUndefined();
+    expect(plan.code_issues?.issues).toHaveLength(2);
+    expect(plan.code_issues?.issues[0]?.body).toContain("previous version");
+    expect(plan.code_issues?.issues[0]?.body).toContain("commits main..feature on demo");
+    expect(plan.code_issues?.tracking).toBeDefined();
   });
 
   it("is empty when every note is resolved", () => {

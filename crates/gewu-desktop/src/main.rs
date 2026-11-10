@@ -27,6 +27,10 @@ fn main() {
             commands::task_snapshot,
             commands::task_dispatch,
             commands::pick_directory,
+            commands::publication,
+            commands::publish,
+            commands::github_account,
+            commands::github_sign_in,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| fail(&format!("Gewu failed to start:\n\n{error}")));

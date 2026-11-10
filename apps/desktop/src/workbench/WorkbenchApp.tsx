@@ -12,9 +12,11 @@ import { TaskScreen } from "./TaskScreen";
 import { useWorkbench, type WorkbenchController } from "./useWorkbench";
 import { useWorkbenchTestApi } from "./useWorkbenchTestApi";
 import { WorkbenchNav } from "./WorkbenchNav";
+import { useGitHub } from "../hooks/useGitHub";
 
 export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   const wb = useWorkbench(backend);
+  const github = useGitHub(backend.github);
   const [filter, setFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { route, snapshot, navigate } = wb;
@@ -83,6 +85,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
         onFilter={setFilter}
         onNavigate={navigate}
         onAddRepository={() => setAdding(true)}
+        github={github}
       />
       <div className="app-main-column">
         {wb.error && !adding && <ErrorBanner message={wb.error} onDismiss={() => wb.setError(null)} />}

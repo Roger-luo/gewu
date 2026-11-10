@@ -3,7 +3,7 @@ mod workbench;
 use std::sync::Mutex;
 
 use gewu_app::{Action, ReviewWorkspace};
-use gewu_workbench::{Home, Workbench};
+use gewu_workbench::{Home, Recorder, Workbench};
 use serde::Serialize;
 use tiny_http::{Method, Request};
 
@@ -16,7 +16,9 @@ use crate::{
 /// The state requests act on.
 pub(crate) enum Backend {
     Review(Box<Mutex<ReviewWorkspace>>),
-    Workbench(Workbench),
+    /// The HTTP server is the UI sandbox, so GitHub is always the
+    /// [`Recorder`]: publishing from it never leaves the machine.
+    Workbench(Workbench, Box<Recorder>),
 }
 
 impl Backend {
@@ -26,7 +28,7 @@ impl Backend {
                 Self::Review(Box::new(Mutex::new(ReviewWorkspace::open(&root)?)))
             }
             Mode::Workbench { home, gewu } => {
-                Self::Workbench(Workbench::open(Home::new(home), &gewu)?)
+                Self::Workbench(Workbench::open(Home::new(home), &gewu)?, Box::default())
             }
         })
     }
@@ -34,7 +36,7 @@ impl Backend {
     fn name(&self) -> &'static str {
         match self {
             Self::Review(_) => "review",
-            Self::Workbench(_) => "workbench",
+            Self::Workbench(..) => "workbench",
         }
     }
 }
@@ -70,8 +72,8 @@ impl Routes {
             }),
             (_, api) if api.starts_with("/api/") => match &self.backend {
                 Backend::Review(workspace) => Self::review(workspace, &method, api, &mut request),
-                Backend::Workbench(workbench) => {
-                    workbench::route(workbench, &method, api, query, &mut request)
+                Backend::Workbench(workbench, github) => {
+                    workbench::route(workbench, github, &method, api, query, &mut request)
                 }
             },
             (Method::Get | Method::Head, _) => self.static_files.response(path),

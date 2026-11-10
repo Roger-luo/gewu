@@ -25,20 +25,17 @@ export function pullRequest(
   reviewTitle: string,
   comments: InlineComment[],
   loose: Note[],
-): PullRequestDraft | null {
+): PullRequestDraft | undefined {
   if (venue.type !== "pull_request" || (comments.length === 0 && loose.length === 0)) {
-    return null;
+    return undefined;
   }
   const lines = loose.map((note) => `**${step(note)}.** ${note.feedback.body.trim()}`);
-  return {
-    repository: venue.repository,
-    number: venue.number,
-    comments,
-    summary:
-      loose.length === 0
-        ? null
-        : `These notes on "${reviewTitle}" cover the change as a whole, so they are one review comment on pull request #${venue.number}.\n\n${lines.join("\n")}`,
-  };
+  const draft: PullRequestDraft = { repository: venue.repository, number: venue.number, comments };
+  if (loose.length > 0) {
+    draft.summary = `These notes on "${reviewTitle}" cover the change as a whole, so they are one review comment on pull request #${venue.number}.\n\n${lines.join("\n")}`;
+    draft.summarized = loose.map((note) => note.feedback.id);
+  }
+  return draft;
 }
 
 export function issue(
@@ -61,7 +58,7 @@ export function issue(
   if (walkthrough) {
     parts.push("This is about the walkthrough Gewu wrote.");
   }
-  return { feedbackId: note.feedback.id, title: titleFrom(bodyText), body: parts.join("\n") };
+  return { feedback_id: note.feedback.id, title: titleFrom(bodyText), body: parts.join("\n") };
 }
 
 export function bundle(
@@ -69,22 +66,24 @@ export function bundle(
   issues: IssueDraft[],
   reviewTitle: string,
   walkthrough: boolean,
-): IssueBundle | null {
+): IssueBundle | undefined {
   if (issues.length === 0) {
-    return null;
+    return undefined;
   }
   const heading = walkthrough ? "Walkthrough notes" : "Review notes";
-  const tracking =
-    issues.length > 1
-      ? {
-          feedbackId: null,
-          title: `${heading}: ${reviewTitle}`,
-          body: `${issues.length} separate notes from "${reviewTitle}". Each has its own issue.\n\n${issues
-            .map((item) => `- ${item.title}`)
-            .join("\n")}`,
-        }
-      : null;
-  return { repository, tracking, issues };
+  if (issues.length < 2) {
+    return { repository, issues };
+  }
+  return {
+    repository,
+    issues,
+    tracking: {
+      title: `${heading}: ${reviewTitle}`,
+      body: `${issues.length} separate notes from "${reviewTitle}". Each has its own issue.\n\n${issues
+        .map((item) => `- ${item.title}`)
+        .join("\n")}`,
+    },
+  };
 }
 
 function step(note: Note): string {
