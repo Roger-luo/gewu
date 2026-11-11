@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import type { WorkbenchBackend } from "./backend";
 import type { LogEvent, LogKind, TaskView } from "./protocol";
+import { InlineMarkdown } from "../components/Markdown";
+import { readableLogText } from "./logText";
 
 const KIND_LABELS: Record<LogKind, string> = {
   output: "Agent",
@@ -72,7 +74,9 @@ export function AgentLog({ backend, task }: { backend: WorkbenchBackend; task: T
                   })}
                 </time>
                 <span className="log-kind">{KIND_LABELS[event.kind]}</span>
-                <span className="log-text">{event.text}</span>
+                <span className="log-text">
+                  <InlineMarkdown source={readableLogText(event.text)} />
+                </span>
               </li>
             ))}
           </ol>

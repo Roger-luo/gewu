@@ -142,7 +142,16 @@ function Issues({ bundle, blocked }: { bundle: IssueBundle; blocked: string | nu
       {bundle.issues.map((issue) => (
         <IssueCard key={issue.feedback_id ?? issue.title} issue={issue} />
       ))}
-      {bundle.tracking && <IssueCard issue={bundle.tracking} />}
+      {bundle.tracking && (
+        // Its list repeats the titles above, so it starts folded.
+        <details className="publication-item publication-tracking">
+          <summary>
+            <InlineMarkdown source={bundle.tracking.title} />
+            <span className="muted"> · tracking issue listing the {bundle.issues.length} above</span>
+          </summary>
+          <Markdown source={bundle.tracking.body} />
+        </details>
+      )}
     </Destination>
   );
 }

@@ -145,6 +145,17 @@ Rules:
   quote that includes the removed definition already puts it on the page, but
   the narrative still names what was dropped. Restating the new fields, or
   the chunk title, answers none of this.
+- "Before" is the base revision. Derive an old record's size from the types
+  as they were at the base (`gewu harness context base --path <path>`), not
+  from types this change introduces elsewhere in the diff: comparing against
+  the new, smaller type both understates this chunk's saving and counts
+  another chunk's. Size a structure by what it actually holds at the
+  benchmark's scale (a table built over the enlarged candidate set holds
+  more than the basis), and say when it is alive: a structure built and
+  dropped inside one step saves at that moment, which lowers peak memory only
+  if that moment is the peak.
+- When you name callers, say which are production and which are tests; a
+  test-only constructor is not evidence of how the change is used.
 - Connect the chunk to what the change claims. When `.gewu/description.md`
   claims an effect — faster, smaller, fixes a bug — and this chunk is one of
   the reasons, say how, with the mechanism and its size: not "drops the owned

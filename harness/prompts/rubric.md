@@ -19,6 +19,11 @@ Read the draft back, one chunk at a time, and answer for each:
   the effect has not shown that the change is an improvement.
 - Is every number in an explainer traceable to its `source`, and does a
   cost model's default match the size the claim was measured at?
+- Is "before" the base revision's own size, not a type the change adds
+  elsewhere? Is a structure sized by what it holds, and is it said whether it
+  lives at the peak or only for a moment?
+- Does a chunk that claims a saving also say what it costs — an extra load
+  per lookup, a rebuild every step, a new panic — and whether runtime moves?
 - Does a chunk that cites a measured result say its own share of it, and
   is that share consistent with its cost model? Placing this chunk's ratio
   beside the whole change's number, so the reader credits this part with the

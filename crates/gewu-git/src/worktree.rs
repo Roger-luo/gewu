@@ -22,6 +22,11 @@ impl Repository<'_> {
         self.resolve(revision, true)
     }
 
+    /// The first line of a commit's message.
+    pub fn subject(&self, revision: &str) -> Result<String, GitError> {
+        self.git_text(["log", "-1", "--format=%s", revision])
+    }
+
     /// A commit or tree a revision names; Base of a range may be Git's empty tree.
     pub fn treeish(&self, revision: &str) -> Result<String, GitError> {
         self.resolve(revision, false)

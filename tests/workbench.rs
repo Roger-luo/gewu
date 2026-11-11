@@ -238,3 +238,16 @@ fn a_root_commit_reviews_against_the_empty_tree() {
     assert_eq!(task.status, TaskStatus::Complete, "{task:?}");
     assert!(fixture.chunks(&id) >= 1, "{task:?}");
 }
+
+/// Found by QA: two reviews of `HEAD~1..HEAD` could not be told apart in the
+/// list, so a range is named by its head commit and repeats are numbered.
+#[test]
+fn reviews_of_one_range_read_apart() {
+    let fixture = Fixture::new();
+    let first = fixture.start(range(), none());
+    let first = fixture.settled(&first);
+    let second = fixture.start(range(), none());
+    let second = fixture.settled(&second);
+    assert!(first.title.starts_with("test: head ("), "{}", first.title);
+    assert_eq!(second.title, format!("{} · 2", first.title));
+}

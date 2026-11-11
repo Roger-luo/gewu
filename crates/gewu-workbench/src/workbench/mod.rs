@@ -39,6 +39,25 @@ impl State {
             .ok_or_else(|| WorkbenchError::NotFound(format!("review {id}")))
     }
 
+    /// `title`, or `title · 2`, `· 3`, … when another review of the same
+    /// repository already has it, so reviews in one list read apart.
+    pub(crate) fn unique_title(&self, repository_id: &str, task_id: &str, title: String) -> String {
+        let taken = |candidate: &str| {
+            self.tasks.iter().any(|task| {
+                task.record.id != task_id
+                    && task.record.repository_id == repository_id
+                    && task.record.title == candidate
+            })
+        };
+        if !taken(&title) {
+            return title;
+        }
+        (2..)
+            .map(|n| format!("{title} · {n}"))
+            .find(|candidate| !taken(candidate))
+            .unwrap_or(title)
+    }
+
     pub(crate) fn repository(&self, id: &str) -> Result<&RepositoryRecord, WorkbenchError> {
         self.repositories
             .iter()

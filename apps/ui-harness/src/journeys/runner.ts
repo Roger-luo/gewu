@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Locator, Page } from "playwright";
 import { runAxeChecks } from "../checks/axe.js";
 import { runLayoutChecks } from "../checks/layout.js";
+import { runRawMarkdownChecks } from "../checks/markdown.js";
 import { runTargetSizeChecks } from "../checks/targets.js";
 import { runTextSizeChecks } from "../checks/text.js";
 import { pad } from "../artifacts.js";
@@ -125,6 +126,9 @@ export class Journey {
       ...(await runLayoutChecks(this.page, meta)),
       ...(await runTextSizeChecks(this.page, meta)),
       ...(await runTargetSizeChecks(this.page, meta)),
+      // Journeys reach screens the page capture never visits, such as a
+      // failed task or a blocked publish. Found by the final UI judge.
+      ...(await runRawMarkdownChecks(this.page, meta)),
     ];
     for (const finding of found) {
       finding.evidence = evidence;

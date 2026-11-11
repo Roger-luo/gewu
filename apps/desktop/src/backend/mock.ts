@@ -9,6 +9,7 @@ import type {
 import {
   localPublication,
   planRequests,
+  rangeTitle,
   type Posted,
   type Publication,
   type Receipt,
@@ -110,7 +111,7 @@ export class MockBackend implements Backend {
         base: initial.source.base,
         head: initial.source.head,
       },
-      title: "This review",
+      title: rangeTitle(initial.source),
     };
     rebuildSummary(this.state);
   }

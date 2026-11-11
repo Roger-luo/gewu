@@ -249,7 +249,11 @@ export const STORIES: Story[] = [
       });
       await j.step("Read another review meanwhile, where it was left", async () => {
         await j.click("button", "Back to reviews");
-        await j.click("button", "Open review of HEAD~1..HEAD");
+        // Story 1's commit-range review, named by its head commit and range.
+        await j.page
+          .getByRole("button", { name: /^Open review of .+ \([0-9a-f]{8}\.\.[0-9a-f]{8}\)$/ })
+          .first()
+          .click();
         // Story 1 left this review on its summary; restore if the open landed elsewhere.
         const main = j.page.locator("main[data-gewu-screen]");
         await main.waitFor();

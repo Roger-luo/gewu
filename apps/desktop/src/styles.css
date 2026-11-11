@@ -948,18 +948,36 @@ main[data-gewu-screen] {
   letter-spacing: 0.04em;
 }
 
-.markdown-doc .markdown h1,
-.markdown-doc .markdown h2 {
-  font-size: 17px;
+/* A rendered document reads as a document: body font and a heading scale,
+   even inside a code quote's frame. Found by the final UI judge: it was all
+   monospace with h1 and h2 the same size. Code inside keeps its own font. */
+.markdown-doc .markdown {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Document headings are rendered two levels down (`#` is an h3) so the step
+   title stays the page's h2; size them by the level the author wrote. */
+.markdown-doc .markdown h3 {
+  font-size: 22px;
   margin: var(--space-4) 0 var(--space-2);
 }
 
-.markdown-doc .markdown h3,
-.markdown-doc .markdown h4,
+.markdown-doc .markdown h4 {
+  font-size: 18px;
+  margin: var(--space-4) 0 var(--space-2);
+}
+
 .markdown-doc .markdown h5,
 .markdown-doc .markdown h6 {
   font-size: 15px;
   margin: var(--space-3) 0 var(--space-2);
+}
+
+.markdown-doc .markdown code,
+.markdown-doc .markdown pre {
+  font-family: var(--font-mono);
 }
 
 .markdown-doc .markdown > :first-child {
@@ -1597,4 +1615,44 @@ main[data-gewu-screen] {
 
 .dialog-action-start {
   margin-right: auto;
+}
+
+.summary-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.summary-line.added {
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.summary-line.removed {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.summary-number {
+  width: 1%;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  color: var(--text-secondary);
+  text-align: right;
+  user-select: none;
+}
+
+.summary-mark {
+  width: 1%;
+  padding-right: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.summary-text {
+  padding-right: var(--space-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.summary-empty {
+  padding: var(--space-2) var(--space-3);
 }

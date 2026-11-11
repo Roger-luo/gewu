@@ -89,7 +89,20 @@ impl Source {
                     title: None,
                 });
             }
-            Self::CommitRange { base, head } => (git.commit(head)?, Ok(git.treeish(base)?), None),
+            Self::CommitRange { base, head } => {
+                let (head, base) = (git.commit(head)?, git.treeish(base)?);
+                // Named by what the range does, so two reviews of `HEAD~1..HEAD`
+                // read differently. Found by QA.
+                let title = git
+                    .subject(&head)
+                    .ok()
+                    .filter(|s| !s.is_empty())
+                    .map(|subject| {
+                        let short = |id: &str| id.chars().take(8).collect::<String>();
+                        format!("{subject} ({}..{})", short(&base), short(&head))
+                    });
+                (head, Ok(base), title)
+            }
             Self::PullRequest { number, remote } => {
                 let request = git.pull_request(remote, *number)?;
                 let title = request.title.map(|title| format!("#{number} {title}"));

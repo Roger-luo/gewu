@@ -114,9 +114,21 @@
   background: var(--accent);
 }
 
+/* Working is not idle: an accent dot that pulses. Found by the UI judge:
+   it used the same grey as cancelled and neutral states. */
+.status-text.generating {
+  color: var(--accent-ink);
+}
+
 .status-text.generating .status-mark {
-  background: currentColor;
+  background: var(--accent);
   animation: pulse 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-text.generating .status-mark {
+    animation: none;
+  }
 }
 
 .status-text.complete {

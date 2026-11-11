@@ -17,7 +17,7 @@ import { usePublication } from "./hooks/usePublication";
 import { useReviewApp } from "./hooks/useReviewApp";
 import { useTestApi, type TestApiHost } from "./hooks/useTestApi";
 import { firstUnreviewed } from "./navigation";
-import { localPublication, reviewVenue, type Publication } from "./publication";
+import { localPublication, rangeTitle, reviewVenue, type Publication } from "./publication";
 import type { FeedbackAnchorInput, FeedbackTarget, ReviewPlace } from "./protocol";
 import { TaskBar } from "./workbench/TaskBar";
 import type { TaskView } from "./workbench/protocol";
@@ -153,7 +153,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             task?.view.repository_name ?? "this repository",
             app.snapshot,
           ),
-          task?.view.title ?? "This review",
+          task?.view.title ?? rangeTitle(app.snapshot.source),
           app.snapshot,
         )
       : { plan: {}, requests: [], blocked: null, published: [] };

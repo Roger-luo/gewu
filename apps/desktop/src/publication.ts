@@ -204,3 +204,9 @@ export function localPublication(
     published,
   };
 }
+
+/** A review's name when no task titles it: its commit range, shortened. */
+export function rangeTitle(source: { base: string; head: string }): string {
+  const short = (ref: string) => (/^[0-9a-f]{12,}$/.test(ref) ? ref.slice(0, 8) : ref);
+  return `Review of ${short(source.base)}..${short(source.head)}`;
+}

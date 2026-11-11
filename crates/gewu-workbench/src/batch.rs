@@ -246,10 +246,13 @@ impl Workbench {
                     Self::fallback(&prepared.root, &prepared.input)?;
                 }
                 let mut state = self.state()?;
+                let title = prepared
+                    .title
+                    .map(|title| state.unique_title(&record.repository_id, task_id, title));
                 let task = state.task(task_id)?;
                 task.record.root = Some(prepared.root.clone());
                 task.record.isolated = prepared.isolated;
-                if let (false, Some(title)) = (task.record.titled, prepared.title) {
+                if let (false, Some(title)) = (task.record.titled, title) {
                     task.record.title = title;
                 }
                 self.save_task(&task.record)?;
