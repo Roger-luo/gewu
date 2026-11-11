@@ -138,3 +138,72 @@ fn a_signed_out_agent_says_to_sign_in() {
     assert!(error.contains("sign in to it first"), "{error}");
     assert!(error.contains("run 'fake login' first"), "{error}");
 }
+
+fn run_hanging(
+    root: &Path,
+    hang: &str,
+) -> (
+    Result<gewu_agent::Outcome, gewu_agent::AgentError>,
+    Vec<AgentEvent>,
+) {
+    let (sink, events) = recorder();
+    let command = vec![
+        "env".to_owned(),
+        "FAKE_AGENT_MODE=probe".to_owned(),
+        "FAKE_AGENT_DELAY=0".to_owned(),
+        format!("FAKE_AGENT_HANG={hang}"),
+        "python3".to_owned(),
+        fake_agent(),
+    ];
+    let result = AcpRun::new(root, command, &PathBuf::from("/usr/local/bin/gewu"))
+        .with_handshake_limit(std::time::Duration::from_secs(2))
+        .run(sink, &Cancel::default());
+    let events = events.lock().expect("events").clone();
+    (result, events)
+}
+
+/// Found in a live run of ppvm #276: Cursor's CLI hung before opening a
+/// session four times, 25 minutes each, and the run failed.
+#[test]
+fn an_agent_that_hangs_before_its_session_opens_is_started_again() {
+    let root = project();
+    let marker = root.path().join("hung-once");
+    let (result, events) = run_hanging(root.path(), &marker.to_string_lossy());
+    assert_eq!(result.expect("second start works").stop_reason, "end_turn");
+    assert!(
+        events
+            .iter()
+            .any(|event| event.text.starts_with("session open after ")),
+        "{events:?}"
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| event.text.contains("starting it again (attempt 2 of 3)")),
+        "{events:?}"
+    );
+    let pid = std::fs::read_to_string(&marker).expect("the hung agent's pid");
+    let alive = Command::new("kill")
+        .args(["-0", pid.trim()])
+        .output()
+        .expect("kill")
+        .status
+        .success();
+    assert!(!alive, "the hung agent {pid} is left running");
+}
+
+#[test]
+fn an_agent_that_never_opens_a_session_fails_after_three_starts() {
+    let root = project();
+    let (result, events) = run_hanging(root.path(), "always");
+    let error = result.expect_err("never opens");
+    assert!(
+        matches!(error, gewu_agent::AgentError::Unresponsive { waited: 2 }),
+        "{error}"
+    );
+    let restarts = events
+        .iter()
+        .filter(|event| event.text.contains("starting it again"))
+        .count();
+    assert_eq!(restarts, 2, "{events:?}");
+}

@@ -14,6 +14,9 @@ pub enum AgentError {
         .reason.as_ref().map(|reason| format!(": {reason}")).unwrap_or_default()
     )]
     Stopped { reason: Option<String> },
+    /// The agent started but did not open a session in time.
+    #[error("the agent did not open a session within {waited} s")]
+    Unresponsive { waited: u64 },
     /// The agent wants its own CLI signed in, e.g. `agent login` for Cursor.
     #[error("the agent needs you to sign in to it first: {0}")]
     SignInRequired(String),

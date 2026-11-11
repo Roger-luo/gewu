@@ -17,6 +17,9 @@ FAKE_AGENT_MODE selects other behavior:
 FAKE_AGENT_LOGIN makes session/new need `authenticate` first, as Cursor's
 agent does: `required` accepts the advertised method, `refused` turns it
 down as a signed-out CLI would.
+FAKE_AGENT_HANG names a file: while it does not exist, session/new writes
+the agent's pid there and never answers, as a stuck CLI does; once it
+exists, sessions open normally. `always` never answers.
 FAKE_AGENT_DELAY is the pause between steps in seconds (default 0.2), so a
 UI can be watched while a batch runs.
 """
@@ -29,6 +32,7 @@ import time
 MODE = os.environ.get("FAKE_AGENT_MODE", "harness")
 DELAY = float(os.environ.get("FAKE_AGENT_DELAY", "0.2"))
 LOGIN = os.environ.get("FAKE_AGENT_LOGIN", "")
+HANG = os.environ.get("FAKE_AGENT_HANG", "")
 SIGN_IN = "Authentication required. Please run 'fake login' first."
 
 
@@ -217,6 +221,12 @@ class Agent:
                 self.send({"id": message["id"], "error": {
                     "code": -32000, "message": "Authentication required",
                     "data": {"message": SIGN_IN}}})
+            elif method == "session/new" and HANG and (HANG == "always" or not os.path.exists(HANG)):
+                if HANG != "always":
+                    with open(HANG, "w") as file:
+                        file.write(str(os.getpid()))
+                while True:
+                    time.sleep(60)
             elif method == "session/new":
                 self.cwd = message["params"]["cwd"]
                 self.session = "fake-session"
