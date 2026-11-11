@@ -7,6 +7,17 @@ use gewu_review::harness::{Expansion, WorkList, test_expansion};
 use super::{HarnessRunner, Run};
 
 impl HarnessRunner {
+    /// Whether the next item is one Gewu writes itself, so a host can call
+    /// `next` rather than start an agent only to run it.
+    pub fn writes_next(&self) -> crate::Result<bool> {
+        let run = self.run()?;
+        if run.state.stage != gewu_review::harness::HarnessStage::Expand {
+            return Ok(false);
+        }
+        let work = self.work_list()?;
+        Ok(matches!(self.store.expansion(), Ok(None)) && self.written_tests(&run, &work).is_some())
+    }
+
     /// The expansion Gewu writes for the next item, when it is an item of
     /// tests this run does not explain and its code splits into chunks that
     /// fit. Otherwise an agent writes the item.

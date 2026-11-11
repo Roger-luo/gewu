@@ -92,11 +92,29 @@ fn a_test_too_long_for_one_chunk_is_shown_in_parts() {
     assert!(expansion.chunks.len() >= 2, "{:?}", expansion.chunks.len());
 }
 
-/// More code than the item's chunk cap holds is left to an agent, which faces
-/// the same cap with prose it can shorten.
+/// Found by running Cursor on #276: test items of 200 to 370 lines, which
+/// the plan accepts, did not fit six chunks of the row budget and went to the
+/// agent, which spent 25 minutes on one. Whole tests are shown instead, in
+/// at most six views that scroll.
 #[test]
-fn an_item_too_large_for_its_chunk_cap_is_left_to_the_agent() {
-    let input = input(&test("huge", "A huge test.", 400));
+fn an_item_too_large_for_fitting_chunks_shows_whole_tests_that_scroll() {
+    let code: Vec<String> = (0..12)
+        .flat_map(|index| test(&format!("case_{index}"), "One case.", 14))
+        .collect();
+    let input = input(&code);
 
-    assert!(test_expansion(&input, &item(&input), 6).is_none());
+    let expansion = test_expansion(&input, &item(&input), 6).expect("written");
+
+    assert!(expansion.chunks.len() <= 6, "{}", expansion.chunks.len());
+    assert!(
+        expansion
+            .chunks
+            .iter()
+            .any(|chunk| chunk.oversized_reason.is_some())
+    );
+    assert!(
+        expansion.chunks[0].title.contains("case_0"),
+        "{}",
+        expansion.chunks[0].title
+    );
 }

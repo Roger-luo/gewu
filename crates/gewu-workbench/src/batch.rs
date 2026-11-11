@@ -311,8 +311,9 @@ impl Workbench {
     ) -> Result<Ended, WorkbenchError> {
         let runner = HarnessRunner::in_project(root, DEFAULT_MAX_CHUNKS, false);
         let mut prompt = runner.status()?;
-        if prompt.starts_with(WAITING) {
-            // The reviewer may have read the batch since; the harness decides.
+        // The reviewer may have read the batch since, or the next item may be
+        // one Gewu writes itself; the harness decides, before any agent starts.
+        if prompt.starts_with(WAITING) || runner.writes_next()? {
             prompt = runner.next()?;
         }
         if let Some(ended) = Ended::gate(&prompt) {
@@ -363,6 +364,10 @@ impl Workbench {
             let outcome = outcome?;
             let cancelled = cancel.is_cancelled() || outcome.stop_reason == "cancelled";
             let mut prompt = runner.status()?;
+            // An agent may stop where an item of tests begins; Gewu writes it.
+            if !cancelled && runner.writes_next()? {
+                prompt = runner.next()?;
+            }
             // The run ended waiting, but the reviewer may have finished the
             // older batch while the agent wound down, or a proofreader passed
             // the batch it read. Then the gate is already open: an author

@@ -5,78 +5,17 @@
 //! Asked for by the reviewer after timing Cursor on #276: a third of the
 //! agent's time went to sections that only walked through tests.
 
+mod pack;
 mod scan;
 
 use std::collections::HashMap;
 
+use pack::{Piece, balanced, fitted, pieces, quotes};
+
 use super::{Expansion, HARNESS_SCHEMA_VERSION, WorkItem};
 use crate::{
-    Change, ChangePresentation, ChunkBlock, ChunkKind, Quote, ReviewChunk, ReviewInput,
-    chunk_height,
+    Change, ChangePresentation, ChunkBlock, ChunkKind, ReviewChunk, ReviewInput, chunk_height,
 };
-
-/// One test, or the code between tests, within one change.
-#[derive(Clone)]
-struct Piece {
-    change_id: String,
-    start: usize,
-    end: usize,
-    name: Option<String>,
-    doc: Option<String>,
-}
-
-/// The pieces a quote of test code falls into, split where each test begins
-/// (its doc comment and attributes included).
-fn pieces(change: &Change, quote: &Quote) -> Vec<Piece> {
-    let lines = change.body(quote.start, quote.end);
-    let mut starts = vec![0];
-    for index in 1..lines.len() {
-        // The first line of a test's attributes, after any doc comment.
-        if scan::starts_test(lines[index]) && !scan::starts_test(lines[index - 1]) {
-            let last = *starts.last().unwrap_or(&0);
-            let mut start = index;
-            while start > last + 1 && scan::leads_test(lines[start - 1]) {
-                start -= 1;
-            }
-            if start > last {
-                starts.push(start);
-            }
-        }
-    }
-    starts.push(lines.len());
-    starts
-        .windows(2)
-        .filter(|pair| pair[1] > pair[0])
-        .map(|pair| {
-            let span = &lines[pair[0]..pair[1]];
-            Piece {
-                change_id: change.id.clone(),
-                start: quote.start + pair[0],
-                end: quote.start + pair[1] - 1,
-                name: scan::test_name(span),
-                doc: scan::doc(span),
-            }
-        })
-        .collect()
-}
-
-/// Quotes for consecutive pieces, joining those that continue one another.
-fn quotes(pieces: &[Piece]) -> Vec<Quote> {
-    let mut quotes: Vec<Quote> = Vec::new();
-    for piece in pieces {
-        match quotes.last_mut() {
-            Some(last) if last.change_id == piece.change_id && last.end + 1 == piece.start => {
-                last.end = piece.end;
-            }
-            _ => quotes.push(Quote {
-                change_id: piece.change_id.clone(),
-                start: piece.start,
-                end: piece.end,
-            }),
-        }
-    }
-    quotes
-}
 
 fn chunk(
     item: &WorkItem,
@@ -181,66 +120,37 @@ pub fn test_expansion(
     let fits = |index: usize, pieces: &[Piece]| {
         chunk_height(&chunk(item, index, pieces, &changes), &changes) <= input.max_chunk_lines
     };
-    let mut groups: Vec<Vec<Piece>> = Vec::new();
-    let mut current: Vec<Piece> = Vec::new();
+    let mut all = Vec::new();
     for quote in &item.covers {
-        let change = changes.get(&quote.change_id)?;
-        for piece in pieces(change, quote) {
-            let mut trial = current.clone();
-            trial.push(piece.clone());
-            if fits(groups.len(), &trial) {
-                current = trial;
-                continue;
-            }
-            if !current.is_empty() {
-                groups.push(std::mem::take(&mut current));
-            }
-            // A test too long for one chunk is shown in consecutive parts.
-            let mut rest = piece;
-            while !fits(groups.len(), std::slice::from_ref(&rest)) {
-                let line = Piece {
-                    end: rest.start,
-                    ..rest.clone()
-                };
-                if !fits(groups.len(), std::slice::from_ref(&line)) {
-                    return None;
-                }
-                let mut end = rest.start;
-                while end < rest.end
-                    && fits(
-                        groups.len(),
-                        &[Piece {
-                            end: end + 1,
-                            ..rest.clone()
-                        }],
-                    )
-                {
-                    end += 1;
-                }
-                groups.push(vec![Piece {
-                    end,
-                    ..rest.clone()
-                }]);
-                rest = Piece {
-                    start: end + 1,
-                    ..rest
-                };
-            }
-            current = vec![rest];
-        }
+        all.extend(pieces(changes.get(&quote.change_id)?, quote));
     }
-    if !current.is_empty() {
-        groups.push(current);
-    }
+    let groups = match fitted(&all, &fits) {
+        Some(groups) if groups.len() <= max_chunks => groups,
+        // Found by running Cursor on #276: test items of 200 to 370 lines,
+        // which the plan accepts, do not fit six chunks of the row budget.
+        // Whole tests are shown instead, in at most `max_chunks` views that
+        // scroll, rather than handing the item to an agent.
+        _ => balanced(&all, max_chunks),
+    };
+    let chunks = groups
+        .iter()
+        .enumerate()
+        .map(|(index, pieces)| {
+            let mut chunk = chunk(item, index, pieces, &changes);
+            if chunk_height(&chunk, &changes) > input.max_chunk_lines {
+                chunk.oversized_reason = Some(
+                    "Gewu shows these tests whole rather than cut mid-test; the view scrolls."
+                        .to_owned(),
+                );
+            }
+            chunk
+        })
+        .collect();
     let expansion = Expansion {
         schema_version: HARNESS_SCHEMA_VERSION,
         source: input.source.clone(),
         item_id: item.id.clone(),
-        chunks: groups
-            .iter()
-            .enumerate()
-            .map(|(index, pieces)| chunk(item, index, pieces, &changes))
-            .collect(),
+        chunks,
     };
     expansion
         .validate(input, item, max_chunks)
