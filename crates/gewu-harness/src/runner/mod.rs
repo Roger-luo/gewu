@@ -73,10 +73,10 @@ impl HarnessRunner {
         if expansion.item_id != item.id {
             return Err(Error::message("candidate names a different work item"));
         }
-        let mut errors = expansion
-            .validate(&run.input, item, self.max_chunks)
+        let mut errors = self
+            .check_expansion(&run, &expansion, item)
             .err()
-            .map_or_else(Vec::new, |errors| error_strings(errors.0));
+            .unwrap_or_default();
         let mut spec = self.spec_so_far(&run)?;
         spec.chunks.extend(expansion.chunks.clone());
         if let Err(invalid) = ValidatedReview::validate_partial(run.input.clone(), spec) {
@@ -122,6 +122,34 @@ impl HarnessRunner {
             max_chunks,
             force,
             proofread_rounds: 0,
+        }
+    }
+
+    /// An expansion's own checks, plus claims checked against the author's
+    /// description beside the review input.
+    fn check_expansion(
+        &self,
+        run: &Run,
+        expansion: &gewu_review::harness::Expansion,
+        item: &gewu_review::harness::WorkItem,
+    ) -> std::result::Result<(), Vec<String>> {
+        let mut errors = expansion
+            .validate(&run.input, item, self.max_chunks)
+            .err()
+            .map_or_else(Vec::new, |errors| error_strings(errors.0));
+        let description = std::fs::read_to_string(
+            self.input_path
+                .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        )
+        .ok();
+        errors.extend(gewu_review::explainer::unquoted_claims(
+            &expansion.chunks,
+            description.as_deref(),
+        ));
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
         }
     }
 
@@ -190,12 +218,12 @@ impl HarnessRunner {
                 // whether their spans were covered only by advancing.
                 match (self.store.expansion(), work.next_item()) {
                     (Ok(Some(expansion)), Some(item)) => {
-                        let verdict = match expansion.validate(&run.input, item, self.max_chunks) {
+                        let verdict = match self.check_expansion(&run, &expansion, item) {
                             Ok(()) => "The draft validates; `gewu harness next` will accept it.\n"
                                 .to_owned(),
                             Err(errors) => format!(
                                 "`gewu harness next` would reject the draft:\n\n{}\n",
-                                error_strings(errors.0)
+                                errors
                                     .iter()
                                     .map(|error| format!("- {error}"))
                                     .collect::<Vec<_>>()
@@ -358,7 +386,7 @@ impl HarnessRunner {
             );
             return self.repair(run, &item, &[mismatch]);
         }
-        if let Err(errors) = expansion.validate(&run.input, &item, self.max_chunks) {
+        if let Err(errors) = self.check_expansion(run, &expansion, &item) {
             // The draft exists, so the errors and its measurement are what the
             // agent needs; reprinting the whole stage prompt buried them (found
             // by self-review).
@@ -366,7 +394,7 @@ impl HarnessRunner {
                 self.advance(&mut run.state, HarnessStage::Repair)?;
             }
             return Ok(prompts::draft_retry(
-                &error_strings(errors.0),
+                &errors,
                 &prompts::measured(&expansion.chunks, &run.input),
             ));
         }

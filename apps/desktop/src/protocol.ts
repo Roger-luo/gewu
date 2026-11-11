@@ -1,3 +1,4 @@
+import type { Explainer } from "./explainer";
 /** App protocol types. Field names are snake_case to match the JSON contract. */
 
 export type ChunkKind =
@@ -77,6 +78,7 @@ export interface QuotePreview {
 
 export type BlockView =
   | { type: "narrative"; markdown: string }
+  | ({ type: "explainer" } & Explainer)
   | {
       type: "changes";
       presentation: ChangePresentation;
@@ -195,12 +197,13 @@ export type WorkbenchTarget =
   | { screen: "home" }
   | { screen: "new-review" }
   | { screen: "task"; task_id: string }
-  | { screen: "review"; task_id: string };
+  | { screen: "review"; task_id: string }
+  | { screen: "settings" };
 
 export type Target = ReviewTarget | WorkbenchTarget;
 
 export interface GewuTestState {
-  screen: Screen | "home" | "new-review" | "task";
+  screen: Screen | "home" | "new-review" | "task" | "settings";
   /** The task open on the task or review screens, in the workbench. */
   task_id: string | null;
   chunk_index: number | null;

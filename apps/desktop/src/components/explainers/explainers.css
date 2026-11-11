@@ -1,0 +1,359 @@
+/* Explainers: claim, layout, cost model. Drawn by Gewu from the agent's data. */
+
+.explainer {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+
+.explainer-label {
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.explainer-verdict {
+  margin: var(--space-3) 0 0;
+}
+
+.explainer-source,
+.explainer-note,
+.explainer-note p {
+  margin: var(--space-2) 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.explainer-note p:first-child {
+  margin-top: 0;
+}
+
+/* Claim */
+
+.claim-card {
+  border-left: 3px solid var(--accent);
+}
+
+.claim-quote {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.claim-figures {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  font-size: 14px;
+}
+
+.claim-figures dt {
+  color: var(--text-secondary);
+}
+
+.claim-figures dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.claim-share {
+  font-weight: 600;
+}
+
+.claim-how {
+  margin-top: var(--space-2);
+}
+
+/* Layout */
+
+.layout-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.layout-row {
+  display: grid;
+  grid-template-columns: var(--explainer-columns);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.layout-row-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.layout-track {
+  min-width: 0;
+}
+
+.layout-record {
+  display: flex;
+  height: 2rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.layout-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  box-shadow: inset -2px 0 0 var(--bg-elevated);
+  background: var(--before-fill);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.layout-field:nth-child(2n) {
+  background: color-mix(in srgb, var(--text-secondary) 55%, var(--bg-elevated));
+}
+
+.layout-row:not(:first-child) .layout-field {
+  background: var(--after-fill);
+}
+
+.layout-row:not(:first-child) .layout-field:nth-child(2n) {
+  background: color-mix(in srgb, var(--accent) 75%, var(--bg-elevated));
+}
+
+.layout-field:last-child {
+  box-shadow: none;
+}
+
+.layout-legend {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-1);
+  font-size: 12px;
+}
+
+.layout-legend-name {
+  font-family: var(--font-mono);
+}
+
+.layout-field-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.layout-total {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+/* Cost model */
+
+.cost-params {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Every explainer row shares these columns, so labels, tracks, and values
+   line up from block to block. */
+.explainer {
+  --explainer-columns: 11rem 1fr 9.5rem;
+  /* The first row or series is "before", later ones "after". */
+  --before-fill: color-mix(in srgb, var(--text-secondary) 38%, var(--bg-elevated));
+  --after-fill: color-mix(in srgb, var(--accent) 55%, var(--bg-elevated));
+}
+
+.cost-param,
+.cost-row {
+  --cost-columns: var(--explainer-columns);
+}
+
+.cost-marks {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+}
+
+.cost-mark {
+  min-height: 24px;
+  padding: 0.1rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cost-mark[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.cost-param {
+  display: grid;
+  grid-template-columns: var(--cost-columns);
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.cost-param input[type="range"] {
+  width: 100%;
+  min-height: 24px;
+  accent-color: var(--accent);
+}
+
+.cost-param-value,
+.cost-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+.cost-series {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.cost-row {
+  display: grid;
+  grid-template-columns: var(--cost-columns);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cost-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cost-track {
+  height: 0.9rem;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.cost-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--before-fill);
+}
+
+.cost-bar.series-1 {
+  background: var(--after-fill);
+}
+
+.cost-bar.series-2 {
+  background: var(--success);
+}
+
+.cost-formulas {
+  margin-top: var(--space-2);
+  font-size: 13px;
+}
+
+.cost-formulas ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+@media (max-width: 720px) {
+  .cost-param,
+  .layout-row,
+  .cost-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .layout-total,
+  .cost-value,
+  .cost-param-value {
+    text-align: left;
+  }
+
+  .layout-legend {
+    grid-column: 1;
+  }
+}
+
+/* The animated comparison above the static rows. */
+
+.layout-morph {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.layout-morph-controls,
+.cost-sweep {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.layout-morph-controls .btn[aria-pressed="true"],
+.cost-sweep .btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.layout-morph-stage {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.layout-morph-track {
+  display: flex;
+  height: 2.6rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-muted);
+}
+
+.layout-morph-track .layout-field {
+  flex: none;
+}
+
+.phase-after .layout-field {
+  background: var(--after-fill);
+}
+
+.phase-after .layout-field:nth-child(2n) {
+  background: color-mix(in srgb, var(--accent) 75%, var(--bg-elevated));
+}
+
+.layout-morph-total {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Shown only while a field is leaving: the exit animation paints it red. */
+.layout-dropped-mark {
+  display: none;
+}
+
+.layout-morph-track .layout-field[style*="danger"] .layout-dropped-mark {
+  display: inline;
+  margin-left: var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

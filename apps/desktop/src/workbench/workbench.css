@@ -10,14 +10,26 @@
   margin-bottom: var(--space-2);
 }
 
-.nav-cta,
-.nav-secondary {
+/* The two ways to start sit together: New review, and Add repository beside it. */
+.nav-actions {
+  display: flex;
+  gap: var(--space-2);
   margin: 0 var(--space-2);
+}
+
+.nav-cta {
+  flex: 1;
   min-height: 32px;
 }
 
-.nav-secondary {
-  margin-top: var(--space-2);
+.nav-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  min-height: 32px;
+  padding: 0;
 }
 
 .nav-heading {
@@ -735,4 +747,113 @@
   .source-fields.two {
     grid-template-columns: 1fr;
   }
+}
+
+/* Settings */
+
+.settings {
+  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-section h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 15px;
+}
+
+.settings-section > .muted:first-of-type {
+  margin-top: 0;
+}
+
+.settings-choice {
+  border: 0;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.settings-choice legend {
+  margin-bottom: var(--space-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-choice label,
+.settings-check {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  line-height: 1.45;
+}
+
+.settings-choice input,
+.settings-check input {
+  flex: none;
+}
+
+.settings-paths {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.settings-paths dt {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.settings-paths dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .settings-paths {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-paths dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+/* Reserved, so Save does not move when "Saved" appears. */
+.settings-saved {
+  display: inline-block;
+  min-width: 3.5rem;
+  text-align: right;
+  align-self: center;
+}
+
+/* Save stays in reach while the form scrolls, and on the title's row. */
+.settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex-wrap: nowrap;
+  padding-block: var(--space-2);
+  background: var(--bg-elevated);
+}
+
+.field input:disabled {
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.settings-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-title svg {
+  color: var(--text-secondary);
 }

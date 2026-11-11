@@ -39,6 +39,8 @@ pub enum HarnessValidationError {
     DuplicateChunk(String),
     #[error("chunk `{0}` has an empty title or no content")]
     EmptyChunk(String),
+    #[error("chunk `{chunk}` has an explainer that is not usable: {problem}")]
+    Explainer { chunk: String, problem: String },
     #[error(
         "chunk `{chunk}` needs about {lines} rows but the budget is {budget}; split it, or explain it in `oversized_reason`"
     )]
@@ -335,9 +337,20 @@ impl CheckpointValidator {
                 || chunk.content.iter().all(|block| match block {
                     ChunkBlock::Narrative { markdown } => markdown.trim().is_empty(),
                     ChunkBlock::Changes { quotes, .. } => quotes.is_empty(),
+                    ChunkBlock::Explainer(_) => true,
                 });
             if empty {
                 errors.push(HarnessValidationError::EmptyChunk(chunk.id.clone()));
+            }
+            for block in &chunk.content {
+                if let ChunkBlock::Explainer(explainer) = block {
+                    errors.extend(explainer.problems().into_iter().map(|problem| {
+                        HarnessValidationError::Explainer {
+                            chunk: chunk.id.clone(),
+                            problem,
+                        }
+                    }));
+                }
             }
             errors.extend(Self::resolvable(
                 &chunk.quotes().cloned().collect::<Vec<_>>(),

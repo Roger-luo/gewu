@@ -323,4 +323,49 @@ export const STORIES: Story[] = [
       await backToReviews(j);
     },
   },
+  {
+    meta: { id: "settings-and-account", story: 7, title: "Settings and account", goal: "Find Settings and the GitHub account at the sidebar's foot, change a setting and save it, and see the sidebar keep its grouping in a narrow window." },
+    async run(j) {
+      const foot = () => j.control("region", "Account and settings");
+      await j.step("See where the sidebar puts each control", async () => {
+        await j.screen("home");
+        await j.control("button", "New review").waitFor();
+        await j.control("button", "Add repository").waitFor();
+        await j.control("button", "Settings", foot()).waitFor();
+      });
+      await j.step("Open Settings from the sidebar's foot", async () => {
+        await j.click("button", "Settings", foot());
+        await j.screen("settings");
+        await j.see("Where Gewu keeps things");
+      });
+      await j.step("Turn on rehearsal and save", async () => {
+        await j.control("checkbox", /Rehearse instead of sending/).check();
+        await j.click("button", "Save");
+        await j.see("Saved");
+      });
+      await j.step("Open the GitHub account", async () => {
+        await j.click("button", /^(Switch|Sign in to GitHub)$/, foot());
+        await j.page.getByRole("dialog").waitFor();
+      });
+      await j.step("Close it", async () => {
+        await j.page.keyboard.press("Escape");
+        await j.page.getByRole("dialog").waitFor({ state: "detached" });
+      });
+      const size = j.page.viewportSize();
+      await j.step("Narrow the window", async () => {
+        await j.page.setViewportSize({ width: 800, height: 700 });
+        await j.see("Where Gewu keeps things");
+      });
+      await j.step("Turn rehearsal back off", async () => {
+        await j.control("checkbox", /Rehearse instead of sending/).uncheck();
+        await j.click("button", "Save");
+        await j.see("Saved");
+      });
+      if (size) await j.page.setViewportSize(size);
+      await j.step("Back to reviews", async () => {
+        await j.click("button", /^All reviews/);
+        await j.screen("home");
+      });
+    },
+  },
 ];

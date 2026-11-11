@@ -48,11 +48,23 @@ fn run(
     Result<gewu_agent::Outcome, gewu_agent::AgentError>,
     Vec<AgentEvent>,
 ) {
+    run_with(root, mode, "")
+}
+
+fn run_with(
+    root: &Path,
+    mode: &str,
+    login: &str,
+) -> (
+    Result<gewu_agent::Outcome, gewu_agent::AgentError>,
+    Vec<AgentEvent>,
+) {
     let (sink, events) = recorder();
     let command = vec![
         "env".to_owned(),
         format!("FAKE_AGENT_MODE={mode}"),
         "FAKE_AGENT_DELAY=0".to_owned(),
+        format!("FAKE_AGENT_LOGIN={login}"),
         "python3".to_owned(),
         fake_agent(),
     ];
@@ -103,4 +115,26 @@ fn a_missing_program_is_named() {
     .run(sink, &Cancel::default())
     .expect_err("missing program");
     assert!(error.to_string().contains("gewu-no-such-agent"));
+}
+
+#[test]
+fn an_agent_that_needs_authenticate_is_signed_in_and_retried() {
+    let root = project();
+    let (result, events) = run_with(root.path(), "probe", "required");
+    assert_eq!(result.expect("session ends").stop_reason, "end_turn");
+    assert!(
+        events
+            .iter()
+            .any(|event| event.text == "signing in to the agent with Fake Login"),
+        "{events:?}"
+    );
+}
+
+#[test]
+fn a_signed_out_agent_says_to_sign_in() {
+    let root = project();
+    let (result, _) = run_with(root.path(), "probe", "refused");
+    let error = result.expect_err("signed out").to_string();
+    assert!(error.contains("sign in to it first"), "{error}");
+    assert!(error.contains("run 'fake login' first"), "{error}");
 }

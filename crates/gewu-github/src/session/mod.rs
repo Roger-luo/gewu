@@ -1,8 +1,11 @@
 //! The reviewer's choice of sign-in: Gewu's OAuth app, or the GitHub CLI's
 //! own login for reviewers who already use `gh`.
 
+mod settings;
 #[cfg(test)]
 mod tests;
+
+pub use settings::{GitHubSettings, Preferences};
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -37,18 +40,6 @@ pub enum CliState {
     },
 }
 
-/// The method in use and what the other one would sign in as.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct SignInMethods {
-    pub method: SignInMethod,
-    pub cli: CliState,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Saved {
-    method: SignInMethod,
-}
-
 enum Reach {
     Live {
         oauth: OAuthSession,
@@ -62,30 +53,37 @@ enum Reach {
 /// GitHub as the reviewer signed in to it.
 pub struct GitHub {
     reach: Reach,
-    method: Mutex<SignInMethod>,
-    /// Where the chosen method is kept between runs.
+    preferences: Mutex<Preferences>,
+    /// Where the preferences are kept between runs.
     saved: Option<PathBuf>,
+    /// The sandbox only: whether Gewu's app is signed in while the CLI is in
+    /// use, as a real keychain would keep its token.
+    sandbox_app: std::sync::atomic::AtomicBool,
 }
 
 impl GitHub {
-    /// github.com through either sign-in. The method saved at `saved` wins
-    /// over `method`.
+    /// github.com through either sign-in. Preferences saved at `saved` win
+    /// over `defaults`.
     #[must_use]
     pub fn live(
         oauth: OAuthSession,
         cli: GhCli,
-        method: SignInMethod,
+        defaults: Preferences,
         saved: Option<PathBuf>,
     ) -> Self {
-        let method = saved
+        let preferences = saved
             .as_deref()
-            .and_then(|path| std::fs::read(path).ok())
-            .and_then(|bytes| serde_json::from_slice::<Saved>(&bytes).ok())
-            .map_or(method, |saved| saved.method);
+            .and_then(Preferences::load)
+            .unwrap_or(defaults)
+            .normalized();
+        if let Some(client_id) = &preferences.client_id {
+            oauth.set_client_id(client_id);
+        }
         Self {
             reach: Reach::Live { oauth, cli },
-            method: Mutex::new(method),
+            preferences: Mutex::new(preferences),
             saved,
+            sandbox_app: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -94,16 +92,26 @@ impl GitHub {
     pub fn recorded(recorder: Recorder) -> Self {
         Self {
             reach: Reach::Recorded(recorder),
-            method: Mutex::default(),
+            preferences: Mutex::default(),
             saved: None,
+            sandbox_app: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
-    pub fn method(&self) -> SignInMethod {
-        *self
-            .method
+    fn lock(&self) -> std::sync::MutexGuard<'_, Preferences> {
+        self.preferences
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    pub fn method(&self) -> SignInMethod {
+        self.lock().method
+    }
+
+    /// Publish should record instead of sending: the reviewer asked to
+    /// rehearse, or this is the sandbox.
+    pub fn rehearsing(&self) -> bool {
+        matches!(self.reach, Reach::Recorded(_)) || self.lock().rehearse
     }
 
     /// Runs `f` with the API as the signed-in reviewer.
@@ -118,49 +126,6 @@ impl GitHub {
     /// The signed-in reviewer, or `None`.
     pub fn account(&self) -> Result<Option<Account>, GitHubError> {
         self.with_transport(Account::current)?
-    }
-
-    /// The method in use, and whether `gh` could sign in instead.
-    pub fn methods(&self) -> Result<SignInMethods, GitHubError> {
-        let cli = match &self.reach {
-            Reach::Live { cli, .. } => match Account::current(cli) {
-                Ok(Some(account)) => CliState::SignedIn {
-                    login: account.login,
-                },
-                Ok(None) => CliState::SignedOut,
-                Err(GitHubError::MissingCli) => CliState::Missing,
-                Err(error) => return Err(error),
-            },
-            Reach::Recorded(_) => CliState::SignedIn {
-                login: Recorder::SANDBOX_LOGIN.to_string(),
-            },
-        };
-        Ok(SignInMethods {
-            method: self.method(),
-            cli,
-        })
-    }
-
-    /// Switches to `method` and remembers it for the next run.
-    pub fn use_method(&self, method: SignInMethod) -> Result<SignInMethods, GitHubError> {
-        *self
-            .method
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = method;
-        if let Some(path) = &self.saved {
-            let text = serde_json::to_vec_pretty(&Saved { method })
-                .map_err(|error| GitHubError::Reply(error.to_string()))?;
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::fs::write(path, text)?;
-        }
-        if let Reach::Recorded(recorder) = &self.reach {
-            // The sandbox's two sign-ins are one account: the CLI is always
-            // signed in, Gewu's app starts signed out.
-            recorder.set_login((method == SignInMethod::Cli).then_some(Recorder::SANDBOX_LOGIN));
-        }
-        self.methods()
     }
 
     /// Starts a sign-in with the current method: a device code for Gewu's

@@ -10,6 +10,13 @@ author request.
 Inspect every change in `.gewu/review-input.json` and determine what the change
 does before organizing the review.
 
+When `.gewu/description.md` exists, it is the author's own account: a pull
+request's title and body. Read it first. It says what the change claims —
+"18–32% faster", "61% less memory", "fixes the race in X" — and those claims
+are what the reviewer has to be convinced of. Treat each as something to
+check against the code, not as a fact: name in your findings which changes
+deliver each claim, and say so plainly when the code does not support one.
+
 Explore relevant definitions, consumers, integration points, tests, and useful
 history. Base every claim on repository evidence. Do not edit project source.
 Under a driver, use the frozen checkout and the bounded evidence tools it

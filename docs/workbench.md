@@ -219,6 +219,12 @@ dialog) for adding a repository.
 
 ## UI
 
+- **Sidebar**, top to bottom: the two ways to start, **New review** and the
+  **Add repository** icon button beside it; the repositories to filter by;
+  and at its foot the "Account and settings" region: who publishing posts as,
+  then **Settings** (gear icon) beside **Switch** or **Sign in to GitHub**.
+  Sign out is in the account dialog **Switch** opens. The review navigator
+  ends with the same region.
 - **Home** (`main[data-gewu-screen="home"]`): repositories in a sidebar;
   tasks as a list with title, source, agent, status, stage, review progress,
   and updated time. Status labels line up in one column whether or not a row
@@ -228,6 +234,8 @@ dialog) for adding a repository.
   (tabs: Commit range, Uncommitted changes, Pull request, Directory) with
   pickers fed by `RepositoryRefs`, agent picker showing availability and the
   exact command, optional title, Start.
+- **Settings** (`data-gewu-screen="settings"`): GitHub, agents and
+  generation, and where Gewu keeps things; see `docs/desktop.md`.
 - **Task** (`data-gewu-screen="task"`, `data-gewu-task-id`): status, stage,
   live log, and actions: Open review, Continue (next batch), Cancel, Delete.
 - **Review**: the existing overview, chunk, and summary screens, scoped to one
@@ -235,7 +243,8 @@ dialog) for adding a repository.
   task is open.
 
 Test hook additions: `Target` gains `{ screen: "home" }`,
-`{ screen: "new-review" }`, and `{ screen: "task", task_id }`; `state()`
+`{ screen: "new-review" }`, `{ screen: "settings" }`, and
+`{ screen: "task", task_id }`; `state()`
 reports `task_id`. The app starts on Home when it is served without
 `--root`, and on the review overview in the legacy single-review mode.
 
@@ -247,7 +256,8 @@ part of the contract:
 | Where | Role | Name |
 |---|---|---|
 | Home | button | `New review` |
-| Home | button | `Add repository` |
+| Sidebar | button | `Add repository` (icon, beside `New review`) |
+| Sidebar | region | `Account and settings`, holding `Settings` and `Switch` or `Sign in to GitHub` |
 | Add repository | textbox | `Repository path` |
 | Add repository | button | `Add` (and `Choose folder…` under Tauri) |
 | Home | list | `Reviews`; each item is a link or button named by the task title |

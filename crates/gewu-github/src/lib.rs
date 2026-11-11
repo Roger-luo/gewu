@@ -22,10 +22,10 @@ pub use api::TokenApi;
 pub use contributors::Contributor;
 pub use error::GitHubError;
 pub use oauth::{
-    GEWU_CLIENT_ID, GitHubLogin, Keychain, LoginEndpoint, MemoryStore, OAuthSession, SCOPE,
+    Cached, GEWU_CLIENT_ID, GitHubLogin, Keychain, LoginEndpoint, MemoryStore, OAuthSession, SCOPE,
     SignInPoll, SignInStart, TokenStore,
 };
 pub use publish::{Posted, Receipt, publish};
-pub use session::{CliState, GitHub, SignInMethod, SignInMethods};
+pub use session::{CliState, GitHub, GitHubSettings, Preferences, SignInMethod};
 pub use slug::Slug;
 pub use transport::{GhCli, Recorder, Transport};

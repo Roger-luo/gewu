@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use gewu_app::Snapshot;
-use gewu_github::{Posted, Receipt, Slug, Transport};
+use gewu_github::{Posted, Receipt, Recorder, Slug, Transport};
 use gewu_review::{GitHubRequest, Note, Plan, Venue};
 use serde::{Deserialize, Serialize};
 
@@ -42,11 +42,16 @@ impl Workbench {
             )
         };
         let remote = self.remote(task_id)?;
-        let blocked = remote.slug.is_none().then(|| {
-            format!(
+        let blocked = remote.slug.is_none().then(|| match &remote.url {
+            Some(url) => format!(
+                "{}'s remote `{}` points at {url}, not github.com, so this draft can be read but \
+                 not sent.",
+                remote.repository, remote.name
+            ),
+            None => format!(
                 "{} has no GitHub remote named `{}`, so this draft can be read but not sent.",
                 remote.repository, remote.name
-            )
+            ),
         });
         let name = remote
             .slug
@@ -80,8 +85,8 @@ impl Workbench {
         let publication = self.publication(task_id)?;
         if let Some(blocked) = publication.blocked {
             return Ok(Receipt {
-                posted: Vec::new(),
                 failure: Some(blocked),
+                ..Receipt::default()
             });
         }
         let receipt = gewu_github::publish(transport, &publication.plan);
@@ -103,16 +108,29 @@ impl Workbench {
             Source::PullRequest { remote, .. } => remote.clone(),
             _ => "origin".to_string(),
         };
-        let slug = repository
-            .git()
-            .remote_url(&name)
-            .as_deref()
-            .and_then(Slug::from_remote_url);
+        let url = repository.git().remote_url(&name);
+        let slug = url.as_deref().and_then(Slug::from_remote_url);
         Ok(Remote {
             repository: repository.name(),
             name,
+            url,
             slug,
         })
+    }
+
+    /// What publishing would send, answered by a [`Recorder`] signed in as
+    /// `login`. Nothing reaches GitHub and nothing is marked as sent.
+    pub fn rehearse(&self, task_id: &str, login: &str) -> Result<Receipt, WorkbenchError> {
+        let publication = self.publication(task_id)?;
+        let mut receipt = match publication.blocked {
+            Some(blocked) => Receipt {
+                failure: Some(blocked),
+                ..Receipt::default()
+            },
+            None => gewu_github::publish(&Recorder::signed_in(login), &publication.plan),
+        };
+        receipt.rehearsed = true;
+        Ok(receipt)
     }
 
     fn published(&self, task_id: &str) -> Result<Vec<Posted>, WorkbenchError> {
@@ -129,6 +147,8 @@ pub(super) struct Remote {
     pub(super) repository: String,
     /// The Git remote, such as `origin`.
     pub(super) name: String,
+    /// Where it points, if it exists.
+    pub(super) url: Option<String>,
     /// `None` when that remote is not on github.com.
     pub(super) slug: Option<Slug>,
 }

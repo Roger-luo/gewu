@@ -24,6 +24,8 @@ pub enum ValidationError {
     SummaryTooLong(String),
     #[error("chunk `{0}` has empty review content")]
     EmptyChunkContent(String),
+    #[error("chunk `{chunk}` has an explainer that is not usable: {problem}")]
+    Explainer { chunk: String, problem: String },
     #[error("duplicate chunk id `{0}`")]
     DuplicateChunk(String),
     #[error("unknown change id `{0}`")]
@@ -165,10 +167,21 @@ impl<'a> Validator<'a> {
                 || chunk.content.iter().all(|block| match block {
                     ChunkBlock::Narrative { markdown } => markdown.trim().is_empty(),
                     ChunkBlock::Changes { quotes, .. } => quotes.is_empty(),
+                    ChunkBlock::Explainer(_) => true,
                 });
             if empty {
                 self.errors
                     .push(ValidationError::EmptyChunkContent(chunk.id.clone()));
+            }
+            for block in &chunk.content {
+                if let ChunkBlock::Explainer(explainer) = block {
+                    for problem in explainer.problems() {
+                        self.errors.push(ValidationError::Explainer {
+                            chunk: chunk.id.clone(),
+                            problem,
+                        });
+                    }
+                }
             }
         }
     }

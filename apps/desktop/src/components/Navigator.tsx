@@ -14,6 +14,7 @@ export function Navigator({
   onNavigate,
   taskTitle,
   github,
+  onSettings,
 }: {
   snapshot: Snapshot;
   screen: "overview" | "chunk" | "summary";
@@ -22,6 +23,7 @@ export function Navigator({
   /** The workbench task this review belongs to. */
   taskTitle?: string;
   github: GitHubState;
+  onSettings?: () => void;
 }) {
   const { reviewed, total } = snapshot.summary;
   const nav = useRef<HTMLElement>(null);
@@ -85,7 +87,7 @@ export function Navigator({
         ))}
       </ul>
       </div>
-      <GitHubStatus github={github} />
+      <GitHubStatus github={github} onSettings={onSettings} />
     </nav>
   );
 }

@@ -69,6 +69,24 @@ export interface WorkbenchSnapshot {
   repositories: RepositoryView[];
   tasks: TaskView[];
   agents: AgentPreset[];
+  settings: SettingsView;
+}
+
+/** The reviewer's workbench settings, saved in the home's `settings.json`. */
+export interface Settings {
+  /** Fresh-agent rewrites of each batch; `0` turns proofreading off. */
+  proofread_rounds: number;
+  /** Preselected on the new-review screen; `null` picks an installed one. */
+  default_agent: AgentChoice | null;
+}
+
+/** The settings, and where Gewu keeps things (set only by environment variables). */
+export interface SettingsView extends Settings {
+  max_proofread_rounds: number;
+  /** `GEWU_HOME`. */
+  home: string;
+  /** `GEWU_BIN`. */
+  gewu: string;
 }
 
 export interface CommitSummary {
@@ -122,12 +140,14 @@ export type WorkbenchAction =
     }
   | { type: "continue_task"; task_id: string }
   | { type: "cancel_task"; task_id: string }
-  | { type: "delete_task"; task_id: string };
+  | { type: "delete_task"; task_id: string }
+  | { type: "update_settings"; settings: Settings };
 
-export type WorkbenchScreen = "home" | "new-review" | "task" | "review";
+export type WorkbenchScreen = "home" | "new-review" | "task" | "review" | "settings";
 
 export type WorkbenchRoute =
   | { screen: "home" }
   | { screen: "new-review"; repository_id?: string }
   | { screen: "task"; task_id: string }
-  | { screen: "review"; task_id: string };
+  | { screen: "review"; task_id: string }
+  | { screen: "settings" };

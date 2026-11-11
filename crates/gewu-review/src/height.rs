@@ -111,6 +111,13 @@ impl HeightBreakdown {
                     parts.prose += prose_height(markdown, REFERENCE_WIDTH);
                     parts.closings += 1;
                 }
+                ChunkBlock::Explainer(explainer) => {
+                    parts.prose += explainer.rows()
+                        + explainer
+                            .prose()
+                            .map_or(0, |prose| prose_height(prose, REFERENCE_WIDTH));
+                    parts.closings += 1;
+                }
                 ChunkBlock::Changes {
                     quotes,
                     presentation,

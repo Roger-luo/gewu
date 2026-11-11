@@ -27,6 +27,7 @@ impl Workbench {
             WorkbenchAction::ContinueTask { task_id } => self.continue_task(&task_id)?,
             WorkbenchAction::CancelTask { task_id } => self.cancel_task(&task_id)?,
             WorkbenchAction::DeleteTask { task_id } => self.delete_task(&task_id)?,
+            WorkbenchAction::UpdateSettings { settings } => self.update_settings(settings)?,
         }
         self.snapshot()
     }

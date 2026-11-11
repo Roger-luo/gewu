@@ -9,18 +9,18 @@ use std::{
 };
 
 use agent_client_protocol::{
-    AcpAgent, AcpAgentConfig, Client, LineDirection,
+    AcpAgent, AcpAgentConfig, Client, ErrorCode, LineDirection,
     schema::ProtocolVersion,
     v1::schema::{
-        CancelNotification, ClientCapabilities, ContentBlock, CreateTerminalRequest,
-        CreateTerminalResponse, FileSystemCapabilities, Implementation, InitializeRequest,
-        KillTerminalRequest, KillTerminalResponse, NewSessionRequest, PermissionOptionKind,
-        PromptRequest, ReadTextFileRequest, ReadTextFileResponse, ReleaseTerminalRequest,
-        ReleaseTerminalResponse, RequestPermissionOutcome, RequestPermissionRequest,
-        RequestPermissionResponse, SelectedPermissionOutcome, SessionNotification, SessionUpdate,
-        StopReason, TerminalId, TerminalOutputRequest, TerminalOutputResponse, TextContent,
-        ToolCallStatus, WaitForTerminalExitRequest, WaitForTerminalExitResponse,
-        WriteTextFileRequest, WriteTextFileResponse,
+        AuthMethod, AuthenticateRequest, CancelNotification, ClientCapabilities, ContentBlock,
+        CreateTerminalRequest, CreateTerminalResponse, FileSystemCapabilities, Implementation,
+        InitializeRequest, KillTerminalRequest, KillTerminalResponse, NewSessionRequest,
+        PermissionOptionKind, PromptRequest, ReadTextFileRequest, ReadTextFileResponse,
+        ReleaseTerminalRequest, ReleaseTerminalResponse, RequestPermissionOutcome,
+        RequestPermissionRequest, RequestPermissionResponse, SelectedPermissionOutcome,
+        SessionNotification, SessionUpdate, StopReason, TerminalId, TerminalOutputRequest,
+        TerminalOutputResponse, TextContent, ToolCallStatus, WaitForTerminalExitRequest,
+        WaitForTerminalExitResponse, WriteTextFileRequest, WriteTextFileResponse,
     },
 };
 use tokio::sync::watch;
@@ -470,10 +470,33 @@ impl AcpRun {
                         format!("connected to {} {}", info.name, info.version),
                     );
                 }
-                let session = cx
-                    .send_request(NewSessionRequest::new(root))
-                    .block_task()
-                    .await?;
+                let new_session = || {
+                    cx.send_request(NewSessionRequest::new(root.clone()))
+                        .block_task()
+                };
+                // Some agents (Cursor's) refuse a session until the client
+                // calls `authenticate` with a method they handle themselves,
+                // even when their CLI is signed in. Sign in once and retry.
+                let session = match new_session().await {
+                    Err(error) if error.code == ErrorCode::AUTH_REQUIRED => {
+                        let Some(method) = init
+                            .auth_methods
+                            .iter()
+                            .find(|method| matches!(method, AuthMethod::Agent(_)))
+                        else {
+                            return Err(error);
+                        };
+                        context.emit(
+                            EventKind::Status,
+                            format!("signing in to the agent with {}", method.name()),
+                        );
+                        cx.send_request(AuthenticateRequest::new(method.id().clone()))
+                            .block_task()
+                            .await?;
+                        new_session().await?
+                    }
+                    other => other?,
+                };
                 let session_id = session.session_id;
                 let prompt = cx
                     .send_request(PromptRequest::new(

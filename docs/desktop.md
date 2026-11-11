@@ -131,8 +131,12 @@ GitHub", so pressing Publish again never posts a note twice.
 GitHub OAuth app (client ID `Ov23liMKKIvqy32L2nuS`, device flow, scope `repo`
 for public and private repositories): the dialog shows a code, opens
 `github.com/login/device`, and polls until the reviewer approves it. The token
-is kept in the system keychain (service `gewu`, account `github.com`) and Gewu
-calls `api.github.com` with it directly. **Sign out** deletes it from the
+is kept in the system keychain (service `gewu:github.com`, account `oauth`) and
+Gewu calls `api.github.com` with it directly. On macOS it goes through
+`/usr/bin/security`, as `gh` does: a Keychain item trusts the program that
+made it, and Gewu's own binary changes on every rebuild, so reading it
+directly would ask for the password after each one. The token is read once
+per run and kept in memory (`oauth::Cached`). **Sign out** deletes it from the
 keychain; the reviewer can also revoke Gewu under GitHub's Settings →
 Applications.
 
@@ -176,6 +180,50 @@ Publishing maps each anchor onto a GitHub review comment: `side: "new"` to
 `RIGHT` and `side: "old"` to `LEFT`, with `start_line` and `end_line` as the
 comment's line range. Explanation comments describe Gewu's
 walkthrough rather than the code, so they are not code review comments.
+
+### Explainers
+
+A chunk's `blocks` may include `{ "type": "explainer", "kind": … }`
+(`apps/desktop/src/explainer.ts`, drawn by `components/explainers/`):
+
+- **Claim** (`ClaimCard`): the quoted claim, the measured result, and how the
+  chunk serves it.
+- **Layout** (`LayoutView`): first one animated record (`LayoutMorph`) that
+  plays from the first row to the last on arrival: fields the last row drops
+  turn red and say "dropped", then collapse, fields both rows keep stay at
+  their width, and the byte total counts down. Row buttons and Replay step
+  through it again. Below it, every row as a static bar scaled to its bytes,
+  with a legend of exact sizes and "After is N× smaller".
+- **Cost model** (`CostModelView`): one slider per parameter (powers of two
+  for `log2`) with buttons for its `marks`, a bar and value per series
+  recomputed by `compileFormula`, the ratio between two series, and the
+  formulas under "How it is computed". **Play** sweeps the first parameter
+  from its minimum to its maximum, pausing on the marks, so the bars grow in
+  front of the reader.
+
+Bars animate with [Motion](https://motion.dev) under `MotionConfig
+reducedMotion="user"`, so the system's reduce-motion setting turns it off.
+`?mock=explainers` shows all three on a step modeled on a performance pull
+request.
+
+### Settings
+
+The workbench's **Settings** screen shows every option, so none is reachable
+only through an environment variable:
+
+- **GitHub** (`gewu_github::GitHub`, saved in the home's `github.json`): sign
+  in with Gewu's GitHub app or the GitHub CLI; another OAuth app's client ID;
+  and **Rehearse instead of sending**, which makes Publish record what it would
+  post through `Workbench::rehearse` and send nothing. A rehearsal never writes
+  `published.json`, so the notes stay unpublished.
+- **Agents and generation** (`gewu_workbench::Settings`, in `settings.json`):
+  the agent preselected for a new review, and proofread rounds (0 to 5, read
+  when a review starts).
+- **Where Gewu keeps things**: `GEWU_HOME`, `GEWU_BIN`, and `GEWU_GITHUB=record`,
+  shown read-only because they are set before Gewu starts.
+
+Nothing is saved until **Save**; a refused value is reported beside the form
+and saves nothing.
 
 ### Seeing what the code produces
 

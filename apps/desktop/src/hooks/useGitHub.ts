@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   GitHubAccount,
   GitHubBackend,
+  GitHubPreferences,
   SignInMethod,
-  SignInMethods,
+  GitHubSettings,
   SignInPoll,
   SignInStart,
 } from "../backend/types";
@@ -14,7 +15,7 @@ export interface GitHubState {
   available: boolean;
   account: GitHubAccount | null;
   /** The sign-in in use and whether `gh` could post instead. */
-  methods: SignInMethods | null;
+  settings: GitHubSettings | null;
   checking: boolean;
   error: string | null;
   /**
@@ -22,6 +23,8 @@ export interface GitHubState {
    * or `null` when switching failed (see `error`).
    */
   chooseMethod: (method: SignInMethod) => Promise<{ account: GitHubAccount | null } | null>;
+  /** Saves the settings screen's GitHub section; `false` if it failed. */
+  updateSettings: (preferences: GitHubPreferences) => Promise<boolean>;
   startSignIn: () => Promise<SignInStart | null>;
   /** Checks once; a signed-in result updates `account`. */
   pollSignIn: () => Promise<SignInPoll | null>;
@@ -31,7 +34,7 @@ export interface GitHubState {
 
 interface State {
   account: GitHubAccount | null;
-  methods: SignInMethods | null;
+  settings: GitHubSettings | null;
   checking: boolean;
   error: string | null;
 }
@@ -42,7 +45,7 @@ const message = (error: unknown) => (error instanceof Error ? error.message : St
 export function useGitHub(github: GitHubBackend | undefined): GitHubState {
   const [state, setState] = useState<State>({
     account: null,
-    methods: null,
+    settings: null,
     checking: github !== undefined,
     error: null,
   });
@@ -52,10 +55,10 @@ export function useGitHub(github: GitHubBackend | undefined): GitHubState {
       return;
     }
     let live = true;
-    Promise.all([github.account(), github.methods()]).then(
-      ([account, methods]) => live && setState({ account, methods, checking: false, error: null }),
+    Promise.all([github.account(), github.settings()]).then(
+      ([account, settings]) => live && setState({ account, settings, checking: false, error: null }),
       (err: unknown) =>
-        live && setState({ account: null, methods: null, checking: false, error: message(err) }),
+        live && setState({ account: null, settings: null, checking: false, error: message(err) }),
     );
     return () => {
       live = false;
@@ -111,8 +114,8 @@ export function useGitHub(github: GitHubBackend | undefined): GitHubState {
     if (!github) return;
     try {
       await github.signOut();
-      const [account, methods] = await Promise.all([github.account(), github.methods()]);
-      setState({ account, methods, checking: false, error: null });
+      const [account, settings] = await Promise.all([github.account(), github.settings()]);
+      setState({ account, settings, checking: false, error: null });
     } catch (err) {
       fail(err);
     }
@@ -122,9 +125,9 @@ export function useGitHub(github: GitHubBackend | undefined): GitHubState {
     async (method: SignInMethod) => {
       if (!github) return null;
       try {
-        const methods = await github.chooseMethod(method);
+        const settings = await github.chooseMethod(method);
         const account = await github.account();
-        setState({ account, methods, checking: false, error: null });
+        setState({ account, settings, checking: false, error: null });
         return { account };
       } catch (err) {
         fail(err);
@@ -134,8 +137,25 @@ export function useGitHub(github: GitHubBackend | undefined): GitHubState {
     [github, fail],
   );
 
+  const updateSettings = useCallback(
+    async (preferences: GitHubPreferences) => {
+      if (!github) return false;
+      try {
+        const settings = await github.updateSettings(preferences);
+        const account = await github.account();
+        setState({ account, settings, checking: false, error: null });
+        return true;
+      } catch (err) {
+        fail(err);
+        return false;
+      }
+    },
+    [github, fail],
+  );
+
   return {
     available: github !== undefined,
+    updateSettings,
     ...state,
     chooseMethod,
     startSignIn,

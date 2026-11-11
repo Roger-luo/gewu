@@ -185,7 +185,7 @@ fn the_sandbox_github_signs_in_without_contacting_github() {
     let (status, _, body) = http_get(&server.addr, "/api/github/account");
     assert_eq!((status, body.as_str()), (200, "null"));
 
-    let (status, _, body) = http_get(&server.addr, "/api/github/methods");
+    let (status, _, body) = http_get(&server.addr, "/api/github/settings");
     assert_eq!(status, 200, "{body}");
     assert!(
         body.contains(r#""method":"gewu""#) && body.contains(r#""login":"gewu-sandbox""#),

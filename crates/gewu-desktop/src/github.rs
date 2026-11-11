@@ -2,15 +2,18 @@
 //!
 //! The reviewer picks the sign-in in the window: Gewu's OAuth app (a device
 //! code, the token in the system keychain) or the GitHub CLI's own login.
-//! The choice is kept in the workbench home's `github.json`.
+//! That choice, another OAuth app's client ID, and rehearsing instead of
+//! sending are on the settings screen and kept in the home's `github.json`.
 //!
-//! - `GEWU_GITHUB=gh`: start on the GitHub CLI when nothing is saved.
-//! - `GEWU_GITHUB=record`: the [`Recorder`], which sends nothing.
-//! - `GEWU_GITHUB_CLIENT_ID` replaces Gewu's OAuth client ID.
+//! When nothing is saved yet:
+//! - `GEWU_GITHUB=gh` starts on the GitHub CLI.
+//! - `GEWU_GITHUB_CLIENT_ID` starts on another OAuth app.
+//!
+//! `GEWU_GITHUB=record` uses the [`Recorder`] instead, which sends nothing.
 
 use gewu_workbench::{
-    GEWU_CLIENT_ID, GhCli, GitHub, GitHubError, Home, OAuthSession, Recorder, SignInMethod,
-    SignInStart,
+    GEWU_CLIENT_ID, GhCli, GitHub, GitHubError, Home, OAuthSession, Preferences, Recorder,
+    SignInMethod, SignInStart,
 };
 
 pub fn from_env() -> Result<GitHub, String> {
@@ -24,15 +27,18 @@ pub fn from_env() -> Result<GitHub, String> {
     } else {
         SignInMethod::Gewu
     };
-    let client_id =
-        std::env::var("GEWU_GITHUB_CLIENT_ID").unwrap_or_else(|_| GEWU_CLIENT_ID.to_string());
-    let oauth = OAuthSession::open(client_id)
+    let defaults = Preferences {
+        method,
+        client_id: std::env::var("GEWU_GITHUB_CLIENT_ID").ok(),
+        rehearse: false,
+    };
+    let oauth = OAuthSession::open(GEWU_CLIENT_ID)
         .map_err(|error| format!("Could not open the GitHub sign-in:\n\n{error}"))?;
     // `gh` on the same search path agents use, since an app opened from the
     // Finder does not inherit the shell's `PATH`.
     let cli = GhCli::new(gewu_agent::Preset::which("gh").unwrap_or_else(|| "gh".into()));
     let saved = Home::from_env().root().join("github.json");
-    Ok(GitHub::live(oauth, cli, method, Some(saved)))
+    Ok(GitHub::live(oauth, cli, defaults, Some(saved)))
 }
 
 /// Starts a sign-in; a device code also opens GitHub's approval page.

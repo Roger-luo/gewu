@@ -1,8 +1,12 @@
 import { GitHubStatus } from "../components/GitHubStatus";
+import { FolderPlusIcon } from "../components/Icons";
 import type { GitHubState } from "../hooks/useGitHub";
 import type { RepositoryView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 
-/** The leading sidebar: start a review, and filter reviews by repository. */
+/**
+ * The leading sidebar, top to bottom: the two ways to start (New review, Add
+ * repository), the repositories to filter reviews by, then the account and Settings.
+ */
 export function WorkbenchNav({
   snapshot,
   route,
@@ -27,14 +31,25 @@ export function WorkbenchNav({
     <nav className="navigator workbench-nav" aria-label="Workbench">
       <div className="nav-scroll">
       <h1>Gewu</h1>
-      <button
-        type="button"
-        className="btn primary nav-cta"
-        aria-current={route.screen === "new-review" ? "page" : undefined}
-        onClick={() => onNavigate({ screen: "new-review", repository_id: filter ?? undefined })}
-      >
-        New review
-      </button>
+      <div className="nav-actions">
+        <button
+          type="button"
+          className="btn primary nav-cta"
+          aria-current={route.screen === "new-review" ? "page" : undefined}
+          onClick={() => onNavigate({ screen: "new-review", repository_id: filter ?? undefined })}
+        >
+          New review
+        </button>
+        <button
+          type="button"
+          className="btn nav-add"
+          title="Add repository"
+          aria-label="Add repository"
+          onClick={onAddRepository}
+        >
+          <FolderPlusIcon size={18} />
+        </button>
+      </div>
       <h2 className="nav-heading" id="repositories-heading">
         Repositories
       </h2>
@@ -70,11 +85,12 @@ export function WorkbenchNav({
           </li>
         ))}
       </ul>
-      <button type="button" className="btn nav-secondary" onClick={onAddRepository}>
-        Add repository
-      </button>
       </div>
-      <GitHubStatus github={github} />
+      <GitHubStatus
+        github={github}
+        onSettings={() => onNavigate({ screen: "settings" })}
+        settingsOpen={route.screen === "settings"}
+      />
     </nav>
   );
 }

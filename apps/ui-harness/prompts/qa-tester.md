@@ -62,6 +62,22 @@ Report anything that would confuse, slow, or mislead a reviewer:
   as well as light. The reviewer cannot tell whether the code is what they
   expected. It is not a preference and it is not an acceptable empty state.
 
+- A control that is not where a user would look, or not with the controls
+  that do the same kind of thing. Before judging any screen's content, look
+  at the whole window once and ask where each control lives: the ways to start
+  work (New review, Add repository) belong together, the lists you move
+  between belong in the middle of the sidebar, and app-wide controls (the
+  GitHub account, Settings) belong together at its foot. A global control
+  wedged among content actions or list items, an icon-only button with no
+  name, or a control that moves between screens is a major issue when users
+  will hunt for it, minor otherwise. Check this on every screen you visit, not
+  only the ones your scenario names, and at a narrow window (`resize 800x700`)
+  too, where a squeezed control whose label wraps one word per line or is
+  clipped is a major issue.
+
+Your scenarios say what to do, not everything to judge. Report what fails a
+user anywhere on the screens you pass through, even outside the scenario.
+
 Do not report a preference as an issue unless you can name the user it hurts.
 
 ## Report

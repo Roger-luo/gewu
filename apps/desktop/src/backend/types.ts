@@ -63,9 +63,21 @@ export type CliState =
   | { status: "signed_out" }
   | { status: "signed_in"; login: string };
 
-export interface SignInMethods {
+/** What the reviewer chose about GitHub. */
+export interface GitHubPreferences {
   method: SignInMethod;
+  /** Another OAuth app's client ID; `null` is Gewu's own. */
+  client_id: string | null;
+  /** Publish records what it would send and sends nothing. */
+  rehearse: boolean;
+}
+
+/** The settings screen's GitHub section. */
+export interface GitHubSettings extends GitHubPreferences {
   cli: CliState;
+  default_client_id: string;
+  /** The sandbox: nothing is ever sent. */
+  sandbox: boolean;
 }
 
 export interface GitHubBackend {
@@ -79,10 +91,12 @@ export interface GitHubBackend {
   signIn(token: string): Promise<GitHubAccount | null>;
   /** Forgets Gewu's token; with the CLI, goes back to Gewu's app. */
   signOut(): Promise<void>;
-  /** The method in use and whether `gh` is signed in. */
-  methods(): Promise<SignInMethods>;
+  /** Every GitHub setting, and whether `gh` is signed in. */
+  settings(): Promise<GitHubSettings>;
+  /** Saves every GitHub setting. */
+  updateSettings(preferences: GitHubPreferences): Promise<GitHubSettings>;
   /** Switches method; remembered for the next run. */
-  chooseMethod(method: SignInMethod): Promise<SignInMethods>;
+  chooseMethod(method: SignInMethod): Promise<GitHubSettings>;
 }
 
 export class BackendError extends Error {

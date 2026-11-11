@@ -7,10 +7,46 @@ const IDENTIFIER = /[A-Za-z_][A-Za-z0-9_]*/g;
  * compared at a glance. Code the author already broke across lines is kept.
  */
 export function layoutCode(code: string): string {
-  if (code.includes("\n") || !code.includes("{")) {
+  if (code.includes("\n")) {
     return code;
   }
-  return layoutBraces(code.trim());
+  const { body, comment } = splitTrailingComment(code.trim());
+  const laid = body.includes("{") ? layoutBraces(body) : body;
+  // A trailing note goes above the code, so a narrow pane shows both.
+  return comment ? `${comment}\n${laid}` : laid;
+}
+
+/** `code // note` → the code and the note, outside strings and lifetimes. */
+function splitTrailingComment(code: string): { body: string; comment: string | null } {
+  let quote: string | null = null;
+  for (let index = 0; index < code.length; index += 1) {
+    const ch = code[index] ?? "";
+    if (quote) {
+      if (ch === "\\") index += 1;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" && !isCharLiteral(code, index)) continue;
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "/" && code[index + 1] === "/" && index > 0) {
+      return { body: code.slice(0, index).trimEnd(), comment: code.slice(index) };
+    }
+  }
+  return { body: code, comment: null };
+}
+
+/**
+ * Whether the `'` at `index` opens a character literal (`'x'`, `'\n'`)
+ * rather than a Rust lifetime (`'a`), which has no closing quote.
+ */
+function isCharLiteral(code: string, index: number): boolean {
+  if (code[index + 1] === "\\") {
+    return code.indexOf("'", index + 2) !== -1 && code.indexOf("'", index + 2) <= index + 10;
+  }
+  return code[index + 2] === "'";
 }
 
 /**
@@ -95,6 +131,10 @@ function layoutBraces(code: string): string {
       } else if (ch === quote) {
         quote = null;
       }
+      continue;
+    }
+    if (ch === "'" && !isCharLiteral(code, index)) {
+      out += ch;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {

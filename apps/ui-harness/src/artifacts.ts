@@ -18,10 +18,48 @@ export async function waitReady(page: Page, timeoutMs = 15_000): Promise<void> {
   );
 }
 
+/**
+ * Whether anything is below the fold: the document, or a scrolling container
+ * inside it such as the app's main column. Containers that scroll are
+ * unrolled (marked `data-gewu-unrolled`) so a full-page shot shows them whole;
+ * `restoreScrollers` puts them back.
+ */
 async function pageScrolls(page: Page): Promise<boolean> {
-  return page.evaluate(
-    () => document.documentElement.scrollHeight > window.innerHeight + 2,
-  );
+  return page.evaluate(() => {
+    let scrolls = document.documentElement.scrollHeight > window.innerHeight + 2;
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+      const style = getComputedStyle(element);
+      const scroller = /(auto|scroll)/.test(style.overflowY);
+      if (scroller && element.scrollHeight > element.clientHeight + 2) {
+        element.dataset.gewuUnrolled = element.getAttribute("style") ?? "";
+        element.style.overflow = "visible";
+        element.style.height = "auto";
+        element.style.maxHeight = "none";
+        scrolls = true;
+      }
+    }
+    if (scrolls) {
+      for (const element of [document.documentElement, document.body, document.getElementById("root")]) {
+        if (element) {
+          element.dataset.gewuUnrolled = element.getAttribute("style") ?? "";
+          element.style.height = "auto";
+          element.style.overflow = "visible";
+        }
+      }
+    }
+    return scrolls;
+  });
+}
+
+async function restoreScrollers(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>("[data-gewu-unrolled]"))) {
+      const style = element.dataset.gewuUnrolled ?? "";
+      if (style) element.setAttribute("style", style);
+      else element.removeAttribute("style");
+      delete element.dataset.gewuUnrolled;
+    }
+  });
 }
 
 export async function writePageArtifacts(
@@ -57,6 +95,7 @@ export async function writePageArtifacts(
       timeout: 60_000,
     });
   }
+  await restoreScrollers(page);
 
   const aria = await page.locator("body").ariaSnapshot();
   await writeFile(path.join(outDir, ariaRel), aria, "utf8");

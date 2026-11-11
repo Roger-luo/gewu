@@ -69,6 +69,8 @@ export interface Posted {
 export interface Receipt {
   posted: Posted[];
   failure?: string;
+  /** Recorded, not sent: the links are what GitHub would have made. */
+  rehearsed?: boolean;
 }
 
 /** The summary screen's preview of what publishing would send. */

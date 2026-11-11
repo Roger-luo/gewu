@@ -360,6 +360,9 @@ impl Screen {
                 ChunkBlock::Narrative { markdown } => {
                     document.append(Markdown::render(markdown));
                 }
+                ChunkBlock::Explainer(explainer) => {
+                    document.append(Markdown::render(&explainer.markdown()));
+                }
                 ChunkBlock::Changes {
                     quotes,
                     presentation,

@@ -141,6 +141,67 @@ Rules:
   quote that includes the removed definition already puts it on the page, but
   the narrative still names what was dropped. Restating the new fields, or
   the chunk title, answers none of this.
+- Connect the chunk to what the change claims. When `.gewu/description.md`
+  claims an effect — faster, smaller, fixes a bug — and this chunk is one of
+  the reasons, say how, with the mechanism and its size: not "drops the owned
+  key" but "each entry shrinks from about 41 bytes to 5, so the index at
+  2^19 strings falls from about 40 MiB to 5 MiB". Name what it costs too — an
+  extra comparison, a lock, a precondition — so the reviewer can weigh it. A
+  chunk that only lists functions, call sites, and line ranges has told the
+  reviewer where things are, not why the change is better.
+- Explainers make that argument checkable. Gewu draws them from data you
+  give; you never write HTML. Add one as a `content` block where it teaches
+  more than a sentence would:
+
+  ```json
+  { "type": "explainer", "kind": "claim",
+    "claim": "words copied exactly from description.md",
+    "result": "optional measured result it reports, e.g. 940 → 367 MiB (−61%)",
+    "share": "required with result: this chunk's part, e.g. about 36 MiB of the 573 MiB drop",
+    "how": "Markdown: how this chunk contributes to it" }
+  { "type": "explainer", "kind": "layout", "title": "One index entry",
+    "rows": [ { "label": "Before", "fields": [ { "name": "Word<C>", "bytes": 32 },
+                                               { "name": "u32", "bytes": 4 } ] },
+              { "label": "After", "fields": [ { "name": "u32", "bytes": 4 } ] } ],
+    "source": "where the sizes come from: a type, a size_of test, a comment" }
+  { "type": "explainer", "kind": "cost_model", "title": "Index memory at size B",
+    "params": [ { "id": "b", "label": "Strings in the basis (B)", "min": 32768,
+                  "max": 2097152, "default": 524288, "scale": "log2",
+                  "marks": [131072, 524288] } ],
+    "series": [ { "label": "Before", "formula": "next_pow2(b * 8 / 7) * 41", "unit": "bytes" },
+                { "label": "After", "formula": "next_pow2(b * 8 / 7) * 5", "unit": "bytes" } ],
+    "note": "optional: what the model leaves out",
+    "source": "where the numbers come from" }
+  ```
+
+  - `claim`: only for a claim in `description.md`, copied exactly (a phrase
+    of a longer sentence is fine, and better when the sentence also claims
+    things this chunk does not explain); Gewu rejects a claim it cannot find
+    there, and any claim when there is no description. Put it on the first
+    chunk of the section that delivers it, not on every chunk.
+  - A measured `result` belongs to the whole change. Never set a part's
+    ratio ("8× smaller") beside the whole's number ("−61%") as if one explains
+    the other: `share` says how much of the result this chunk accounts for,
+    from your cost model or your reasoning, and says whether that share is
+    estimated or measured — an estimate set beside a measurement must say so —
+    and `how` names what else contributes. A small honest share convinces; an implied large one is
+    found out.
+  - `layout`: when the point is what a record holds — fields dropped, packed,
+    or shrunk. Sizes come from the code: a type's definition, a `size_of`
+    assertion, a documented layout. Never guess a size; if you cannot find
+    it, do not draw it.
+  - `cost_model`: when the claim is about scale — memory or work that grows
+    with a size the reviewer can picture. Parameters are whole numbers the
+    reviewer drags (1 to 3 of them; `log2` steps through powers of two);
+    formulas use only `+ - * / ^`, parentheses, the parameter ids, and
+    `log2 ceil floor min max next_pow2`. Put fractions such as a load
+    factor in the formula. Every series must be finite and not negative at
+    each parameter's min, default, and max. Use the benchmark's own sizes for
+    the default and as `marks`, and say in `note` what the model does not
+    count.
+  - An explainer supports the narrative and does not replace it: the prose
+    still says what to look for in the code. One or two per chunk at most;
+    a chunk that only moves code around needs none.
 - Put code in a context `example` as code text, without an outer Markdown fence;
   Gewu supplies the visual code boundary. Keep explanation and headings in the
   `definition` or `relation` fields instead of embedding them in the example.

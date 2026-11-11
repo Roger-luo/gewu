@@ -1,5 +1,7 @@
 use gewu_app::Action;
-use gewu_workbench::{GitHub, SignInMethod, Workbench, WorkbenchAction, WorkbenchError};
+use gewu_workbench::{
+    GitHub, Preferences, SignInMethod, Workbench, WorkbenchAction, WorkbenchError,
+};
 use serde::{Deserialize, Serialize};
 use tiny_http::{Method, Request};
 
@@ -53,7 +55,11 @@ pub(super) fn route(
                 .and_then(|reply| reply),
         ),
         (Method::Get, ["github", "account"]) => answer(github.account().map_err(Into::into)),
-        (Method::Get, ["github", "methods"]) => answer(github.methods().map_err(Into::into)),
+        (Method::Get, ["github", "settings"]) => answer(github.settings().map_err(Into::into)),
+        (Method::Post, ["github", "settings"]) => match Json::body::<Preferences>(request) {
+            Ok(preferences) => answer(github.set_preferences(preferences).map_err(Into::into)),
+            Err(reply) => reply,
+        },
         (Method::Post, ["github", "method"]) => match Json::body::<UseMethod>(request) {
             Ok(choice) => answer(github.use_method(choice.method).map_err(Into::into)),
             Err(reply) => reply,

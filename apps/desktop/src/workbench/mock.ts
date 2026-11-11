@@ -10,6 +10,7 @@ import type {
   LogEvent,
   RepositoryRefs,
   RepositoryView,
+  Settings,
   Source,
   TaskView,
   WorkbenchAction,
@@ -40,6 +41,8 @@ export class MockWorkbench implements WorkbenchBackend {
     this.delayMs = delayMs;
   }
 
+  private settings: Settings = { proofread_rounds: 2, default_agent: null };
+
   /** Two repositories and reviews in each state a reviewer meets. */
   static seeded(delayMs?: number): MockWorkbench {
     const workbench = new MockWorkbench(delayMs);
@@ -54,7 +57,17 @@ export class MockWorkbench implements WorkbenchBackend {
 
   async workbench(): Promise<WorkbenchSnapshot> {
     const tasks = await Promise.all(this.tasks.map((task) => this.view(task)));
-    return structuredClone({ repositories: this.repositories, tasks, agents: AGENTS });
+    return structuredClone({
+      repositories: this.repositories,
+      tasks,
+      agents: AGENTS,
+      settings: {
+        ...this.settings,
+        max_proofread_rounds: 5,
+        home: "/Users/ada/.gewu",
+        gewu: "/Users/ada/.cargo/bin/gewu",
+      },
+    });
   }
 
   async dispatch(action: WorkbenchAction): Promise<WorkbenchSnapshot> {
@@ -102,6 +115,17 @@ export class MockWorkbench implements WorkbenchBackend {
         this.task(action.task_id);
         this.tasks = this.tasks.filter((task) => task.view.id !== action.task_id);
         break;
+      case "update_settings": {
+        const { proofread_rounds, default_agent } = action.settings;
+        if (proofread_rounds < 0 || proofread_rounds > 5) {
+          throw new BackendError("proofread rounds must be between 0 and 5");
+        }
+        if (default_agent?.preset_id === "custom" && !default_agent.command?.trim()) {
+          throw new BackendError("a custom default agent needs the command that starts it");
+        }
+        this.settings = structuredClone(action.settings);
+        break;
+      }
     }
     return this.workbench();
   }

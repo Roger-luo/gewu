@@ -14,6 +14,31 @@ The design follows four principles:
 - Keep each code view within one comfortable terminal viewport.
 - Show supporting context only when it improves understanding.
 - Order changes for comprehension, not merely by file path.
+- Connect each part to what the change claims, with numbers a reviewer can
+  check, and say what it costs.
+
+#### Claims and explainers
+
+A walkthrough that names functions and line ranges tells the reviewer where
+things are, not why the change is better. When the author's description
+(`.gewu/description.md`, a pull request's title and body) claims an effect —
+faster, smaller, fixed — each section says which claim it serves, and the
+chunk that delivers it says how and by how much.
+
+Explainers make that argument checkable. They are typed `content` blocks the
+agent fills with data and Gewu draws (`gewu_review::Explainer`); the agent
+never writes markup, so they render safely and the harness can check them:
+
+- `claim`: a sentence quoted word for word from the description, an optional
+  measured result, and how this chunk serves it. A claim not found in the
+  description, or any claim when there is none, is rejected.
+- `layout`: records drawn to scale, field by field, so dropped or shrunk
+  fields are visible; sizes come from the code, with their source named.
+- `cost_model`: whole-number parameters the reviewer drags and series whose
+  formulas use only arithmetic, `log2`, `ceil`, `floor`, `min`, `max`, and
+  `next_pow2` (`explainer::formula`). Each series must be finite and not
+  negative across its parameters' range. The desktop app recomputes as the
+  slider moves; the terminal shows the values at the defaults.
 
 #### Review flow
 

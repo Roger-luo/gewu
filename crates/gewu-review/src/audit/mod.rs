@@ -144,6 +144,7 @@ impl<'a> ChunkProse<'a> {
         parts.extend(chunk.content.iter().filter_map(|block| match block {
             ChunkBlock::Narrative { markdown } => Some(markdown.as_str()),
             ChunkBlock::Changes { .. } => None,
+            ChunkBlock::Explainer(explainer) => explainer.prose(),
         }));
         parts.extend(chunk.confidence.as_deref());
         Self { parts }

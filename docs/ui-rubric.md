@@ -5,7 +5,7 @@ Judges see screenshots (1440×900 and 1024×700, light and possibly dark), aria
 snapshots, mechanical `checks.json`, and interaction screenshots. They do not
 read application source. This note explains what v1 measures, why, and how to
 revise it. The machine-readable rubric is the highest `apps/ui-harness/rubric/vN.json`
-(currently v5).
+(currently v10).
 
 The product criteria come from `docs/design.md` and `docs/desktop.md`: guided
 review is orientation, intent before mechanics, prose with quoted code, a
@@ -184,6 +184,18 @@ sharper anchors over more dimensions. Product-rule changes belong in
 
 ## Changelog
 
+- **v10** — Controls are grouped by purpose and placed where a user looks.
+  `navigation_structure` (weight 2) scores 1 when related actions are split
+  (New review at the top, Add repository below the list) or an app-wide
+  control such as Settings sits among content actions; 3 needs the start
+  actions together at the top, the lists in the middle, and the account and
+  Settings together at the sidebar's foot with a recognizable icon and a
+  current-page state, the same on every screen and viewport. The Settings
+  screen is now a captured page. v9 judged each screen's content but not
+  where its controls live, so a squeezed account chip and a Settings button
+  wedged under the repository list both passed. `platform_consistency` now
+  says app-wide controls belong at the sidebar's foot, so it no longer reads
+  as penalizing them there.
 - **v9** — A chunk that presents a new form of an existing structure has to
   show the difference. `representation_contrast` (weight 3) scores 1 when the
   title names the property, such as a compact word, and the prose only

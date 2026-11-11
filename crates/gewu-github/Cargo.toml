@@ -8,11 +8,14 @@ description = "GitHub sign-in and publishing for Gewu reviews"
 
 [dependencies]
 gewu-review = { version = "0.1.0", path = "../gewu-review" }
-keyring = { version = "3", features = ["apple-native", "windows-native"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.20"
 ureq = { version = "3.5.1", features = ["json"] }
+
+# macOS goes through `/usr/bin/security` instead; see `oauth/security.rs`.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

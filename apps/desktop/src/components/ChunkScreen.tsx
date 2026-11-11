@@ -7,6 +7,7 @@ import { assignNotes } from "../quoteNotes";
 import { sectionPosition } from "../navigation";
 import type { Action, Snapshot } from "../protocol";
 import { ChangesBlock } from "./ChangesBlock";
+import { ExplainerView } from "./explainers/ExplainerView";
 import { ContextPane } from "./ContextPane";
 import { FeedbackPanel } from "./FeedbackPanel";
 
@@ -197,6 +198,15 @@ function ChunkBody({
   blocks.forEach((block, index) => {
     if (block.type === "narrative") {
       pending = pending ? `${pending}\n\n${block.markdown}` : block.markdown;
+      return;
+    }
+    if (block.type === "explainer") {
+      flushLead(`lead-${index}`);
+      rendered.push(
+        <div className="block" key={`explainer-${index}`}>
+          <ExplainerView explainer={block} />
+        </div>,
+      );
       return;
     }
     const assigned = assignNotes(pending, block.quotes);

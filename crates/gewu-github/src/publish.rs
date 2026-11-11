@@ -19,6 +19,9 @@ pub struct Receipt {
     pub posted: Vec<Posted>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure: Option<String>,
+    /// Recorded, not sent: the links are what GitHub would have made.
+    #[serde(default)]
+    pub rehearsed: bool,
 }
 
 /// Sends `plan`: the pull-request review, then each bundle's issues, then

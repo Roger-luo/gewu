@@ -73,7 +73,7 @@ fn showcase_loads_through_validate_partial() {
         .flat_map(|chunk| &chunk.blocks)
         .filter_map(|block| match block {
             gewu_app::BlockView::Changes { presentation, .. } => Some(*presentation),
-            gewu_app::BlockView::Narrative { .. } => None,
+            gewu_app::BlockView::Narrative { .. } | gewu_app::BlockView::Explainer(_) => None,
         })
         .collect();
     assert!(presentations.contains(&gewu_review::ChangePresentation::Diff));
@@ -139,7 +139,7 @@ fn dispatch_adds_feedback_with_filled_anchor() {
         .iter()
         .find_map(|block| match block {
             gewu_app::BlockView::Changes { quotes, .. } => quotes.first(),
-            gewu_app::BlockView::Narrative { .. } => None,
+            gewu_app::BlockView::Narrative { .. } | gewu_app::BlockView::Explainer(_) => None,
         })
         .expect("quote");
     let new_line = quote
@@ -217,7 +217,7 @@ fn quote_with_old_lines(workspace: &ReviewWorkspace) -> (String, String, u32, u3
                     .iter()
                     .any(|line| line.old_line.is_some() && line.new_line.is_none())
             }),
-            gewu_app::BlockView::Narrative { .. } => None,
+            gewu_app::BlockView::Narrative { .. } | gewu_app::BlockView::Explainer(_) => None,
         })
         .expect("a quote with a removed line");
     let old: Vec<u32> = quote
@@ -247,7 +247,7 @@ fn dispatch_anchors_a_span_on_the_old_side() {
                 gewu_app::BlockView::Changes { quotes, .. } => {
                     quotes.iter().any(|quote| quote.change_id == change_id)
                 }
-                gewu_app::BlockView::Narrative { .. } => false,
+                gewu_app::BlockView::Narrative { .. } | gewu_app::BlockView::Explainer(_) => false,
             })
         })
         .expect("chunk")

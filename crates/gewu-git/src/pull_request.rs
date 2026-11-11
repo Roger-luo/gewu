@@ -11,6 +11,9 @@ pub struct PullRequest {
     pub head: String,
     pub target: String,
     pub title: Option<String>,
+    /// What the author wrote about the request, when `gh` can say: the
+    /// claims a walkthrough should connect its steps to.
+    pub body: Option<String>,
 }
 
 impl Repository<'_> {
@@ -26,9 +29,9 @@ impl Repository<'_> {
                     "could not fetch pull request #{number} from `{remote}`; is it a GitHub remote?: {error}"
                 ))
             })?;
-        let (target, title) = match self.described(number) {
-            Some((target, title)) => (target, Some(title)),
-            None => (self.default_branch(remote)?, None),
+        let (target, title, body) = match self.described(number) {
+            Some((target, title, body)) => (target, Some(title), body),
+            None => (self.default_branch(remote)?, None, None),
         };
         let tip = self.fetched(remote, &target)?;
         let base = self.git_text(["merge-base", &tip, &head])?;
@@ -37,6 +40,7 @@ impl Repository<'_> {
             head,
             target,
             title,
+            body,
         })
     }
 
@@ -56,15 +60,16 @@ impl Repository<'_> {
         self.git_text(["rev-parse", "FETCH_HEAD^{commit}"])
     }
 
-    /// The request's target branch and title, from `gh`, if it can answer.
-    fn described(&self, number: u64) -> Option<(String, String)> {
+    /// The request's target branch, title, and body, from `gh`, if it can
+    /// answer. An empty body is `None`.
+    fn described(&self, number: u64) -> Option<(String, String, Option<String>)> {
         let output = Command::new("gh")
             .args([
                 "pr",
                 "view",
                 &number.to_string(),
                 "--json",
-                "baseRefName,title",
+                "baseRefName,title,body",
             ])
             .current_dir(self.root)
             .output()
@@ -74,6 +79,11 @@ impl Repository<'_> {
         Some((
             view["baseRefName"].as_str()?.to_owned(),
             view["title"].as_str()?.to_owned(),
+            view["body"]
+                .as_str()
+                .map(str::trim)
+                .filter(|body| !body.is_empty())
+                .map(str::to_owned),
         ))
     }
 

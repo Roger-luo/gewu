@@ -20,7 +20,7 @@ fn reviewed(fixture: &Fixture) -> String {
         .iter()
         .find_map(|block| match block {
             BlockView::Changes { quotes, .. } => quotes.first(),
-            BlockView::Narrative { .. } => None,
+            BlockView::Narrative { .. } | BlockView::Explainer(_) => None,
         })
         .expect("quote");
     let change_id = quote.change_id.clone();
@@ -179,5 +179,41 @@ fn contributors_are_read_from_the_remote_once_per_run() {
     assert_eq!(
         github.calls()[0].1,
         "/repos/acme/project/contributors?per_page=100"
+    );
+}
+
+#[test]
+fn a_rehearsal_sends_nothing_and_marks_nothing_as_sent() {
+    let fixture = Fixture::new();
+    fixture.git(&["remote", "add", "origin", "git@github.com:acme/project.git"]);
+    let id = reviewed(&fixture);
+
+    let receipt = fixture.workbench.rehearse(&id, "octocat").expect("receipt");
+    assert!(receipt.rehearsed);
+    assert_eq!(receipt.failure, None);
+    assert_eq!(receipt.posted.len(), 2);
+    let after = fixture.workbench.publication(&id).expect("publication");
+    assert!(after.published.is_empty(), "a rehearsal records no posts");
+    assert_eq!(
+        after.requests.len(),
+        2,
+        "the notes are still waiting to be sent"
+    );
+}
+
+#[test]
+fn a_remote_off_github_is_named_in_the_blocked_message() {
+    let fixture = Fixture::new();
+    fixture.git(&["remote", "add", "origin", "/srv/git/project.git"]);
+    let id = reviewed(&fixture);
+    let blocked = fixture
+        .workbench
+        .publication(&id)
+        .expect("publication")
+        .blocked
+        .expect("blocked");
+    assert!(
+        blocked.contains("`origin` points at /srv/git/project.git, not github.com"),
+        "{blocked}"
     );
 }

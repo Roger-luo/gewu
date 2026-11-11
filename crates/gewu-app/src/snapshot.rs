@@ -66,6 +66,8 @@ pub enum BlockView {
         presentation: ChangePresentation,
         quotes: Vec<QuoteView>,
     },
+    /// Drawn by the app from the agent's data; see [`gewu_review::Explainer`].
+    Explainer(gewu_review::Explainer),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -234,6 +236,7 @@ impl BlockView {
                     .filter_map(|quote| resolve_quote(quote, changes))
                     .collect(),
             },
+            ChunkBlock::Explainer(explainer) => Self::Explainer(explainer.clone()),
         }
     }
 }

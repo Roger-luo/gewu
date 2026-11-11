@@ -14,7 +14,7 @@ import {
   type Receipt,
   type Venue,
 } from "../publication";
-import { avatarFor, MOCK_CONTRIBUTORS, mockGitHub, mockSignedIn } from "./mockGitHub";
+import { avatarFor, MOCK_CONTRIBUTORS, mockGitHub, mockRehearsing, mockSignedIn } from "./mockGitHub";
 import { BackendError, type Backend, type Contributor } from "./types";
 
 function clone<T>(value: T): T {
@@ -162,6 +162,9 @@ export class MockBackend implements Backend {
           feedback_ids: [],
         });
       }
+    }
+    if (mockRehearsing()) {
+      return { posted, rehearsed: true };
     }
     this.requestsSent += planRequests(plan).length;
     this.posted.push(...posted);

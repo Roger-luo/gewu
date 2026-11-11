@@ -14,12 +14,15 @@ export function SummaryScreen({
   snapshot,
   publication,
   account,
+  rehearsing,
   onNavigate,
   onDecide,
 }: {
   snapshot: Snapshot;
   publication: PublicationState;
   account: GitHubAccount | null;
+  /** Publish only rehearses, per Settings. */
+  rehearsing?: boolean;
   onNavigate: (target: ReviewTarget) => void;
   onDecide: (decision: Decision) => void;
 }) {
@@ -173,7 +176,7 @@ export function SummaryScreen({
         </section>
       </div>
 
-      <PublicationPreview state={publication} account={account} />
+      <PublicationPreview state={publication} account={account} rehearsing={rehearsing} />
     </main>
   );
 }

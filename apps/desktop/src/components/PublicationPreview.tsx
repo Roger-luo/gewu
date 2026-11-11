@@ -13,9 +13,12 @@ import { ConfirmPublish, PublishBar, ReceiptView } from "./PublishControls";
 export function PublicationPreview({
   state,
   account,
+  rehearsing = false,
 }: {
   state: PublicationState;
   account: GitHubAccount | null;
+  /** Settings say to rehearse: Publish records and sends nothing. */
+  rehearsing?: boolean;
 }) {
   const { publication, error } = state;
   const [confirming, setConfirming] = useState(false);
@@ -25,8 +28,9 @@ export function PublicationPreview({
     <section className="panel publication" aria-label="Publication preview">
       <h3>Publication preview</h3>
       <p className="muted">
-        This is the text Gewu would post. Nothing is sent until you press Publish
-        and confirm, so reading it does not call GitHub.
+        {rehearsing
+          ? "This is the text Gewu would post. Rehearsal is on in Settings, so Publish records it and sends nothing."
+          : "This is the text Gewu would post. Nothing is sent until you press Publish and confirm, so reading it does not call GitHub."}
       </p>
       {error && (
         <p className="publication-failure" role="alert">
@@ -80,6 +84,7 @@ export function PublicationPreview({
               blocked={publication.blocked}
               account={account}
               count={publication.requests.length}
+              rehearsing={rehearsing}
               onPublish={() => setConfirming(true)}
             />
           )}
@@ -89,6 +94,7 @@ export function PublicationPreview({
         <ConfirmPublish
           account={account}
           paths={publication.requests.map((request) => `${request.method} ${request.path}`)}
+          rehearsing={rehearsing}
           onCancel={() => setConfirming(false)}
           onConfirm={async () => {
             const send = state.publish;

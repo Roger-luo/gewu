@@ -3,6 +3,8 @@
 //! kept in the system keychain.
 
 mod device;
+#[cfg(target_os = "macos")]
+mod security;
 mod store;
 
 #[cfg(test)]
@@ -16,7 +18,7 @@ use crate::{Account, GitHubError, TokenApi, Transport};
 use device::DeviceCode;
 
 pub use device::{GitHubLogin, LoginEndpoint};
-pub use store::{Keychain, MemoryStore, TokenStore};
+pub use store::{Cached, Keychain, MemoryStore, TokenStore};
 
 /// Gewu's OAuth app. A client ID is public; the device flow needs no secret.
 pub const GEWU_CLIENT_ID: &str = "Ov23liMKKIvqy32L2nuS";
@@ -59,7 +61,7 @@ type MakeApi = Box<dyn Fn(&str) -> Box<dyn Transport> + Send + Sync>;
 
 /// One reviewer's OAuth sign-in: the pending device code and the saved token.
 pub struct OAuthSession {
-    client_id: String,
+    client_id: Mutex<String>,
     login: Box<dyn LoginEndpoint>,
     store: Box<dyn TokenStore>,
     make_api: MakeApi,
@@ -72,7 +74,7 @@ impl OAuthSession {
         Ok(Self::with_parts(
             client_id,
             Box::new(GitHubLogin::default()),
-            Box::new(Keychain::open()?),
+            Box::new(Cached::new(Keychain::open()?)),
             Box::new(|token| Box::new(TokenApi::new(token))),
         ))
     }
@@ -85,7 +87,7 @@ impl OAuthSession {
         make_api: MakeApi,
     ) -> Self {
         Self {
-            client_id: client_id.into(),
+            client_id: Mutex::new(client_id.into()),
             login,
             store,
             make_api,
@@ -111,7 +113,7 @@ impl OAuthSession {
     pub fn start(&self) -> Result<SignInStart, GitHubError> {
         let reply = self.login.post(
             "/login/device/code",
-            &[("client_id", &self.client_id), ("scope", SCOPE)],
+            &[("client_id", &self.client_id()), ("scope", SCOPE)],
         )?;
         if let Some(error) = reply["error"].as_str() {
             return Err(GitHubError::SignIn(describe(error, &reply)));
@@ -137,7 +139,7 @@ impl OAuthSession {
         let reply = self.login.post(
             "/login/oauth/access_token",
             &[
-                ("client_id", &self.client_id),
+                ("client_id", &self.client_id()),
                 ("device_code", &code.device_code),
                 ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             ],
@@ -171,6 +173,25 @@ impl OAuthSession {
     pub fn sign_out(&self) -> Result<(), GitHubError> {
         *self.pending() = None;
         self.store.delete()
+    }
+
+    /// The OAuth app sign-ins go through.
+    #[must_use]
+    pub fn client_id(&self) -> String {
+        self.client_id
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Uses another OAuth app for the next sign-in. A saved token keeps
+    /// working; it belongs to whichever app issued it.
+    pub fn set_client_id(&self, client_id: &str) {
+        *self
+            .client_id
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = client_id.to_string();
+        *self.pending() = None;
     }
 
     fn pending(&self) -> std::sync::MutexGuard<'_, Option<DeviceCode>> {

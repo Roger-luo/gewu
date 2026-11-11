@@ -44,6 +44,10 @@ impl Home {
         self.root.join("repositories.json")
     }
 
+    pub(crate) fn settings(&self) -> PathBuf {
+        self.root.join("settings.json")
+    }
+
     pub(crate) fn tasks(&self) -> PathBuf {
         self.root.join("tasks")
     }

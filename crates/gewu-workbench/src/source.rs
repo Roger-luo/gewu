@@ -72,6 +72,7 @@ impl Source {
         let git = repository.git();
         let lines = DEFAULT_MAX_CHUNK_LINES;
         // `Err(path)` marks a directory: everything under it is the change.
+        let mut description = None;
         let (head, base, title): (String, Result<String, &str>, Option<String>) = match self {
             Self::WorkingTree { base } => {
                 let input = git.worktree_input(base, lines)?;
@@ -92,6 +93,10 @@ impl Source {
             Self::PullRequest { number, remote } => {
                 let request = git.pull_request(remote, *number)?;
                 let title = request.title.map(|title| format!("#{number} {title}"));
+                description = request.body.map(|body| match &title {
+                    Some(title) => format!("# {title}\n\n{body}\n"),
+                    None => format!("{body}\n"),
+                });
                 (request.head, Ok(request.base), title)
             }
             Self::Directory { path, reference } => (git.commit(reference)?, Err(path), None),
@@ -108,6 +113,16 @@ impl Source {
             Err(path) => checked_out.directory_input(&head, path, lines)?,
         };
         checked_out.ensure_changes(&input, false)?;
+        // The author's own account of the change: what the walkthrough's
+        // claims are quoted from and checked against.
+        if let Some(description) = description {
+            let gewu = checkout.join(".gewu");
+            std::fs::create_dir_all(&gewu)?;
+            std::fs::write(
+                gewu.join(gewu_review::harness::DESCRIPTION_FILE),
+                description,
+            )?;
+        }
         Ok(Prepared {
             root: checkout.to_path_buf(),
             isolated: true,

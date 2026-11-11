@@ -55,6 +55,9 @@ pub enum WorkbenchAction {
     DeleteTask {
         task_id: String,
     },
+    UpdateSettings {
+        settings: crate::Settings,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -118,6 +121,7 @@ pub struct WorkbenchSnapshot {
     /// Newest first.
     pub tasks: Vec<TaskView>,
     pub agents: Vec<PresetView>,
+    pub settings: crate::SettingsView,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

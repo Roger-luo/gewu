@@ -3,8 +3,9 @@
 
 use gewu_app::{Action, Snapshot};
 use gewu_workbench::{
-    Account, Contributor, GitHub, GitHubError, Publication, Receipt, RepositoryRefs, SignInMethod,
-    SignInMethods, SignInPoll, SignInStart, TaskLog, WorkbenchAction, WorkbenchSnapshot,
+    Account, Contributor, GitHub, GitHubError, GitHubSettings, Preferences, Publication, Receipt,
+    RepositoryRefs, SignInMethod, SignInPoll, SignInStart, TaskLog, WorkbenchAction,
+    WorkbenchSnapshot,
 };
 use tauri::State;
 
@@ -83,6 +84,12 @@ pub fn publish(
     task_id: String,
 ) -> Reply<Receipt> {
     let workbench = state.workbench()?;
+    if github.rehearsing() {
+        // Rehearsing still posts "as" someone, so the receipt reads true.
+        let login =
+            text(github.account())?.map_or_else(|| "you".to_owned(), |account| account.login);
+        return text(workbench.rehearse(&task_id, &login));
+    }
     text(github.with_transport(|transport| workbench.publish(&task_id, transport)))?
         .map_err(|error| error.to_string())
 }
@@ -134,16 +141,25 @@ pub fn github_sign_out(github: State<'_, GitHub>) -> Reply<()> {
     text(github.sign_out())
 }
 
-/// The sign-in method in use, and whether `gh` is signed in.
+/// Every GitHub setting, and whether `gh` is signed in.
 #[tauri::command(async)]
-pub fn github_methods(github: State<'_, GitHub>) -> Reply<SignInMethods> {
-    text(github.methods())
+pub fn github_settings(github: State<'_, GitHub>) -> Reply<GitHubSettings> {
+    text(github.settings())
 }
 
 /// Switches between Gewu's OAuth app and the GitHub CLI.
 #[tauri::command(async)]
-pub fn github_use_method(github: State<'_, GitHub>, method: SignInMethod) -> Reply<SignInMethods> {
+pub fn github_use_method(github: State<'_, GitHub>, method: SignInMethod) -> Reply<GitHubSettings> {
     text(github.use_method(method))
+}
+
+/// Saves the settings screen's GitHub section.
+#[tauri::command(async)]
+pub fn github_update_settings(
+    github: State<'_, GitHub>,
+    preferences: Preferences,
+) -> Reply<GitHubSettings> {
+    text(github.set_preferences(preferences))
 }
 
 /// A folder the reviewer picks, or `None` if they cancel.

@@ -13,9 +13,14 @@ const AGENT_KEY = "gewu.agent";
 
 type CreateTask = Extract<WorkbenchAction, { type: "create_task" }>;
 
+/** The Settings default, else the agent used last, else the first installed. */
 function defaultAgent(snapshot: WorkbenchSnapshot): string {
-  const remembered = globalThis.localStorage?.getItem(AGENT_KEY);
   const usable = snapshot.agents.filter((agent) => agent.available);
+  const chosen = snapshot.settings.default_agent?.preset_id;
+  if (chosen && usable.some((agent) => agent.id === chosen)) {
+    return chosen;
+  }
+  const remembered = globalThis.localStorage?.getItem(AGENT_KEY);
   if (remembered && usable.some((agent) => agent.id === remembered)) {
     return remembered;
   }
@@ -57,7 +62,7 @@ export function NewReviewScreen({
   const [type, setType] = useState<SourceType>("commit_range");
   const [draft, setDraft] = useState<SourceDraft>(EMPTY_DRAFT);
   const [agent, setAgent] = useState(() => defaultAgent(snapshot));
-  const [command, setCommand] = useState("");
+  const [command, setCommand] = useState(() => snapshot.settings.default_agent?.command ?? "");
   const [title, setTitle] = useState("");
   const [refs, setRefs] = useState<{ id: string; refs: RepositoryRefs | null; error: string | null } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);

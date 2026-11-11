@@ -12,6 +12,9 @@ FAKE_AGENT_MODE selects other behavior:
                      write, one refused command, then end the turn
   meddle             edit a project file directly, then end the turn
   fail               exit with an error before answering the prompt
+FAKE_AGENT_LOGIN makes session/new need `authenticate` first, as Cursor's
+agent does: `required` accepts the advertised method, `refused` turns it
+down as a signed-out CLI would.
 FAKE_AGENT_DELAY is the pause between steps in seconds (default 0.2), so a
 UI can be watched while a batch runs.
 """
@@ -23,6 +26,8 @@ import time
 
 MODE = os.environ.get("FAKE_AGENT_MODE", "harness")
 DELAY = float(os.environ.get("FAKE_AGENT_DELAY", "0.2"))
+LOGIN = os.environ.get("FAKE_AGENT_LOGIN", "")
+SIGN_IN = "Authentication required. Please run 'fake login' first."
 
 
 class Cancelled(Exception):
@@ -185,6 +190,7 @@ class Agent:
         self.say("Stopped: " + status.splitlines()[0] if status else "Stopped.")
 
     def serve(self):
+        signed_in = not LOGIN
         while True:
             message = self.read()
             method = message.get("method")
@@ -192,7 +198,19 @@ class Agent:
                 self.send({"id": message["id"], "result": {
                     "protocolVersion": 1, "agentCapabilities": {},
                     "agentInfo": {"name": "fake-acp-agent", "version": "1.0.0"},
-                    "authMethods": []}})
+                    "authMethods": [{"id": "fake_login", "name": "Fake Login"}] if LOGIN else []}})
+            elif method == "authenticate":
+                if LOGIN == "required" and message["params"]["methodId"] == "fake_login":
+                    signed_in = True
+                    self.send({"id": message["id"], "result": {}})
+                else:
+                    self.send({"id": message["id"], "error": {
+                        "code": -32000, "message": "Authentication required",
+                        "data": {"message": SIGN_IN}}})
+            elif method == "session/new" and not signed_in:
+                self.send({"id": message["id"], "error": {
+                    "code": -32000, "message": "Authentication required",
+                    "data": {"message": SIGN_IN}}})
             elif method == "session/new":
                 self.cwd = message["params"]["cwd"]
                 self.session = "fake-session"

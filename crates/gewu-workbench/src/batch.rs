@@ -16,8 +16,6 @@ const WAITING: &str = "# Gewu harness: waiting for the reviewer";
 const COMPLETE: &str = "# COMPLETE";
 const HEADING: &str = "# Gewu harness: ";
 const PROOFREADING: [&str; 2] = ["# Gewu harness: proofread", "# Gewu harness: polish"];
-/// Rewrites a batch may get after a fresh agent scores it against the rubric.
-const PROOFREAD_ROUNDS: u32 = 2;
 
 /// Where a batch left the task.
 struct Ended {
@@ -226,7 +224,7 @@ impl Workbench {
                 );
                 if record.uses_agent() {
                     HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false)
-                        .with_proofread(PROOFREAD_ROUNDS)
+                        .with_proofread(self.settings().proofread_rounds)
                         .start(
                             format!("review-{:x}", now()),
                             prepared.input,
@@ -292,6 +290,8 @@ impl Workbench {
         // The author stops where proofreading begins, and a fresh agent reads
         // the batch: a walkthrough reads as complete to whoever wrote it. Each
         // rewrite takes one more run, and the last reading one more.
+        // Rewrites a batch may get after a fresh agent scores it.
+        let rounds = self.settings().proofread_rounds;
         let mut fresh = 0;
         let outcome = loop {
             let (message, start) = if fresh == 0 {
@@ -334,7 +334,7 @@ impl Workbench {
             let proofreading = PROOFREADING
                 .iter()
                 .any(|heading| prompt.starts_with(heading));
-            if !proofreading || !outcome.denials.is_empty() || fresh > PROOFREAD_ROUNDS {
+            if !proofreading || !outcome.denials.is_empty() || fresh > rounds {
                 break outcome;
             }
             fresh += 1;

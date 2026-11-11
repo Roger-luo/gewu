@@ -32,6 +32,12 @@ the item that walks through that unit, so no chunk has to quote a fragment of
 the next one to cover its span.
 Exempt edge context may be in an item's spans or left out; either validates.
 
+When `.gewu/description.md` makes claims, the `purpose` of each item says
+which claim it serves and how, in one clause: "the memory saving: the index
+stops copying each string". An item that serves none — plumbing, tests, a
+lockfile — says what it enables instead. The reviewer should never reach the
+end of a section without knowing why it was in the change.
+
 Keep mechanically repeated configuration together when it supports one review
 decision. Settings that differ only by a command name, label, or priority are
 usually one item; repeat a shared caveat once and point back to it rather than

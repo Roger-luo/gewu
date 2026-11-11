@@ -16,3 +16,7 @@ pub use store::{HarnessStore, HarnessStoreError};
 pub use validation::{HarnessValidationError, HarnessValidationErrors};
 
 pub const HARNESS_SCHEMA_VERSION: u32 = 1;
+
+/// Beside `review-input.json`: the author's description of the change, such
+/// as a pull request's title and body. Claim explainers quote it.
+pub const DESCRIPTION_FILE: &str = "description.md";

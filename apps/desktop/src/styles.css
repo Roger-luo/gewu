@@ -221,12 +221,38 @@ main[data-gewu-screen] {
   flex: none;
 }
 
+/* Name on one row, buttons below: the sidebar is too narrow for both. */
+.github-identity {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .github-login {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 13px;
+}
+
+.github-login,
+.github-via {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.github-actions {
+  display: flex;
+  flex: 1 1 100%;
+  gap: var(--space-2);
+}
+
+.github-actions .btn {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .github-status {
@@ -1487,6 +1513,7 @@ main[data-gewu-screen] {
 
 .github-via {
   display: block;
+  overflow: hidden;
   font-size: 11px;
 }
 
@@ -1529,4 +1556,30 @@ main[data-gewu-screen] {
 .sign-in-in-use {
   color: var(--accent-ink);
   font-weight: 400;
+}
+
+.publication-actions .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.settings-button svg {
+  flex: none;
+}
+
+.settings-button[aria-current="page"] {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.dialog-action-start {
+  margin-right: auto;
 }

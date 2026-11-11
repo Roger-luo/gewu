@@ -57,6 +57,7 @@ pub(crate) struct Inner {
     pub(crate) publishing: Mutex<()>,
     /// Each GitHub repository's contributors, read once per run.
     pub(crate) contributors: Mutex<HashMap<String, Vec<gewu_github::Contributor>>>,
+    pub(crate) settings: Mutex<crate::Settings>,
 }
 
 #[derive(Clone)]
@@ -69,6 +70,7 @@ impl Workbench {
     /// previous process stopped is marked failed, since nothing runs it now.
     pub fn open(home: Home, gewu: &Path) -> Result<Self, WorkbenchError> {
         let repositories = Home::read(&home.repositories())?.unwrap_or_default();
+        let settings = Home::read(&home.settings())?.unwrap_or_default();
         let mut tasks = Vec::new();
         if let Ok(entries) = std::fs::read_dir(home.tasks()) {
             for entry in entries.flatten() {
@@ -105,6 +107,7 @@ impl Workbench {
                 }),
                 publishing: Mutex::new(()),
                 contributors: Mutex::default(),
+                settings: Mutex::new(settings),
             }),
         })
     }
@@ -157,7 +160,34 @@ impl Workbench {
             repositories,
             tasks,
             agents: Preset::views(),
+            settings: crate::SettingsView {
+                settings: self.settings(),
+                max_proofread_rounds: crate::MAX_PROOFREAD_ROUNDS,
+                home: self.inner.home.root().display().to_string(),
+                gewu: self.inner.gewu.display().to_string(),
+            },
         })
+    }
+
+    /// The reviewer's settings now.
+    #[must_use]
+    pub fn settings(&self) -> crate::Settings {
+        self.inner
+            .settings
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    pub(crate) fn update_settings(&self, settings: crate::Settings) -> Result<(), WorkbenchError> {
+        let settings = settings.validated()?;
+        Home::write(&self.inner.home.settings(), &settings)?;
+        *self
+            .inner
+            .settings
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = settings;
+        Ok(())
     }
 
     /// Commits, branches, pull requests, and directories to choose from.

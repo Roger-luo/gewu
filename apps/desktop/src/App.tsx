@@ -11,7 +11,7 @@ import { OverviewScreen } from "./components/OverviewScreen";
 import { SummaryScreen } from "./components/SummaryScreen";
 import { useFocusOnNavigate } from "./hooks/useFocusOnNavigate";
 import { useContributors } from "./hooks/useContributors";
-import { useGitHub } from "./hooks/useGitHub";
+import { useGitHub, type GitHubState } from "./hooks/useGitHub";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePublication } from "./hooks/usePublication";
 import { useReviewApp } from "./hooks/useReviewApp";
@@ -31,6 +31,10 @@ export interface ReviewTask {
   onChange: () => void;
   onBack: () => void;
   onShowTask: () => void;
+  /** Opens the workbench's Settings. */
+  onSettings?: () => void;
+  /** The workbench's GitHub account state. */
+  github?: GitHubState;
   onContinue: () => void;
   host: TestApiHost;
 }
@@ -115,7 +119,10 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     return `${anchor.change_id}:${anchor.start_line}-${anchor.end_line}`;
   }, [anchor, app.chunkIndex, app.snapshot, commentOn]);
 
-  const github = useGitHub(backend.github);
+  // Inside the workbench, share its account state so a sign-in made here
+  // shows in its sidebar and Settings too.
+  const own = useGitHub(task?.github ? undefined : backend.github);
+  const github = task?.github ?? own;
   const contributors = useContributors(
     backend,
     app.overlay === "feedback",
@@ -192,6 +199,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
         onNavigate={(target) => void app.goto(target)}
         taskTitle={task?.view.title}
         github={github}
+        onSettings={task?.onSettings}
       />
       <div className="app-main-column">
         {task && (
@@ -230,6 +238,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             snapshot={snapshot}
             publication={publication}
             account={github.account}
+            rehearsing={github.settings?.rehearse ?? false}
             onNavigate={(target) => void app.goto(target)}
             onDecide={(decision) =>
               void app.dispatch({ type: "set_decision", decision })

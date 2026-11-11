@@ -1,4 +1,5 @@
 import type { Snapshot } from "../protocol";
+import { explainersSnapshot } from "./explainers";
 import { pairedSnapshot } from "./paired";
 import { paletteSnapshot } from "./palette";
 import { selfReviewSnapshot } from "./self-review";
@@ -11,6 +12,7 @@ const mocks: Record<string, () => Snapshot> = {
   "self-review": selfReviewSnapshot,
   palette: paletteSnapshot,
   paired: pairedSnapshot,
+  explainers: explainersSnapshot,
 };
 
 export function createMockSnapshot(name: string): Snapshot {
@@ -28,4 +30,5 @@ export {
   selfReviewSnapshot,
   paletteSnapshot,
   pairedSnapshot,
+  explainersSnapshot,
 };

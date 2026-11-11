@@ -5,8 +5,9 @@ import type {
   Contributor,
   GitHubAccount,
   GitHubBackend,
+  GitHubPreferences,
   SignInMethod,
-  SignInMethods,
+  GitHubSettings,
   SignInPoll,
   SignInStart,
 } from "../backend/types";
@@ -75,8 +76,10 @@ const httpGitHub: GitHubBackend = {
   pollSignIn: () => request<SignInPoll>("/api/github/sign-in/poll", {}),
   signIn: (token: string) => request<GitHubAccount | null>("/api/github/sign-in", { token }),
   signOut: () => request<null>("/api/github/sign-out", {}).then(() => undefined),
-  methods: () => request<SignInMethods>("/api/github/methods"),
-  chooseMethod: (method: SignInMethod) => request<SignInMethods>("/api/github/method", { method }),
+  settings: () => request<GitHubSettings>("/api/github/settings"),
+  updateSettings: (preferences: GitHubPreferences) =>
+    request<GitHubSettings>("/api/github/settings", preferences),
+  chooseMethod: (method: SignInMethod) => request<GitHubSettings>("/api/github/method", { method }),
 };
 
 const tauriGitHub: GitHubBackend = {
@@ -85,8 +88,10 @@ const tauriGitHub: GitHubBackend = {
   pollSignIn: () => command<SignInPoll>("github_sign_in_poll"),
   signIn: (token: string) => command<GitHubAccount | null>("github_sign_in", { token }),
   signOut: () => command<null>("github_sign_out").then(() => undefined),
-  methods: () => command<SignInMethods>("github_methods"),
-  chooseMethod: (method: SignInMethod) => command<SignInMethods>("github_use_method", { method }),
+  settings: () => command<GitHubSettings>("github_settings"),
+  updateSettings: (preferences: GitHubPreferences) =>
+    command<GitHubSettings>("github_update_settings", { preferences }),
+  chooseMethod: (method: SignInMethod) => command<GitHubSettings>("github_use_method", { method }),
 };
 
 export class TauriWorkbench implements WorkbenchBackend {

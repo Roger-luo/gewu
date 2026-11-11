@@ -12,6 +12,7 @@ mod home;
 mod log;
 mod protocol;
 mod repository;
+mod settings;
 mod source;
 mod task;
 mod workbench;
@@ -19,12 +20,14 @@ mod workbench;
 pub use error::WorkbenchError;
 pub use gewu_git::{CommitSummary, PullRequestSummary, RepositoryRefs};
 pub use gewu_github::{
-    Account, CliState, Contributor, GEWU_CLIENT_ID, GhCli, GitHub, GitHubError, OAuthSession,
-    Posted, Receipt, Recorder, SignInMethod, SignInMethods, SignInPoll, SignInStart, Transport,
+    Account, CliState, Contributor, GEWU_CLIENT_ID, GhCli, GitHub, GitHubError, GitHubSettings,
+    OAuthSession, Posted, Preferences, Receipt, Recorder, SignInMethod, SignInPoll, SignInStart,
+    Transport,
 };
 pub use home::Home;
 pub use protocol::{
     AgentChoice, LogEvent, RepositoryView, ReviewProgress, Source, TaskLog, TaskStatus, TaskView,
     WorkbenchAction, WorkbenchSnapshot,
 };
+pub use settings::{MAX_PROOFREAD_ROUNDS, Settings, SettingsView};
 pub use workbench::{Publication, Workbench};

@@ -18,16 +18,25 @@ export function SignInDialog({
   onClose: () => void;
 }) {
   const [start, setStart] = useState<SignInStart | null>(null);
+  // Read once, so the title does not change mid-sign-in.
+  const [signedIn] = useState(github.account !== null);
   const [busy, setBusy] = useState<SignInMethod | null>(null);
+  // The method in use before this dialog switched away from it. Leaving
+  // without finishing the new sign-in goes back to it, so Cancel never
+  // signs the reviewer out.
+  const [previous, setPrevious] = useState<SignInMethod | null>(null);
+  const cancel = () => {
+    if (previous) void github.chooseMethod(previous);
+    onClose();
+  };
 
   // Started from the click, not an effect, so one press asks GitHub for one
   // code and opens the browser once.
   const choose = async (method: SignInMethod) => {
     setBusy(method);
+    const current = github.settings?.method ?? null;
     const switched =
-      github.methods?.method === method
-        ? { account: github.account }
-        : await github.chooseMethod(method);
+      current === method ? { account: github.account } : await github.chooseMethod(method);
     if (!switched) {
       setBusy(null);
       return;
@@ -36,24 +45,25 @@ export function SignInDialog({
       onClose();
       return;
     }
+    if (current !== method && github.account) setPrevious(current);
     const next = await github.startSignIn();
     setBusy(null);
     setStart(next);
   };
 
   return (
-    <Dialog title="Sign in to GitHub" onClose={onClose}>
+    <Dialog title={signedIn ? "GitHub account" : "Sign in to GitHub"} onClose={cancel}>
       {start === null ? (
         <SignInChoice
-          methods={github.methods}
+          settings={github.settings}
           signedIn={github.account !== null}
           busy={busy}
           onChoose={(method) => void choose(method)}
         />
       ) : start.kind === "token" ? (
-        <TokenForm github={github} onClose={onClose} />
+        <TokenForm github={github} onDone={onClose} onCancel={cancel} />
       ) : (
-        <DeviceCode github={github} start={start} onClose={onClose} />
+        <DeviceCode github={github} start={start} onDone={onClose} onCancel={cancel} />
       )}
       {github.error && (
         <p className="github-error" role="alert">
@@ -62,7 +72,25 @@ export function SignInDialog({
       )}
       {start === null && (
         <div className="dialog-actions">
-          <button type="button" className="btn" onClick={onClose}>
+          {github.account && github.settings?.method === "gh" && (
+            <button
+              type="button"
+              className="btn dialog-action-start"
+              onClick={() => void github.signOut().then(onClose)}
+            >
+              Stop using the GitHub CLI
+            </button>
+          )}
+          {github.account && github.settings?.method === "gewu" && (
+            <button
+              type="button"
+              className="btn dialog-action-start"
+              onClick={() => void github.signOut().then(onClose)}
+            >
+              Sign out of Gewu&apos;s app
+            </button>
+          )}
+          <button type="button" className="btn" onClick={cancel}>
             Cancel
           </button>
         </div>
@@ -75,18 +103,20 @@ export function SignInDialog({
 function DeviceCode({
   github,
   start,
-  onClose,
+  onDone,
+  onCancel,
 }: {
   github: GitHubState;
   start: Extract<SignInStart, { kind: "device" }>;
-  onClose: () => void;
+  onDone: () => void;
+  onCancel: () => void;
 }) {
   const [ended, setEnded] = useState<string | null>(null);
   const { pollSignIn } = github;
-  const close = useRef(onClose);
+  const close = useRef(onDone);
   useEffect(() => {
-    close.current = onClose;
-  }, [onClose]);
+    close.current = onDone;
+  }, [onDone]);
 
   useEffect(() => {
     let live = true;
@@ -142,7 +172,7 @@ function DeviceCode({
         <p role="status">Waiting for approval on GitHub…</p>
       )}
       <div className="dialog-actions">
-        <button type="button" className="btn" onClick={onClose}>
+        <button type="button" className="btn" onClick={onCancel}>
           {ended ? "Close" : "Cancel"}
         </button>
       </div>
@@ -150,7 +180,15 @@ function DeviceCode({
   );
 }
 
-function TokenForm({ github, onClose }: { github: GitHubState; onClose: () => void }) {
+function TokenForm({
+  github,
+  onDone,
+  onCancel,
+}: {
+  github: GitHubState;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -158,7 +196,7 @@ function TokenForm({ github, onClose }: { github: GitHubState; onClose: () => vo
     const signedIn = await github.signIn(token.trim());
     setBusy(false);
     if (signedIn) {
-      onClose();
+      onDone();
     }
   };
   return (
@@ -179,7 +217,7 @@ function TokenForm({ github, onClose }: { github: GitHubState; onClose: () => vo
         />
       </label>
       <div className="dialog-actions">
-        <button type="button" className="btn" onClick={onClose}>
+        <button type="button" className="btn" onClick={onCancel}>
           Cancel
         </button>
         <button

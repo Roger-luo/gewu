@@ -150,13 +150,15 @@ pub enum ChunkBlock {
         quotes: Vec<Quote>,
         presentation: ChangePresentation,
     },
+    /// A typed teaching block: a claim, a layout, or a cost model.
+    Explainer(crate::Explainer),
 }
 
 impl ChunkBlock {
     #[must_use]
     pub fn quotes(&self) -> &[Quote] {
         match self {
-            Self::Narrative { .. } => &[],
+            Self::Narrative { .. } | Self::Explainer(_) => &[],
             Self::Changes { quotes, .. } => quotes,
         }
     }

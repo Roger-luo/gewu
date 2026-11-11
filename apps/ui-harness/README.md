@@ -37,7 +37,7 @@ pnpm --dir apps/ui-harness ui score --run output/run-1
 pnpm --dir apps/ui-harness ui rank --runs output/run-1 output/run-2 --out rank.md
 ```
 
-`mise run ui-journeys` builds the UI, captures review pages, and runs the six
+`mise run ui-journeys` builds the UI, captures review pages, and runs the seven
 journeys into `.gewu/ui-runs/<label>`.
 
 ## QA

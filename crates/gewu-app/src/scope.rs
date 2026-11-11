@@ -23,7 +23,7 @@ impl FileView {
             .flat_map(|chunk| &chunk.blocks)
             .filter_map(|block| match block {
                 BlockView::Changes { quotes, .. } => Some(quotes),
-                BlockView::Narrative { .. } => None,
+                BlockView::Narrative { .. } | BlockView::Explainer(_) => None,
             })
             .flatten()
             .map(|quote| quote.path.as_str())

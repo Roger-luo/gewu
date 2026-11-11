@@ -14,6 +14,9 @@ pub enum AgentError {
         .reason.as_ref().map(|reason| format!(": {reason}")).unwrap_or_default()
     )]
     Stopped { reason: Option<String> },
+    /// The agent wants its own CLI signed in, e.g. `agent login` for Cursor.
+    #[error("the agent needs you to sign in to it first: {0}")]
+    SignInRequired(String),
     #[error("git: {0}")]
     Git(String),
     #[error(transparent)]
@@ -43,6 +46,14 @@ impl AgentError {
 
 impl From<agent_client_protocol::Error> for AgentError {
     fn from(error: agent_client_protocol::Error) -> Self {
+        if error.code == agent_client_protocol::ErrorCode::AUTH_REQUIRED {
+            let detail = error
+                .data
+                .as_ref()
+                .and_then(|data| data["message"].as_str())
+                .unwrap_or(&error.message);
+            return Self::SignInRequired(detail.to_owned());
+        }
         Self::Protocol(error.to_string())
     }
 }

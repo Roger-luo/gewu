@@ -79,6 +79,19 @@ publishing against GitHub: use
 `gewu_github::Recorder` in Rust (the `gewu ui serve` sandbox uses it too) and
 the mock in the desktop tests.
 
+Settings (`workbench/SettingsScreen.tsx`) lists every option: GitHub (sign-in
+method, OAuth client ID, rehearse instead of sending, all in `github.json`),
+the default agent and proofread rounds (`gewu_workbench::Settings`, in
+`settings.json`), and the paths only environment variables set. A new option
+belongs there, not only in an environment variable.
+
+A chunk teaches with explainers (`gewu_review::Explainer`: `claim`,
+`layout`, `cost_model`), drawn by `components/explainers/` and validated in
+Rust; the formula grammar lives twice, `explainer/formula.rs` and
+`explainer.ts`, and their tests share cases, so change both together. A
+pull-request task writes the PR title and body to `.gewu/description.md`,
+which claims must quote. `?mock=explainers` shows them.
+
 `apps/desktop/src/workbench/format.ts` maps harness stage names to the label
 the task list shows. A new stage with no entry shows nothing.
 
@@ -100,7 +113,7 @@ UI gate: typecheck, lint, test, and build for `apps/desktop` and
 A published rubric file is immutable. A defect the QA loop should keep
 catching goes in the next `apps/ui-harness/rubric/vN.json`, with the version
 named in `docs/ui-rubric.md` and the QA prompts under `apps/ui-harness/prompts/`.
-The latest published UI rubric is v9.
+The latest published UI rubric is v10.
 
 ## How generation reaches the reviewer
 
@@ -110,8 +123,16 @@ live in `.gewu/harness/`. After a batch validates it is appended to
 `review-spec.json`. With proofreading on, the author stops there and a fresh
 agent scores the batch; otherwise the batch waits for the reviewer.
 
-`gewu review generate` and the workbench proofread with two rewrites
-(`--proofread-rounds`, `PROOFREAD_ROUNDS` in `crates/gewu-workbench/src/batch.rs`).
+`gewu review generate` and the workbench proofread with two rewrites by
+default (`--proofread-rounds`; in the workbench, Settings → Proofread rounds,
+saved in the home's `settings.json` and read when a review starts).
+An agent that refuses `session/new` with "authentication required", as
+Cursor's `agent acp` does even when its CLI is signed in, is sent
+`authenticate` with the first method it handles itself and retried once
+(`crates/gewu-agent/src/session.rs`). If that is refused too, the task fails
+with "the agent needs you to sign in to it first", naming the agent's own
+instructions, not "stopped unexpectedly".
+
 `gewu harness start` proofreads only when asked, so an agent driving the
 harness by hand is not grading itself. Each driver starts a new agent session
 while the status heading is `# Gewu harness: proofread` or `# Gewu harness:

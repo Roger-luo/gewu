@@ -195,7 +195,8 @@ impl ReviewTui {
                 presentation: ChangePresentation::SummaryOnly,
                 ..
             }
-            | ChunkBlock::Narrative { .. } => &[][..],
+            | ChunkBlock::Narrative { .. }
+            | ChunkBlock::Explainer(_) => &[][..],
             ChunkBlock::Changes { quotes, .. } => quotes.as_slice(),
         });
         for quote in quotes {

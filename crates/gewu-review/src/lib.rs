@@ -2,6 +2,7 @@
 
 pub mod audit;
 pub mod context;
+pub mod explainer;
 mod fallback;
 pub mod handover;
 pub mod harness;
@@ -14,6 +15,7 @@ mod side;
 mod spec;
 mod validation;
 
+pub use explainer::Explainer;
 pub use handover::Handover;
 pub use height::{CHUNK_HEIGHT_GUIDANCE, HeightBreakdown, chunk_height, pane_height};
 pub use input::{Change, ReviewInput, SourceIdentity};

@@ -1,4 +1,10 @@
-import type { GitHubAccount, GitHubBackend, SignInMethod, SignInMethods } from "./types";
+import type {
+  GitHubAccount,
+  GitHubBackend,
+  GitHubPreferences,
+  GitHubSettings,
+  SignInMethod,
+} from "./types";
 
 /**
  * GitHub for the mock and tests. Gewu's app signs in through the device
@@ -8,18 +14,44 @@ import type { GitHubAccount, GitHubBackend, SignInMethod, SignInMethods } from "
  */
 const STORAGE_KEY = "gewu.mock-github";
 const METHOD_KEY = "gewu.mock-github-method";
+const PREFS_KEY = "gewu.mock-github-prefs";
 
 export const MOCK_LOGIN = "octocat";
 export const MOCK_CLI_LOGIN = "hubot";
 export const MOCK_CODE = "MOCK-1234";
+export const MOCK_CLIENT_ID = "Ov23liMKKIvqy32L2nuS";
 
 let polls = 0;
+/** Polls before the mock approves the code; tests that cancel raise it. */
+let approveAfter = 2;
+
+export function holdMockApproval(hold: boolean): void {
+  approveAfter = hold ? Number.POSITIVE_INFINITY : 2;
+}
 
 const method = (): SignInMethod => (localStorage.getItem(METHOD_KEY) === "gh" ? "gh" : "gewu");
 
-const methods = (): SignInMethods => ({
+/** The client ID and rehearsal choice; the method has its own key. */
+function saved(): Pick<GitHubPreferences, "client_id" | "rehearse"> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<GitHubPreferences>;
+    return { client_id: parsed.client_id ?? null, rehearse: parsed.rehearse ?? false };
+  } catch {
+    return { client_id: null, rehearse: false };
+  }
+}
+
+/** Whether a mock publish only rehearses. */
+export function mockRehearsing(): boolean {
+  return saved().rehearse;
+}
+
+const settings = (): GitHubSettings => ({
   method: method(),
+  ...saved(),
   cli: { status: "signed_in", login: MOCK_CLI_LOGIN },
+  default_client_id: MOCK_CLIENT_ID,
+  sandbox: false,
 });
 
 export const mockGitHub: GitHubBackend = {
@@ -40,7 +72,7 @@ export const mockGitHub: GitHubBackend = {
   },
   async pollSignIn() {
     polls += 1;
-    if (polls < 2) {
+    if (polls < approveAfter) {
       return { status: "pending" };
     }
     localStorage.setItem(STORAGE_KEY, MOCK_LOGIN);
@@ -53,13 +85,19 @@ export const mockGitHub: GitHubBackend = {
     if (method() === "gh") localStorage.removeItem(METHOD_KEY);
     else localStorage.removeItem(STORAGE_KEY);
   },
-  async methods() {
-    return methods();
+  async settings() {
+    return settings();
+  },
+  async updateSettings(preferences: GitHubPreferences) {
+    await this.chooseMethod(preferences.method);
+    const client_id = preferences.client_id?.trim() || null;
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ client_id, rehearse: preferences.rehearse }));
+    return settings();
   },
   async chooseMethod(next: SignInMethod) {
     if (next === "gh") localStorage.setItem(METHOD_KEY, "gh");
     else localStorage.removeItem(METHOD_KEY);
-    return methods();
+    return settings();
   },
 };
 
@@ -72,6 +110,7 @@ export function signInMockGitHub(): void {
 export function signOutMockGitHub(): void {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(METHOD_KEY);
+  localStorage.removeItem(PREFS_KEY);
 }
 
 /** Who the mock repository's notes can `@`-mention. */

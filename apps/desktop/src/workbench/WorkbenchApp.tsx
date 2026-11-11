@@ -8,11 +8,12 @@ import { AddRepositoryForm } from "./AddRepositoryForm";
 import { HomeScreen } from "./HomeScreen";
 import { NewReviewScreen } from "./NewReviewScreen";
 import type { TaskView, WorkbenchRoute } from "./protocol";
+import { SettingsScreen } from "./SettingsScreen";
 import { TaskScreen } from "./TaskScreen";
 import { useWorkbench, type WorkbenchController } from "./useWorkbench";
 import { useWorkbenchTestApi } from "./useWorkbenchTestApi";
 import { WorkbenchNav } from "./WorkbenchNav";
-import { useGitHub } from "../hooks/useGitHub";
+import { useGitHub, type GitHubState } from "../hooks/useGitHub";
 
 export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   const wb = useWorkbench(backend);
@@ -70,7 +71,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   }
 
   if (route.screen === "review" && task?.review) {
-    return <TaskReview key={task.id} wb={wb} task={task} onBack={() => {
+    return <TaskReview key={task.id} wb={wb} task={task} github={github} onBack={() => {
       setFilter(task.repository_id);
       navigate({ screen: "home" });
     }} />;
@@ -116,6 +117,23 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             onCancel={leaveNewReview}
           />
         )}
+        {route.screen === "settings" && (
+          <SettingsScreen
+            settings={snapshot.settings}
+            agents={snapshot.agents}
+            github={github}
+            onSave={async (settings) => {
+              // Refused values are shown beside Save, not in the banner.
+              try {
+                await backend.dispatch({ type: "update_settings", settings });
+              } catch (err) {
+                return err instanceof Error ? err.message : String(err);
+              }
+              wb.refresh();
+              return null;
+            }}
+          />
+        )}
         {route.screen === "task" && task && (
           <TaskScreen
             backend={backend}
@@ -147,10 +165,12 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
 function TaskReview({
   wb,
   task,
+  github,
   onBack,
 }: {
   wb: WorkbenchController;
   task: TaskView;
+  github: GitHubState;
   onBack: () => void;
 }) {
   const review = useMemo(() => wb.backend.review(task.id), [task.id, wb.backend]);
@@ -166,6 +186,8 @@ function TaskReview({
         onChange: () => void wb.refresh(),
         onBack,
         onShowTask: () => navigate({ screen: "task", task_id: task.id }),
+        onSettings: () => navigate({ screen: "settings" }),
+        github,
         onContinue: () => void dispatch({ type: "continue_task", task_id: task.id }),
         host,
       }}

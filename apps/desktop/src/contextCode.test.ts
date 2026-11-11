@@ -46,4 +46,29 @@ describe("context code", () => {
       "dropped-field",
     );
   });
+
+  it("lays out a struct with lifetimes one field per line", () => {
+    expect(
+      layoutCode(
+        "pub(crate) struct CompactBasisIndex<'a, const C: usize> { basis: &'a [Word<C>], table: HashTable<u32> }",
+      ),
+    ).toBe(
+      "pub(crate) struct CompactBasisIndex<'a, const C: usize> {\n    basis: &'a [Word<C>],\n    table: HashTable<u32>\n}",
+    );
+  });
+
+  it("still treats a character literal as a string", () => {
+    expect(layoutCode("const SEP: char = '{'; struct A { b: u8 }")).toBe(
+      "const SEP: char = '{'; struct A {\n    b: u8\n}",
+    );
+  });
+
+  it("puts a trailing comment above the code", () => {
+    expect(layoutCode("FxHashMap<Word<C>, u32> // from basis::build_basis_index")).toBe(
+      "// from basis::build_basis_index\nFxHashMap<Word<C>, u32>",
+    );
+    expect(layoutCode('let url = "https://example.com"; // home')).toBe(
+      '// home\nlet url = "https://example.com";',
+    );
+  });
 });

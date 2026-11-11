@@ -38,7 +38,8 @@ fn main() {
             commands::github_sign_in_start,
             commands::github_sign_in_poll,
             commands::github_sign_out,
-            commands::github_methods,
+            commands::github_settings,
+            commands::github_update_settings,
             commands::github_use_method,
         ])
         .run(tauri::generate_context!())

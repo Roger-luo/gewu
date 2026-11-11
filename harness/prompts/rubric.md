@@ -12,6 +12,17 @@ Read the draft back, one chunk at a time, and answer for each:
 - Would the sentence read the same outside a walkthrough? Drop what narrates
   how the review was made. A sentence that tells a newcomer how this chunk
   connects to the last one or to the overview's map is not narration; keep it.
+- When the change claims an effect (in `.gewu/description.md`) and this
+  chunk delivers part of it, does the reviewer learn how, with numbers they
+  could check — bytes per entry, work per step, the size it scales with —
+  and what it costs? A chunk that names functions and line ranges without
+  the effect has not shown that the change is an improvement.
+- Is every number in an explainer traceable to its `source`, and does a
+  cost model's default match the size the claim was measured at?
+- Does a chunk that cites a measured result say its own share of it, and
+  is that share consistent with its cost model? Placing this chunk's ratio
+  beside the whole change's number, so the reader credits this part with the
+  whole, is misleading even when every number is true.
 - Could a reviewer who skipped the previous chunk tell, from this chunk alone,
   what part of the change they are reading and why it matters?
 - Do the summary and the narrative say different things? The summary says what

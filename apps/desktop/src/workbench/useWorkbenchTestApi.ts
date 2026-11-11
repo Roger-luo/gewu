@@ -36,6 +36,7 @@ export function useWorkbenchTestApi(wb: WorkbenchController): void {
           case "new-review":
           case "task":
           case "review":
+          case "settings":
             ref.current.navigate(target);
             break;
           default:
@@ -48,6 +49,7 @@ export function useWorkbenchTestApi(wb: WorkbenchController): void {
         const pages: GewuTestPage[] = [
           { id: "home", label: "Home", target: { screen: "home" } },
           { id: "new-review", label: "New review", target: { screen: "new-review" } },
+          { id: "settings", label: "Settings", target: { screen: "settings" } },
         ];
         for (const task of tasks) {
           pages.push({ id: `task-${task.id}`, label: task.title, target: { screen: "task", task_id: task.id } });

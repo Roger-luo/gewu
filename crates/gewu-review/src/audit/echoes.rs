@@ -136,6 +136,7 @@ fn sentences(chunk: &ReviewChunk) -> Vec<String> {
     parts.extend(chunk.content.iter().filter_map(|block| match block {
         crate::ChunkBlock::Narrative { markdown } => Some(markdown.clone()),
         crate::ChunkBlock::Changes { .. } => None,
+        crate::ChunkBlock::Explainer(explainer) => explainer.prose().map(str::to_owned),
     }));
     let mut out = Vec::new();
     for part in parts {

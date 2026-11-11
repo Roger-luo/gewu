@@ -9,7 +9,9 @@ given.
 
 - `manifest.json` — URL, viewports, page list, rubric version, git head
 - `pages/<viewport>/` — screenshots (`.png`) and ARIA snapshots (`.aria.yaml`)
-  for every page the harness visited, plus optional interaction shots
+  for every page the harness visited, plus optional interaction shots. A page
+  with content below the fold also has `<page>-full.png`, the whole page
+  unrolled; judge what is below the fold from it, not from ARIA alone
 - `checks.json` — mechanical findings and counters (axe, layout, targets,
   console, hooks, keyboard). Treat these as evidence, not as scores.
 - `journeys.json` and `journeys/<nn>-<story>/` — scripted user stories run
