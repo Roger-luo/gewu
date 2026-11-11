@@ -82,6 +82,12 @@ impl HarnessRunner {
                 &error_strings(errors.0),
             ));
         }
+        let spec = self.spec()?;
+        self.store.record_proofread(
+            batch.rewrites,
+            &named(&spec.chunks, &batch.chunks),
+            &proofread,
+        )?;
         self.store.discard_proofread()?;
         let failing: Vec<ChunkProofread> = proofread.failing().cloned().collect();
         // A proofreader stops here even when the gate would let the next

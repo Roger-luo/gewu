@@ -107,6 +107,17 @@ fn a_low_score_is_rewritten_and_read_again() {
     assert!(again.contains("rewritten 1 of 2"), "{again}");
     let spec = fixture.spec();
     assert!(spec.chunks[0].summary.starts_with("Rewritten"));
+    let log = std::fs::read_to_string(fixture.runner.store.verdicts_path()).expect("log");
+    let first: serde_json::Value =
+        serde_json::from_str(log.lines().next().expect("a line")).expect("json");
+    assert_eq!(first["rewrites"], 0);
+    assert!(
+        !first["chunks"][0]["summary"]
+            .as_str()
+            .expect("summary")
+            .starts_with("Rewritten"),
+        "the log keeps the chunk the proofreader read, not its rewrite"
+    );
     assert_eq!(
         spec.chunks[0].section.as_deref(),
         Some("Item 0"),

@@ -5,6 +5,7 @@ mod proofreading;
 mod store;
 mod tests_section;
 mod validation;
+mod verdicts;
 
 pub use model::{
     Expansion, HarnessStage, HarnessState, InvestigationCheckpoint, InvestigationFinding,
