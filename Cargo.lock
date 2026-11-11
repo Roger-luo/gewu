@@ -1649,6 +1649,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "gewu-decide",
  "gewu-git",
  "gewu-harness",
  "gewu-http",
@@ -1660,6 +1661,18 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
+ "toml 1.2.1+spec-1.1.0",
+]
+
+[[package]]
+name = "gewu-decide"
+version = "0.1.0"
+dependencies = [
+ "gewu-review",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tiny_http",
+ "ureq",
 ]
 
 [[package]]
@@ -1737,6 +1750,7 @@ dependencies = [
  "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.20",
+ "toml 1.2.1+spec-1.1.0",
  "unicode-width",
 ]
 

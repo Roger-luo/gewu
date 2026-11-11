@@ -8,7 +8,9 @@ pub mod handover;
 pub mod harness;
 mod height;
 mod input;
+pub mod load;
 mod publication;
+mod reading;
 pub mod research;
 mod session;
 mod side;
@@ -26,6 +28,7 @@ pub use publication::{
     GEWU_REPOSITORY, GitHubRequest, InlineComment, IssueBundle, IssueDraft, Note, Plan,
     PullRequestDraft, Venue,
 };
+pub use reading::ReadingTime;
 pub use session::{
     Decision, EventLog, Feedback, FeedbackKind, FeedbackTarget, LineAnchor, ReviewEvent,
     ReviewSession, SessionError,

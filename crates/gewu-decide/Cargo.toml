@@ -1,0 +1,16 @@
+[package]
+name = "gewu-decide"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Typed yes/no decisions about Gewu walkthroughs, answered by TypeSafe Jev or a scripted mock"
+
+[dependencies]
+gewu-review = { version = "0.1.0", path = "../gewu-review" }
+serde_json = "1.0.151"
+thiserror = "2.0.20"
+ureq = { version = "3.5.1", features = ["json"] }
+
+[dev-dependencies]
+tiny_http = "0.12.0"

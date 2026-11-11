@@ -4,6 +4,7 @@ members = [
     "crates/gewu-agent",
     "crates/gewu-app",
     "crates/gewu-cli",
+    "crates/gewu-decide",
     "crates/gewu-desktop",
     "crates/gewu-git",
     "crates/gewu-github",

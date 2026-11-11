@@ -2,6 +2,8 @@ mod audit;
 mod feedback;
 mod frames;
 mod handover;
+mod load;
+mod rubric;
 
 use std::{
     fs,
@@ -22,6 +24,8 @@ use self::audit::AuditArgs;
 use self::feedback::{ResolveArgs, RetargetArgs};
 use self::frames::FramesArgs;
 use self::handover::HandoverArgs;
+use self::load::LoadArgs;
+use self::rubric::RubricArgs;
 
 const GUIDE: &str = include_str!("../../../../harness/review.md");
 
@@ -35,6 +39,10 @@ pub enum ReviewCommand {
     Validate(ValidateArgs),
     /// Check a validated review's coverage and references mechanically.
     Audit(AuditArgs),
+    /// Score how much each chunk asks of its reader (advisory).
+    Load(LoadArgs),
+    /// Print the cognitive-load rubric in effect, or check a rubric file.
+    Rubric(RubricArgs),
     /// Generate a deterministic file-ordered fallback specification.
     Fallback(FallbackArgs),
     /// Have an agent write the walkthrough, stopping at each reviewer gate.
@@ -63,6 +71,8 @@ impl ReviewCommand {
             }
             Self::Validate(args) => args.run(),
             Self::Audit(args) => args.run(),
+            Self::Load(args) => args.run(),
+            Self::Rubric(args) => args.run(),
             Self::Fallback(args) => args.run(),
             Self::Generate(args) => args.run(),
             Self::Pr(args) => args.generate.for_pull_request(args.number).run(),

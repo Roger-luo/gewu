@@ -1,0 +1,174 @@
+# Gewu's cognitive-load rubric: what a walkthrough chunk asks of its reader.
+#
+# This file is data, not code. Gewu builds it into the binary as the default;
+# `gewu review load --rubric <file>` scores with another copy. Each release
+# may change any value here from reviewer feedback and labelled chunks,
+# following `[guidance].recalibrate`. Bump `version` with every change, so
+# scores from different versions are never compared.
+
+version = 3
+summary = "Reading time decides whether a chunk is too heavy; Jev's answers say why."
+
+[provenance]
+calibrated = "2026-11-11"
+data = """
+80 chunks sampled from six generated walkthroughs of one pull request, labelled
+blind by fresh Claude agents. One PR is a narrow base: treat every value as a
+first estimate and recalibrate as soon as more walkthroughs are labelled."""
+results = "docs/load-calibration.md"
+notes = """
+v3: the app's chunk budget moved from 40 rendered rows to 220 s of reading,
+the cutoff `scripts/load_calibration` chose on three walkthroughs under
+`bars.max_false_flags`. On the three held out it caught all 9 chunks labelled
+overloaded and flagged 3 of the 19 labelled fine. Reading time alone ranked
+held-out chunks at AUC 0.97.
+Jev's question weights are unchanged from v2: neither they nor fitted weights
+passed the bars, so Jev's answers explain a chunk's load but do not decide
+it. `distant_recall` failed its own-label check (AUC 0.61) and is next to
+reword; `disconnected` and `missing_contrast` were too rarely labelled yes
+to judge."""
+
+[guidance]
+# The definition labellers, reviewers' feedback, and the score all share.
+overloaded = """
+A chunk is overloaded when a careful reviewer new to the change would have to
+re-read it, or hold more in mind than they can at once, to judge it. It is not
+overloaded when it can be followed and judged in one careful pass, even if it
+is long or the code is hard. Length alone is not overload: a long chunk that
+makes one point plainly is not overloaded."""
+
+labelling = """
+Judge each chunk on its own merits, from the page alone, as the reviewer meets
+it: the earlier chunks' titles and summaries are what the reader already has.
+Answer `overloaded` and each question that applies with yes or no, and give a
+one-line reason naming what in the chunk decided it. Do not look at the
+score, reading time, or Jev's answers before labelling."""
+
+recalibrate = """
+1. Collect labels: reviewers' "this chunk was too much" feedback, or blind
+   labels from fresh agents given `labelling` and this file's questions.
+   Prefer walkthroughs from several repositories and pull requests.
+2. Run `scripts/load_calibration.py build` over those walkthroughs and
+   `scripts/load_calibration.py eval`. It checks `[bars]` and writes a
+   proposal: fitted weights and the reading-time cutoff chosen by
+   `bars.max_false_flags`.
+3. Write down any change to `[bars]` before looking at the results.
+4. Apply the proposal by hand, bump `version`, and record the data and
+   results in `[provenance]`. Never fit and judge on the same walkthroughs."""
+
+# What a chunk may cost before the harness asks for it to be split, or for an
+# `oversized_reason`. The desktop app holds chunks to `chunk_seconds`; the
+# terminal UI keeps its row budget, because a terminal pages.
+[budget]
+chunk_seconds = 220
+
+# L = Σ weight·X + time_weight · max(0, T / budget.chunk_seconds − 1);
+# overloaded when L ≥ threshold. A walkthrough has high cognitive overhead
+# when P(#overloaded > ⌊overloaded_share·N⌋) ≥ 1/2.
+[equation]
+threshold = 1.0
+time_weight = 0.5
+overloaded_share = 0.25
+
+# Seconds a reviewer spends, by what they read. Estimator units: they rank
+# chunks; the budget above is calibrated in the same units.
+[reading]
+words_per_minute = 230.0
+changed_line = 7.0
+removed_line = 3.0
+context_line = 1.5
+import_line = 1.0
+trivial_line = 0.3
+repeated_line = 1.0
+branch = 2.0
+new_name = 2.0
+nesting_level = 0.5
+line_ceiling = 15.0
+figure = 4.0
+stepper_step = 3.0
+value = 1.5
+highlighted_line = 2.0
+unquoted_stepper_line = 1.5
+cost_model_param = 4.0
+stepper_discount = 0.3
+
+# Checked by `load_calibration.py eval`, on held-out walkthroughs unless noted.
+[bars]
+question_auc = 0.65      # every question against its own label (whole sample)
+min_labels = 5           # of each answer, for a question to be judged
+model_auc = 0.75
+accuracy = 0.75
+brier = 0.20
+jev_margin = 0.05        # Jev must beat reading time alone by this much AUC
+max_spend_usd = 0.10
+# The proposed `budget.chunk_seconds` is the cutoff with the best balanced
+# accuracy that flags at most this share of chunks labelled fine: each flag
+# costs an agent revision.
+max_false_flags = 0.20
+
+# The yes/no questions Jev answers about each chunk. "Yes" is a sign of load.
+# `tests = false` skips a question for test chunks, which Gewu writes
+# without prose.
+[[question]]
+name = "distant_recall"
+instructions = "Does this chunk depend on something the reader has not been given: a type, field, invariant, or value that is neither shown or explained in this chunk nor introduced by one of the earlier chunks listed?"
+when_true = "A sentence or quoted line cannot be followed without a definition that is absent from this chunk and from the earlier chunks' titles and summaries."
+when_false = "Everything the chunk relies on is shown here, introduced by an earlier chunk listed, or ordinary knowledge of the language and its standard library."
+weight = 0.6
+tests = true
+
+[[question]]
+name = "many_new_names"
+instructions = "Does this chunk introduce more than three new names (types, functions, fields, variables) that the reader must track at once to follow it?"
+when_true = "Four or more names not introduced by earlier chunks are needed together to understand the point."
+when_false = "Three or fewer new names matter, or the rest are incidental."
+weight = 0.6
+tests = true
+
+[[question]]
+name = "several_points"
+instructions = "Does this chunk make two or more separate points, or test two or more separate behaviours, that a reviewer would judge independently?"
+when_true = "The chunk could be split into parts with unrelated decisions, changes, or behaviours under test."
+when_false = "The chunk makes one point or tests one behaviour; every part serves it."
+weight = 0.5
+tests = true
+
+[[question]]
+name = "unframed_change"
+instructions = "Is the reader left to work out for themselves what changed and why, rather than being told?"
+when_true = "The prose describes what the code does but not what is different from before or what motivated it."
+when_false = "The prose states what changed relative to before and why."
+weight = 0.5
+tests = false
+
+[[question]]
+name = "disconnected"
+instructions = "Is the reader left to connect this chunk to the rest of the change alone?"
+when_true = "Nothing says where this sits in the change or how it relates to the earlier chunks."
+when_false = "The chunk says what it adds to the whole and how it relates to the chunks around it."
+weight = 0.5
+tests = false
+
+[[question]]
+name = "missing_contrast"
+instructions = "Does this chunk replace or redefine a structure (a type, encoding, or format) without showing the old and new forms side by side?"
+when_true = "A structure changes form and the reader must reconstruct the earlier one to see the difference."
+when_false = "No structure is redefined, or both forms are on the page with the difference named."
+weight = 0.4
+tests = false
+
+[[question]]
+name = "dense_code"
+instructions = "Is the quoted code dense enough that a reviewer must trace it line by line, with nothing saying which lines matter?"
+when_true = "Much nested or branching logic is quoted and neither prose nor comments point at the lines that carry the point."
+when_false = "The code is short or plain, or prose or comments guide the reader to the lines that matter."
+weight = 0.5
+tests = true
+
+[[question]]
+name = "padded"
+instructions = "Do at least two sentences of this chunk's prose repeat what the title, another sentence, or the quoted code already says, so that a reader would lose nothing by skipping them?"
+when_true = "Two or more sentences can be deleted without the reader losing anything."
+when_false = "At most one sentence could be skipped. Short prose, or prose that names what the code does not show (why, what changed, what to check), is not padded."
+weight = 0.3
+tests = false

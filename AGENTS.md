@@ -41,6 +41,8 @@ mise exec -- prek run --all-files
 - `crates/gewu-review`: interface-independent review domain.
 - `crates/gewu-git`: Git diffs, trees, and pull requests.
 - `crates/gewu-github`: GitHub sign-in and publishing through a `Transport`.
+- `crates/gewu-decide`: typed yes/no decisions (TypeSafe Jev, a mock) for the
+  cognitive-load score; its rubric is data in `crates/gewu-review/rubrics/load.toml`.
 - `crates/gewu-harness`: progressive generation harness (no terminal I/O).
 - `crates/gewu-tui`: terminal review UI.
 - `crates/gewu-cli`: command parsing and terminal presentation.

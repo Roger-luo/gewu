@@ -9,6 +9,7 @@ description = "CLI runtime for Gewu"
 [dependencies]
 anyhow = "1.0.104"
 clap = { version = "4.6.6", features = ["derive"] }
+gewu-decide = { version = "0.1.0", path = "../gewu-decide" }
 gewu-git = { version = "0.1.0", path = "../gewu-git" }
 gewu-harness = { version = "0.1.0", path = "../gewu-harness" }
 gewu-http = { version = "0.1.0", path = "../gewu-http" }
@@ -19,6 +20,7 @@ hex = "0.4.3"
 serde = "1.0.229"
 serde_json = "1.0.151"
 sha2 = "0.11.0"
+toml = "1"
 
 [dev-dependencies]
 tempfile = "3.27.0"
