@@ -129,8 +129,16 @@ pub fn awaiting(spec: &ReviewSpec, remaining: usize) -> String {
 }
 
 /// What the reviewer left on the batch they just read, before the next one.
-pub fn reviewer_read(feedback: usize) -> String {
-    if feedback == 0 {
+/// What the reviewer has done before this item, for its expand prompt.
+/// `reading` says they are still reading the latest batch, so this item is
+/// written ahead of them.
+pub fn reviewer_read(feedback: usize, reading: bool) -> String {
+    if reading {
+        "The reviewer is reading the batch you wrote last; this item is written ahead of them, \
+         so it is ready when they finish. Feedback they leave on it reaches you at the next \
+         gate.\n\n"
+            .to_owned()
+    } else if feedback == 0 {
         "The reviewer read every chunk so far and left no feedback.\n\n".to_owned()
     } else {
         format!(
@@ -424,6 +432,7 @@ mod tests {
             purpose: "Purpose".into(),
             covers: Vec::<Quote>::new(),
             expanded: false,
+            chunks: Vec::new(),
         };
         let expansion = expand(&item, &input, None, 40, 6);
 
@@ -478,6 +487,7 @@ mod tests {
             purpose: "Purpose".into(),
             covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
             expanded: false,
+            chunks: Vec::new(),
         };
         let source = expand(&item(&change), &input, None, 40, 6);
         let configured = expand(&item(&config), &input, None, 40, 6);
@@ -548,6 +558,7 @@ mod tests {
             purpose: "Purpose".into(),
             covers: Vec::<Quote>::new(),
             expanded: false,
+            chunks: Vec::new(),
         };
         let expansion = expand(&item, &input, None, 40, 6);
 
@@ -568,6 +579,7 @@ mod tests {
             purpose: "Purpose".into(),
             covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
             expanded: false,
+            chunks: Vec::new(),
         };
         let investigation = InvestigationCheckpoint {
             schema_version: 1,
@@ -608,6 +620,7 @@ mod tests {
             purpose: "Purpose".into(),
             covers: Vec::<Quote>::new(),
             expanded: false,
+            chunks: Vec::new(),
         };
 
         let prompt = expand(&item, &input, None, 40, 6);

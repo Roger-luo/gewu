@@ -120,6 +120,7 @@ impl Fixture {
                     purpose: "Purpose.".into(),
                     covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
                     expanded: false,
+                    chunks: Vec::new(),
                 })
                 .collect(),
         }

@@ -115,7 +115,7 @@ impl Workbench {
         let log = TaskLogFile::open(self.inner.home.task(&id).join("log.jsonl"));
         state.tasks.insert(0, Task::new(record, log));
         drop(state);
-        self.start_batch(&id)?;
+        self.launch_batch(&id, true)?;
         Ok(id)
     }
 
@@ -171,10 +171,22 @@ impl Workbench {
 
     /// Mark the task generating and run one batch on a thread of its own.
     pub(crate) fn start_batch(&self, task_id: &str) -> Result<(), WorkbenchError> {
+        self.launch_batch(task_id, false)
+    }
+
+    /// Starts a batch run. A task created moments ago is already shown as
+    /// generating (`first`); any other must not be, so two requests cannot
+    /// start two agents in one checkout. The check is made under the same lock
+    /// that marks the task generating. Found by reviewing the write-ahead
+    /// change.
+    fn launch_batch(&self, task_id: &str, first: bool) -> Result<(), WorkbenchError> {
         let cancel = Cancel::default();
         {
             let mut state = self.state()?;
             let task = state.task(task_id)?;
+            if !first && task.record.status == TaskStatus::Generating {
+                return Err(WorkbenchError::invalid("a batch is already running"));
+            }
             let message = match task.record.root {
                 Some(_) => "Preparing the next batch",
                 None => "Preparing the review",

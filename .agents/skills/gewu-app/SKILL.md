@@ -121,7 +121,10 @@ One work item becomes one batch. The harness stages are investigate, plan,
 expand, repair, proofread, polish, await, revise, and complete. Checkpoints
 live in `.gewu/harness/`. After a batch validates it is appended to
 `review-spec.json`. With proofreading on, the author stops there and a fresh
-agent scores the batch; otherwise the batch waits for the reviewer.
+agent scores the batch; otherwise the batch waits for the reviewer. Tasks the
+workbench starts write one batch ahead (`HarnessState::write_ahead`): the gate
+holds only while a batch older than the latest is unread, and marking that
+batch read starts the next run.
 
 `gewu review generate` and the workbench proofread with two rewrites by
 default (`--proofread-rounds`; in the workbench, Settings → Proofread rounds,

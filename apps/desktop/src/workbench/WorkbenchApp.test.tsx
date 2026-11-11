@@ -76,7 +76,7 @@ describe("workbench", () => {
     await user.click(screen.getByRole("button", { name: "Pull request #42" }));
     const cont = screen.getByRole("button", { name: "Continue" });
     expect(cont).toBeDisabled();
-    expect(main()).toHaveTextContent(/Mark every step in this batch reviewed/);
+    expect(main()).toHaveTextContent(/finishing a batch starts the next/);
   });
 
   it("reopens a finished batch at the first step of the next one", async () => {

@@ -16,6 +16,7 @@ use std::{
 use gewu_agent::Preset;
 use gewu_app::{Action, Snapshot};
 use gewu_git::RepositoryRefs;
+use gewu_harness::{DEFAULT_MAX_CHUNKS, HarnessRunner};
 
 use crate::{
     TaskLog, TaskStatus, WorkbenchError, WorkbenchSnapshot,
@@ -230,6 +231,7 @@ impl Workbench {
     }
 
     pub fn task_dispatch(&self, task_id: &str, action: Action) -> Result<Snapshot, WorkbenchError> {
+        let read = matches!(action, Action::SetReviewed { reviewed: true, .. });
         let mut state = self.state()?;
         let task = state.task(task_id)?;
         let snapshot = task
@@ -238,6 +240,27 @@ impl Workbench {
             .dispatch(action)?;
         task.progress = None;
         self.finish_if_written(task, &snapshot)?;
+        // The agent writes one batch ahead of the reviewer. Once they finish
+        // the batch before the one ready for them, the next is started at
+        // once, so it is written while they read rather than after. The gate
+        // is read outside the lock: for a working tree it runs `git diff`.
+        let root = (read && task.record.status == TaskStatus::AwaitingReviewer)
+            .then(|| task.record.root.clone())
+            .flatten();
+        drop(state);
+        let ahead = root.is_some_and(|root| {
+            HarnessRunner::in_project(&root, DEFAULT_MAX_CHUNKS, false)
+                .would_expand()
+                .unwrap_or(false)
+        });
+        // Another request may have started it meanwhile; that is the same
+        // outcome, not an error for the reviewer who marked a step.
+        if ahead
+            && let Err(error) = self.start_batch(task_id)
+            && !matches!(error, WorkbenchError::Invalid(_))
+        {
+            return Err(error);
+        }
         Ok(snapshot)
     }
 }

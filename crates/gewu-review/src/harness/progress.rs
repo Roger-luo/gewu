@@ -37,7 +37,8 @@ pub enum Verdict {
 /// drift, because chunks over code that has since moved must be re-planned.
 /// Only then does the harness wait for the rest of the batch to be read.
 /// `force` skips the request gates, for a reviewer who knows their request is
-/// confined to what is already expanded.
+/// confined to what is already expanded. `ahead` lets the agent write one
+/// batch beyond the one the reviewer is reading.
 #[must_use]
 pub fn next_step(
     spec: &ReviewSpec,
@@ -46,6 +47,7 @@ pub fn next_step(
     current: &ReviewInput,
     previous: &ReviewInput,
     force: bool,
+    ahead: bool,
 ) -> Verdict {
     // Approving or commenting settles what the reviewer has read, and settles
     // the review itself only once there is nothing left to read. On a review
@@ -131,13 +133,23 @@ pub fn next_step(
     // says nothing about a batch written since. It must not stand in for
     // reading one: this is the gate the whole design rests on, and letting a
     // decision retire it would let an agent write the entire plan unread.
-    let unreviewed = spec
+    //
+    // The gate holds the agent one batch ahead of the reviewer, not level
+    // with them: while they read the latest batch, the next is written, so
+    // finishing one opens another without waiting minutes for an agent. Any
+    // unread chunk before the latest batch still stops it, so no more than two
+    // batches are ever unread, and the last batch must be read to complete.
+    let latest = if ahead { work.latest_batch() } else { &[] };
+    let unread: Vec<&ReviewChunk> = spec
         .chunks
         .iter()
         .filter(|chunk| !session.reviewed.contains(&chunk.id))
-        .count();
-    if unreviewed > 0 {
-        return Verdict::Wait { unreviewed };
+        .collect();
+    let behind = unread.iter().any(|chunk| !latest.contains(&chunk.id));
+    if behind || (!unread.is_empty() && work.next_item().is_none()) {
+        return Verdict::Wait {
+            unreviewed: unread.len(),
+        };
     }
     if work.next_item().is_none() {
         return Verdict::Complete;
@@ -192,6 +204,11 @@ mod tests {
                 purpose: "Purpose.".into(),
                 covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
                 expanded: expanded_ids.contains(&change.id),
+                chunks: expanded_ids
+                    .iter()
+                    .position(|id| id == &change.id)
+                    .map(|index| vec![format!("chunk-{index}")])
+                    .unwrap_or_default(),
             })
             .collect();
         let spec = ReviewSpec::new(
@@ -220,13 +237,65 @@ mod tests {
         session
     }
 
+    /// Asked for by the reviewer after a Cursor run of #276 left them
+    /// waiting minutes after every section: the agent writes the next batch
+    /// while the reviewer reads the latest, and no further.
     #[test]
-    fn waits_while_chunks_are_unreviewed() {
+    fn writes_one_batch_ahead_of_the_reviewer_and_no_further() {
+        let (a, b, c) = (
+            change("a.rs", "one"),
+            change("b.rs", "two"),
+            change("c.rs", "three"),
+        );
+        let changes = vec![a.clone(), b.clone(), c.clone()];
+
+        // The first batch is unread, and it is the latest: write the next.
+        let (spec, work, input) = fixture(changes.clone(), std::slice::from_ref(&a.id));
+        let verdict = next_step(
+            &spec,
+            &ReviewSession::default(),
+            &work,
+            &input,
+            &input,
+            false,
+            true,
+        );
+        assert_eq!(verdict, Verdict::Expand);
+
+        // Two batches unread: the older one holds the gate.
+        let (spec, work, input) = fixture(changes.clone(), &[a.id.clone(), b.id.clone()]);
+        let verdict = next_step(
+            &spec,
+            &ReviewSession::default(),
+            &work,
+            &input,
+            &input,
+            false,
+            true,
+        );
+        assert_eq!(verdict, Verdict::Wait { unreviewed: 2 });
+
+        // Reading the older one opens it again.
+        let mut session = ReviewSession::default();
+        session.apply(&ReviewEvent::reviewed("chunk-0", true));
+        assert_eq!(
+            next_step(&spec, &session, &work, &input, &input, false, true),
+            Verdict::Expand
+        );
+    }
+
+    /// Plans written before items recorded their chunks have no latest batch,
+    /// so the gate stays level with the reviewer rather than open for good.
+    #[test]
+    fn waits_while_chunks_are_unreviewed_when_no_batch_is_recorded() {
         let first = change("a.rs", "one");
-        let (spec, work, input) = fixture(
+        let (spec, mut work, input) = fixture(
             vec![first.clone(), change("b.rs", "two")],
             std::slice::from_ref(&first.id),
         );
+        for item in &mut work.items {
+            item.chunks.clear();
+        }
 
         let verdict = next_step(
             &spec,
@@ -235,6 +304,7 @@ mod tests {
             &input,
             &input,
             false,
+            true,
         );
 
         assert_eq!(verdict, Verdict::Wait { unreviewed: 1 });
@@ -267,13 +337,13 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
         );
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, true),
+            next_step(&spec, &session, &work, &input, &input, true, true),
             Verdict::Expand
         );
     }
@@ -293,7 +363,7 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -322,7 +392,7 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Handover {
                 feedback_ids: vec!["bug".into()]
             }
@@ -346,7 +416,7 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
@@ -371,7 +441,7 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::RequestChanges));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -386,7 +456,7 @@ mod tests {
             std::slice::from_ref(&first.id),
         );
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false);
+        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false, true);
 
         assert_eq!(verdict, Verdict::Expand);
     }
@@ -396,7 +466,7 @@ mod tests {
         let first = change("a.rs", "one");
         let (spec, work, input) = fixture(vec![first.clone()], std::slice::from_ref(&first.id));
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false);
+        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false, true);
 
         assert_eq!(verdict, Verdict::Complete);
     }
@@ -408,7 +478,7 @@ mod tests {
         let mut session = reviewed(&spec);
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false);
+        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
 
         assert_eq!(verdict, Verdict::Complete);
     }
@@ -418,18 +488,18 @@ mod tests {
     /// gate for good, and an agent could write all ninety-four items unread.
     #[test]
     fn a_settled_review_still_waits_for_a_batch_written_since() {
-        let first = change("a.rs", "one");
+        let (first, second) = (change("a.rs", "one"), change("b.rs", "two"));
         let (spec, work, input) = fixture(
-            vec![first.clone(), change("b.rs", "two")],
-            std::slice::from_ref(&first.id),
+            vec![first.clone(), second.clone(), change("c.rs", "three")],
+            &[first.id.clone(), second.id.clone()],
         );
-        // Settled, and then a batch arrived that the reviewer has not read.
+        // Settled, and then two batches arrived that the reviewer has not read.
         let mut session = ReviewSession::default();
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
-            Verdict::Wait { unreviewed: 1 }
+            next_step(&spec, &session, &work, &input, &input, false, true),
+            Verdict::Wait { unreviewed: 2 }
         );
     }
 
@@ -449,7 +519,7 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Wait { unreviewed: 1 }
         );
     }
@@ -468,7 +538,7 @@ mod tests {
         let mut session = reviewed(&spec);
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false);
+        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
 
         assert_eq!(verdict, Verdict::Expand);
     }
@@ -490,7 +560,7 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::Comment));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false),
+            next_step(&spec, &session, &work, &input, &input, false, true),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
@@ -512,7 +582,7 @@ mod tests {
             FeedbackTarget::Code,
         )));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false);
+        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
 
         // Nothing on screen can resolve it, so it must not hold the gate shut.
         assert_eq!(verdict, Verdict::Expand);
@@ -539,7 +609,7 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &drifted, &input, false),
+            next_step(&spec, &session, &work, &drifted, &input, false, true),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -565,7 +635,7 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &drifted, &input, false),
+            next_step(&spec, &session, &work, &drifted, &input, false, true),
             Verdict::Replan {
                 stale_chunks: vec!["chunk-0".into()]
             }
@@ -582,7 +652,15 @@ mod tests {
         // The reviewer edited b.rs, which no chunk has quoted yet.
         let (_, _, drifted) = fixture(vec![first, change("b.rs", "rewritten")], &[]);
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &drifted, &input, false);
+        let verdict = next_step(
+            &spec,
+            &reviewed(&spec),
+            &work,
+            &drifted,
+            &input,
+            false,
+            true,
+        );
 
         assert_eq!(
             verdict,
@@ -602,7 +680,15 @@ mod tests {
         );
         let (_, _, drifted) = fixture(vec![change("a.rs", "rewritten"), second], &[]);
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &drifted, &input, false);
+        let verdict = next_step(
+            &spec,
+            &reviewed(&spec),
+            &work,
+            &drifted,
+            &input,
+            false,
+            true,
+        );
 
         assert_eq!(
             verdict,

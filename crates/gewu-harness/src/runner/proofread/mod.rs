@@ -25,6 +25,15 @@ impl HarnessRunner {
             return self.prompt_proofread(run);
         }
         self.advance(&mut run.state, HarnessStage::Await)?;
+        self.ahead_or_awaiting(run)
+    }
+
+    /// The next item's prompt when the gate lets the agent write one batch
+    /// ahead of the reviewer, and otherwise the wait.
+    fn ahead_or_awaiting(&self, run: &mut Run) -> Result<String> {
+        if self.verdict(run)? == gewu_review::harness::Verdict::Expand {
+            return self.evaluate(run);
+        }
         self.awaiting(None)
     }
 
@@ -66,6 +75,8 @@ impl HarnessRunner {
         }
         self.store.discard_proofread()?;
         let failing: Vec<ChunkProofread> = proofread.failing().cloned().collect();
+        // A proofreader stops here even when the gate would let the next
+        // item be written: it reads, and an author writes.
         if failing.is_empty() {
             self.advance(&mut run.state, HarnessStage::Await)?;
             return self.awaiting(None);

@@ -7,6 +7,7 @@ use std::{path::Path, time::Duration};
 
 use gewu::workbench::{Home, Source, TaskStatus, Workbench, WorkbenchAction};
 use gewu_app::Action;
+use gewu_review::{FeedbackKind, FeedbackTarget};
 use support::{Fixture, fake, none, range, slow_fake};
 
 #[test]
@@ -34,13 +35,23 @@ fn a_commit_range_without_an_agent_opens_as_a_raw_diff_in_its_own_checkout() {
     );
 }
 
+/// Asked for by the reviewer after a Cursor run of #276 made them wait
+/// minutes after every section: the agent writes one batch ahead, and
+/// finishing a batch starts the next without pressing Continue.
 #[test]
-fn an_acp_agent_writes_one_batch_per_reviewer_gate() {
+fn an_acp_agent_writes_one_batch_ahead_of_the_reviewer() {
     let fixture = Fixture::new();
+    fixture.write("src/a.rs", "pub const A: u32 = 3;\n");
+    fixture.write("src/b.rs", "pub const B: u32 = 3;\n");
+    fixture.write("src/c.rs", "pub const C: u32 = 3;\n");
+    fixture.git(&["add", "-A"]);
+    fixture.git(&["commit", "-qm", "test: three files"]);
     let id = fixture.start(range(), fake("harness"));
+
+    // The fake stops after each batch; it is started again for the one ahead.
     let first = fixture.settled(&id);
     assert_eq!(first.status, TaskStatus::AwaitingReviewer, "{first:?}");
-    assert_eq!(fixture.chunks(&id), 1);
+    assert_eq!(fixture.chunks(&id), 2, "the second batch is written ahead");
     let log = fixture.workbench.log(&id, 0).expect("log");
     assert!(
         log.events
@@ -48,67 +59,92 @@ fn an_acp_agent_writes_one_batch_per_reviewer_gate() {
             .any(|event| event.text.contains("Planning one step per file")),
         "{log:?}"
     );
-    let cont = || {
-        fixture
-            .workbench
-            .dispatch(WorkbenchAction::ContinueTask {
-                task_id: id.clone(),
-            })
-            .expect("continue");
-        fixture.settled(&id)
-    };
-    let held = cont();
-    assert_eq!(held.status, TaskStatus::AwaitingReviewer);
+
+    // Continue is still held while the first batch is unread.
+    fixture
+        .workbench
+        .dispatch(WorkbenchAction::ContinueTask {
+            task_id: id.clone(),
+        })
+        .expect("continue");
+    let held = fixture.settled(&id);
     assert!(
         held.message
             .as_deref()
-            .is_some_and(|message| message.starts_with("1 step is still unreviewed")),
+            .is_some_and(|message| message.starts_with("2 steps are still unreviewed")),
         "{held:?}"
     );
-    assert_eq!(fixture.chunks(&id), 1);
-
-    let chunk_id = fixture.workbench.task_snapshot(&id).expect("review").chunks[0]
-        .id
-        .clone();
-    fixture
-        .workbench
-        .task_dispatch(
-            &id,
-            Action::SetReviewed {
-                chunk_id,
-                reviewed: true,
-            },
-        )
-        .expect("mark reviewed");
-    let second = cont();
-    assert_eq!(second.status, TaskStatus::AwaitingReviewer, "{second:?}");
     assert_eq!(fixture.chunks(&id), 2);
-    let newer = fixture.workbench.log(&id, log.next).expect("log");
-    assert!(
-        newer
-            .events
-            .iter()
-            .any(|event| event.text.contains("src/b.rs")),
-        "{newer:?}"
-    );
 
-    for chunk in fixture.workbench.task_snapshot(&id).expect("review").chunks {
+    // Reading the first batch starts the third, with no Continue.
+    let mark = |chunk_id: String| {
         fixture
             .workbench
             .task_dispatch(
                 &id,
                 Action::SetReviewed {
-                    chunk_id: chunk.id,
+                    chunk_id,
                     reviewed: true,
                 },
             )
             .expect("mark reviewed");
+    };
+    let chunks = fixture.workbench.task_snapshot(&id).expect("review").chunks;
+    mark(chunks[0].id.clone());
+    let third = fixture.settled(&id);
+    assert_eq!(third.status, TaskStatus::AwaitingReviewer, "{third:?}");
+    assert_eq!(fixture.chunks(&id), 3);
+
+    for chunk in fixture.workbench.task_snapshot(&id).expect("review").chunks {
+        mark(chunk.id);
     }
     // Reading the last step of a finished walkthrough closes it; nothing is left to continue.
     let last = fixture.task(&id);
     assert_eq!(last.status, TaskStatus::Complete, "{last:?}");
     let progress = last.review.expect("progress");
-    assert_eq!((progress.reviewed, progress.total), (2, 2));
+    assert_eq!((progress.reviewed, progress.total), (3, 3));
+}
+
+/// Found by reviewing the write-ahead change: feedback left on a batch while
+/// the agent writes the next one ahead used to fail the task when that run
+/// ended, with a garbled message. It waits for the reviewer instead.
+#[test]
+fn feedback_left_while_the_agent_writes_ahead_waits_for_the_reviewer() {
+    let fixture = Fixture::new();
+    let id = fixture.start(range(), slow_fake("harness", 1.5));
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
+    let chunk_id = loop {
+        if let Ok(review) = fixture.workbench.task_snapshot(&id)
+            && let Some(chunk) = review.chunks.first()
+        {
+            break chunk.id.clone();
+        }
+        assert!(std::time::Instant::now() < deadline, "no batch was written");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert_eq!(fixture.task(&id).status, TaskStatus::Generating);
+    fixture
+        .workbench
+        .task_dispatch(
+            &id,
+            Action::AddFeedback {
+                chunk_id,
+                kind: FeedbackKind::Issue,
+                target: FeedbackTarget::Explanation,
+                body: "Say why A changed.".into(),
+                anchor: None,
+            },
+        )
+        .expect("feedback");
+
+    let task = fixture.settled(&id);
+    assert_eq!(task.status, TaskStatus::AwaitingReviewer, "{task:?}");
+    assert!(
+        task.message
+            .as_deref()
+            .is_some_and(|message| message.contains("feedback is waiting")),
+        "{task:?}"
+    );
 }
 
 #[test]

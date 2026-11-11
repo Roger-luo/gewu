@@ -96,7 +96,8 @@ applied in the client handler:
 After every batch Gewu hashes the tree outside `.gewu/` and fails the task
 if the agent changed it. Cancel sends `session/cancel`, then kills the
 process. A batch that stops before the harness is waiting or complete fails
-with the agent's last message.
+with the agent's last message, unless it stopped where the next item begins
+having written one; then the author is started again, at most twice per run.
 
 The SDK's MSRV is 1.88, so the workspace `rust-version` moves from 1.85 to
 1.88 when this crate is added. Speak stable protocol v1. Draft v2 is what
@@ -119,8 +120,15 @@ created ──▶ generating ──▶ awaiting_reviewer ──(continue)──�
   scores them against the proofread rubric (`proofread`) and failing chunks
   are rewritten (`polish`), at most two times, before the batch reaches the
   reviewer.
-- `awaiting_reviewer`: a batch is ready; the review can be opened. The
-  reviewer asks for the next batch with `continue_task`.
+- `awaiting_reviewer`: a batch is ready; the review can be opened. The agent
+  writes one batch ahead of the reviewer: a run that accepts a batch the
+  reviewer has not reached yet asks for the next at once, and stops only when
+  an older batch is still unread. When the reviewer marks the last step of
+  that older batch reviewed, the workbench starts the next run itself, so the
+  following batch is written while they read. `continue_task` is for
+  everything else: feedback, drift, or a batch that stopped. Tasks started
+  before this, and CLI runs, keep the agent level with the reviewer
+  (`HarnessState::write_ahead`).
 - `complete`: the walkthrough is complete.
 - `failed`: `message` says why and what to try.
 - `cancelled`: stopped by the reviewer; `continue_task` resumes.

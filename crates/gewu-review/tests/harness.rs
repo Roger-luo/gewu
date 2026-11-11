@@ -42,6 +42,7 @@ fn work_list(input: &ReviewInput) -> WorkList {
                     input.changes[0].body_lines(),
                 )],
                 expanded: false,
+                chunks: Vec::new(),
             },
             WorkItem {
                 id: "lock".into(),
@@ -52,6 +53,7 @@ fn work_list(input: &ReviewInput) -> WorkList {
                     input.changes[1].body_lines(),
                 )],
                 expanded: false,
+                chunks: Vec::new(),
             },
         ],
     }
@@ -147,6 +149,7 @@ fn views_may_overlap_as_long_as_their_union_covers_the_item() {
         purpose: "Generated.".into(),
         covers: vec![Quote::whole(change.id.clone(), lines)],
         expanded: false,
+        chunks: Vec::new(),
     };
     let view = |start, end| Quote {
         change_id: change.id.clone(),
@@ -199,6 +202,7 @@ fn a_quote_may_not_run_past_the_end_of_its_change() {
         purpose: "Purpose.".into(),
         covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
         expanded: false,
+        chunks: Vec::new(),
     };
     let expansion = Expansion {
         schema_version: HARNESS_SCHEMA_VERSION,
@@ -346,7 +350,7 @@ fn persists_and_resumes_the_work_list() {
     let store = HarnessStore::new(directory.path());
     let input = input();
     let mut list = work_list(&input);
-    list.mark_expanded("behavior");
+    list.mark_expanded("behavior", &[]);
     store.save_work_list(&list).expect("save work list");
 
     let loaded = store.work_list().expect("load work list").expect("present");

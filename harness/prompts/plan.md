@@ -21,9 +21,9 @@ in the reviewer's words, and order items the way the map reads. If the
 reviewer needs definitions before the flow that uses them, put those items
 first anyway; the first chunk will say where on the map the walkthrough starts
 and why, so a top-down map and a bottom-up walkthrough do not leave the
-reviewer guessing. It is also one batch: after an item is written, the reviewer reads it
-before the next is, because their feedback may change the code under the rest
-of the plan. An item names the spans of the diff it walks through. A large hunk will
+reviewer guessing. It is also one batch: the reviewer reads it while at most the next one is
+written, because their feedback may change the code under the rest of the
+plan. An item names the spans of the diff it walks through. A large hunk will
 usually need several items — split it where the story changes subject, not where
 a line count runs out. Do not split a sentence, declaration, or other semantic
 unit across item boundaries merely to meet the estimate. Lines that open the

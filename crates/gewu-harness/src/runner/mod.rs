@@ -30,9 +30,20 @@ pub struct HarnessRunner {
     max_chunks: usize,
     force: bool,
     proofread_rounds: u32,
+    /// Whether runs this runner starts write one batch ahead of the reviewer.
+    write_ahead: bool,
 }
 
 impl HarnessRunner {
+    /// Has runs this runner starts write one batch ahead of the reviewer, so
+    /// the next is ready when they finish. Off by default: the gate holds the
+    /// agent level with the reviewer.
+    #[must_use]
+    pub fn with_write_ahead(mut self, on: bool) -> Self {
+        self.write_ahead = on;
+        self
+    }
+
     /// Proofreads each batch a run started by this runner expands, allowing up
     /// to `rounds` rewrites before the reviewer sees it. Zero, the default,
     /// hands batches straight to the reviewer.
@@ -106,6 +117,7 @@ impl HarnessRunner {
             max_chunks,
             force,
             proofread_rounds: 0,
+            write_ahead: false,
         }
     }
 
@@ -122,6 +134,7 @@ impl HarnessRunner {
             max_chunks,
             force,
             proofread_rounds: 0,
+            write_ahead: false,
         }
     }
 
@@ -165,6 +178,7 @@ impl HarnessRunner {
             max_chunks: crate::DEFAULT_MAX_CHUNKS,
             force: false,
             proofread_rounds: 0,
+            write_ahead: false,
         }
     }
 
@@ -187,7 +201,9 @@ impl HarnessRunner {
         artifacts::write(&self.input_path, &input)?;
         artifacts::remove(&self.spec_path)?;
         self.store.save_state(
-            &HarnessState::new(review_id, input.source, origin).proofread(self.proofread_rounds),
+            &HarnessState::new(review_id, input.source, origin)
+                .proofread(self.proofread_rounds)
+                .writing_ahead(self.write_ahead),
         )?;
         Ok(prompts::investigate())
     }
@@ -204,6 +220,22 @@ impl HarnessRunner {
             HarnessStage::Await => self.evaluate(&mut run),
             HarnessStage::Complete => Ok(prompts::complete(&run.state.review_id)),
         }
+    }
+
+    /// Whether the reviewer's reading has opened the gate for the next item,
+    /// so a host may start writing it without being asked. Feedback, drift,
+    /// and completion are left for the reviewer to continue into.
+    pub fn would_expand(&self) -> Result<bool> {
+        let run = self.run()?;
+        if run.state.stage != HarnessStage::Await {
+            return Ok(false);
+        }
+        Ok(self.verdict(&run)? == Verdict::Expand)
+    }
+
+    /// The stage the run is at.
+    pub fn stage(&self) -> Result<HarnessStage> {
+        Ok(self.run()?.state.stage)
     }
 
     pub fn status(&self) -> Result<String> {
@@ -417,7 +449,7 @@ impl HarnessRunner {
                 section: Some(item.title.clone()),
                 ..chunk
             }));
-        work.mark_expanded(&item.id);
+        work.mark_expanded(&item.id, &batch);
         spec = spec.with_remaining_work(work.remaining());
         if let Err(errors) = ValidatedReview::validate_partial(run.input.clone(), spec.clone()) {
             return self.repair(run, &item, &error_strings(errors.0));
@@ -448,12 +480,17 @@ impl HarnessRunner {
                 // Say what the reviewer left, so "no feedback" is not mistaken
                 // for "feedback ignored" (found by self-review).
                 let spec = self.spec()?;
-                let left = self.session(&spec)?.feedback.len();
+                let session = self.session(&spec)?;
+                let left = session.feedback.len();
+                let reading = spec
+                    .chunks
+                    .iter()
+                    .any(|chunk| !session.reviewed.contains(&chunk.id));
                 let prompt = self.prompt_expand(run, &work)?;
                 let (heading, body) = prompt.split_once("\n\n").unwrap_or((&prompt, ""));
                 Ok(format!(
                     "{heading}\n\n{}{body}",
-                    prompts::reviewer_read(left)
+                    prompts::reviewer_read(left, reading)
                 ))
             }
             Verdict::Replan { stale_chunks } => {
@@ -478,7 +515,13 @@ impl HarnessRunner {
         let session = self.session(&spec)?;
         let current = self.current_manifest(run)?;
         Ok(next_step(
-            &spec, &session, &work, &current, &run.input, self.force,
+            &spec,
+            &session,
+            &work,
+            &current,
+            &run.input,
+            self.force,
+            run.state.write_ahead,
         ))
     }
 
@@ -763,6 +806,8 @@ fn accepted(prompt: String, what: &str) -> String {
     }
 }
 
+#[cfg(test)]
+mod ahead_tests;
 #[cfg(test)]
 mod claims_tests;
 mod names;

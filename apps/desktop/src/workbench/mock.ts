@@ -95,8 +95,8 @@ export class MockWorkbench implements WorkbenchBackend {
             task,
             "awaiting_reviewer",
             left === 1
-              ? "1 step is still unreviewed. Mark it reviewed, then continue."
-              : `${left} steps are still unreviewed. Mark them reviewed, then continue.`,
+              ? "1 step is still unreviewed. Marking it reviewed starts the next batch."
+              : `${left} steps are still unreviewed. The next batch starts as you mark them reviewed.`,
           );
           break;
         }
@@ -258,7 +258,7 @@ export class MockWorkbench implements WorkbenchBackend {
     if (task.pending.length === 0) {
       this.finish(task, "complete", "The walkthrough is complete.");
     } else {
-      this.finish(task, "awaiting_reviewer", "A batch is ready. Read it and mark each step reviewed; then Continue asks for the next one.");
+      this.finish(task, "awaiting_reviewer", "A batch is ready. As you mark its steps reviewed, the agent writes the next one ahead of you.");
     }
   }
 
@@ -290,7 +290,7 @@ export class MockWorkbench implements WorkbenchBackend {
     this.finish(
       task,
       status,
-      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready. Read it and mark each step reviewed; then Continue asks for the next one.",
+      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready. As you mark its steps reviewed, the agent writes the next one ahead of you.",
     );
   }
 

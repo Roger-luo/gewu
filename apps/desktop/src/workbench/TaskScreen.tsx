@@ -124,7 +124,7 @@ export function TaskScreen({
       {task.status === "awaiting_reviewer" && (
         <p className="muted field-hint">
           {held
-            ? "Mark every step in this batch reviewed, then Continue asks the agent for the next batch."
+            ? "The agent keeps one batch ready ahead of you: finishing a batch starts the next."
             : "Continue asks the agent for the next batch. It reads what you marked reviewed and any feedback you left first."}
         </p>
       )}

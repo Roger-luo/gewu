@@ -6,7 +6,7 @@ use std::{path::Path, sync::Arc};
 
 use gewu_agent::{AcpRun, AgentEvent, Cancel, EventKind, EventSink, ProjectState};
 use gewu_harness::{DEFAULT_MAX_CHUNKS, HarnessRunner};
-use gewu_review::ReviewSpec;
+use gewu_review::{ReviewSpec, harness::HarnessStage};
 
 use gewu_app::Snapshot;
 
@@ -54,17 +54,19 @@ impl Ended {
                 .split_once(" chunk(s) are still unreviewed")
                 .and_then(|(head, _)| head.rsplit('\n').next()?.parse::<usize>().ok())
                 .map(|count| match count {
-                    1 => "1 step is still unreviewed. Mark it reviewed, then continue.".to_owned(),
+                    1 => "1 step is still unreviewed. Marking it reviewed starts the next batch."
+                        .to_owned(),
                     _ => format!(
-                        "{count} steps are still unreviewed. Mark them reviewed, then continue."
+                        "{count} steps are still unreviewed. The next batch starts as you mark them \
+                         reviewed."
                     ),
                 });
             Some(Self::new(
                 TaskStatus::AwaitingReviewer,
                 Some("await".into()),
                 unreviewed.unwrap_or_else(|| {
-                    "A batch is ready. Read it and mark each step reviewed; then Continue asks \
-                     for the next one."
+                    "A batch is ready. As you mark its steps reviewed, the agent writes the next \
+                     one ahead of you."
                         .to_owned()
                 }),
             ))
@@ -77,6 +79,18 @@ impl Ended {
         let heading = prompt.lines().next()?.strip_prefix(HEADING)?;
         Some(heading.split_whitespace().next()?.to_owned())
     }
+}
+
+/// How often one batch run starts its author again after it stopped between
+/// items with progress made.
+const MAX_RESUMES: u32 = 2;
+
+/// Chunks the walkthrough in `root` holds, or 0 before one is written.
+fn written(root: &Path) -> usize {
+    std::fs::read_to_string(root.join(".gewu/review-spec.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<ReviewSpec>(&text).ok())
+        .map_or(0, |spec| spec.chunks.len())
 }
 
 impl Workbench {
@@ -235,8 +249,11 @@ impl Workbench {
                     format!("{files} change(s) to review"),
                 );
                 if record.uses_agent() {
+                    // The app keeps the next batch ready while the reviewer
+                    // reads, so finishing one opens another without a wait.
                     HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false)
                         .with_proofread(self.settings().proofread_rounds)
+                        .with_write_ahead(true)
                         .start(
                             format!("review-{:x}", now()),
                             prepared.input,
@@ -308,7 +325,12 @@ impl Workbench {
         // Rewrites a batch may get after a fresh agent scores it.
         let rounds = self.settings().proofread_rounds;
         let mut fresh = 0;
+        // Times an author that stopped between items, having written one, is
+        // started again: the gate lets it write one batch ahead, and an agent
+        // may take one accepted batch for the end of its task.
+        let mut resumed = 0;
         let outcome = loop {
+            let written_before = written(root);
             let (message, start) = if fresh == 0 {
                 ("The agent is writing the next batch", "Starting the agent")
             } else {
@@ -338,17 +360,58 @@ impl Workbench {
                 ));
             }
             let outcome = outcome?;
-            let prompt = runner.status()?;
+            let cancelled = cancel.is_cancelled() || outcome.stop_reason == "cancelled";
+            let mut prompt = runner.status()?;
+            // The run ended waiting, but the reviewer may have finished the
+            // older batch while the agent wound down, or a proofreader passed
+            // the batch it read. Then the gate is already open: an author
+            // writes the next batch instead of the reviewer pressing Continue.
+            // Found by reviewing the write-ahead change.
+            if prompt.starts_with(WAITING)
+                && !cancelled
+                && outcome.denials.is_empty()
+                && resumed < MAX_RESUMES
+                && runner.would_expand()?
+            {
+                prompt = runner.next()?;
+                stage = Ended::stage(&prompt).or(stage);
+                resumed += 1;
+                fresh = 0;
+                continue;
+            }
             if let Some(ended) = Ended::gate(&prompt) {
                 return Ok(ended);
             }
             stage = Ended::stage(&prompt).or(stage);
-            if cancel.is_cancelled() || outcome.stop_reason == "cancelled" {
+            if cancelled {
                 return Ok(Ended::cancelled(stage));
+            }
+            // Requests the reviewer left while the agent wrote ahead hold the
+            // gate; they reach the agent when the reviewer continues, not as a
+            // failure. Found by reviewing the write-ahead change.
+            if runner.stage()? == HarnessStage::Await {
+                return Ok(Ended::new(
+                    TaskStatus::AwaitingReviewer,
+                    Some("await".into()),
+                    "Your feedback is waiting for the agent. Continue sends it.",
+                ));
             }
             let proofreading = PROOFREADING
                 .iter()
                 .any(|heading| prompt.starts_with(heading));
+            // An author that wrote a batch may stop where the next item
+            // begins; it is started again to write it.
+            let progressed = written(root) > written_before;
+            if !proofreading
+                && progressed
+                && outcome.denials.is_empty()
+                && stage.as_deref() == Some("expand")
+                && resumed < MAX_RESUMES
+            {
+                resumed += 1;
+                fresh = 0;
+                continue;
+            }
             if !proofreading || !outcome.denials.is_empty() || fresh > rounds {
                 break outcome;
             }

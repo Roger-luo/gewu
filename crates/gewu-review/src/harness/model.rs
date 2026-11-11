@@ -64,6 +64,11 @@ pub struct HarnessState {
     /// The chunks of the batch being proofread, and the rewrites spent on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proofreading: Option<Proofreading>,
+    /// Lets the agent write one batch beyond the one the reviewer is reading,
+    /// so the next is ready when they finish. Off, the gate holds the agent
+    /// level with the reviewer, as runs started before this existed do.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub write_ahead: bool,
 }
 
 impl HarnessState {
@@ -80,6 +85,7 @@ impl HarnessState {
             revising: Vec::new(),
             proofread_rounds: 0,
             proofreading: None,
+            write_ahead: false,
         }
     }
 
@@ -146,6 +152,10 @@ pub struct WorkItem {
     pub covers: Vec<Quote>,
     #[serde(default)]
     pub expanded: bool,
+    /// The chunks written for this item, so the gate can tell the batch the
+    /// reviewer may still be reading from the ones they have finished.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chunks: Vec<String>,
 }
 
 impl WorkItem {
@@ -222,10 +232,23 @@ impl WorkList {
         self.items.iter().find(|item| !item.expanded)
     }
 
-    pub fn mark_expanded(&mut self, id: &str) {
+    /// Marks an item expanded into `chunks`.
+    pub fn mark_expanded(&mut self, id: &str, chunks: &[String]) {
         if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
             item.expanded = true;
+            item.chunks = chunks.to_vec();
         }
+    }
+
+    /// The chunks of the batch written last: the last expanded item's. Empty
+    /// when none is recorded, as in plans written before items kept them.
+    #[must_use]
+    pub fn latest_batch(&self) -> &[String] {
+        self.items
+            .iter()
+            .rev()
+            .find(|item| item.expanded)
+            .map_or(&[], |item| item.chunks.as_slice())
     }
 
     #[must_use]
