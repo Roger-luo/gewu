@@ -127,7 +127,7 @@ fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
             },
         })
         .expect("settings");
-    let id = fixture.start(range(), slow_fake("follow", 1.0));
+    let id = fixture.start(range(), slow_fake("follow", 2.0));
     let deadline = std::time::Instant::now() + Duration::from_secs(60);
     let wait_for = |count: usize| loop {
         if let Ok(review) = fixture.workbench.task_snapshot(&id)

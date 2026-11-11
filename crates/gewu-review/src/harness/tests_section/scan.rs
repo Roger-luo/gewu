@@ -11,7 +11,8 @@ pub(super) fn code(line: &str) -> &str {
 /// language that marks tests by name or call.
 pub(super) fn starts_test(line: &str) -> bool {
     let text = code(line).trim_start();
-    (text.starts_with("#[") && text.contains("test"))
+    // `#[cfg(test)]` gates a module of tests; it is not a test itself.
+    (text.starts_with("#[") && text.contains("test") && !text.contains("cfg("))
         || text.starts_with("def test")
         || text.starts_with("async def test")
         || text.starts_with("func Test")
@@ -64,6 +65,42 @@ pub(super) fn test_name(lines: &[&str]) -> Option<String> {
     })
 }
 
+/// The name of the first function, type, or class `lines` add: a helper the
+/// tests use. Only added lines count, so an edit inside an existing test is
+/// not taken for a new helper.
+pub(super) fn defined(lines: &[&str]) -> Option<String> {
+    lines
+        .iter()
+        .filter(|line| line.starts_with('+'))
+        .find_map(|line| {
+            let text = code(line).trim_start();
+            let text = text.strip_prefix("pub(crate) ").unwrap_or(text);
+            let text = text.strip_prefix("pub ").unwrap_or(text);
+            [
+                "fn ", "def ", "func ", "struct ", "enum ", "class ", "impl ",
+            ]
+            .iter()
+            .find_map(|keyword| text.strip_prefix(keyword))
+            .map(|rest| {
+                rest.chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect::<String>()
+            })
+            .filter(|name| !name.is_empty())
+        })
+}
+
+/// A module's own doc comment (`//!`) among `lines`, as one paragraph.
+pub(super) fn module_doc(lines: &[&str]) -> Option<String> {
+    let text: Vec<&str> = lines
+        .iter()
+        .filter_map(|line| code(line).trim_start().strip_prefix("//!"))
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .collect();
+    (!text.is_empty()).then(|| text.join(" "))
+}
+
 /// The doc comment (`///`) on the test `lines` define, as one paragraph.
 pub(super) fn doc(lines: &[&str]) -> Option<String> {
     let text: Vec<&str> = lines
@@ -88,6 +125,7 @@ mod tests {
         assert!(starts_test(" def test_rollback(self):"));
         assert!(starts_test("+  it(\"keeps the tail\", () => {"));
         assert!(!starts_test("+fn helper() {}"));
+        assert!(!starts_test("+#[cfg(test)]"), "a module gate, not a test");
 
         let rust = [
             "+/// Grows by a quarter.",

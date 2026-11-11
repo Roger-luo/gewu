@@ -83,13 +83,47 @@ fn tests_become_named_chunks_with_their_doc_comments() {
     );
 }
 
+/// Found by QA of the #276 walkthrough: a long test cut mid-loop left two
+/// chunks with one title. It is shown whole, in one view that scrolls.
 #[test]
-fn a_test_too_long_for_one_chunk_is_shown_in_parts() {
+fn a_test_too_long_for_one_chunk_is_shown_whole() {
     let input = input(&test("long", "A long test.", 70));
 
     let expansion = test_expansion(&input, &item(&input), 6).expect("written");
 
-    assert!(expansion.chunks.len() >= 2, "{:?}", expansion.chunks.len());
+    assert_eq!(expansion.chunks.len(), 1);
+    assert!(expansion.chunks[0].oversized_reason.is_some());
+    assert_eq!(expansion.chunks[0].title, "Test `long`");
+}
+
+/// Found by QA of the #276 walkthrough: helpers were titled as tests, and
+/// edits inside existing tests were counted as tests "shown as written".
+#[test]
+fn helpers_and_edits_are_not_called_tests() {
+    let code = vec![
+        "fn propose(width: usize) -> Vec<u8> {".to_owned(),
+        "    vec![0; width]".to_owned(),
+        "}".to_owned(),
+    ];
+    let helper = input(&code);
+    let expansion = test_expansion(&helper, &item(&helper), 6).expect("written");
+    assert_eq!(expansion.chunks[0].title, "Test helpers `propose`");
+
+    let patch = "@@ -1,3 +1,3 @@\n fn existing() {\n-    old();\n+    new();\n }\n";
+    let edit = ReviewInput::new(
+        SourceIdentity::new("base", "head", b"diff"),
+        vec![Change::new("src/tests.rs", (1, 3, 1, 3), patch)],
+    );
+    let expansion = test_expansion(&edit, &item(&edit), 6).expect("written");
+    assert_eq!(
+        expansion.chunks[0].title,
+        "Changes to existing tests in `src/tests.rs`"
+    );
+    assert!(
+        expansion.chunks[0]
+            .summary
+            .contains("as the diff changes them")
+    );
 }
 
 /// Found by running Cursor on #276: test items of 200 to 370 lines, which

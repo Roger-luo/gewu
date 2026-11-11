@@ -10,12 +10,22 @@ mod scan;
 
 use std::collections::HashMap;
 
-use pack::{Piece, balanced, fitted, pieces, quotes};
+use pack::{Piece, Role, balanced, pieces, quotes, whole};
 
 use super::{Expansion, HARNESS_SCHEMA_VERSION, WorkItem};
 use crate::{
     Change, ChangePresentation, ChunkBlock, ChunkKind, ReviewChunk, ReviewInput, chunk_height,
 };
+
+/// Names written as a short list: "`a`", "`a` and `b`", "`a`, `b`, and 2 more".
+fn listed(names: &[&str]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => format!("`{one}`"),
+        [first, second] => format!("`{first}` and `{second}`"),
+        [first, second, rest @ ..] => format!("`{first}`, `{second}`, and {} more", rest.len()),
+    }
+}
 
 fn chunk(
     item: &WorkItem,
@@ -23,23 +33,36 @@ fn chunk(
     pieces: &[Piece],
     changes: &HashMap<&String, &Change>,
 ) -> ReviewChunk {
-    let names: Vec<&str> = pieces
-        .iter()
-        .filter_map(|piece| piece.name.as_deref())
-        .collect();
+    let named = |role: Role| -> Vec<&str> {
+        pieces
+            .iter()
+            .filter(|piece| piece.role == role)
+            .filter_map(|piece| piece.name.as_deref())
+            .collect()
+    };
+    let (tests, helpers) = (named(Role::Test), named(Role::Helper));
+    let edits = pieces.iter().any(|piece| piece.role == Role::Edit);
     let path = pieces
         .first()
         .and_then(|piece| changes.get(&piece.change_id))
         .map_or("the tests", |change| change.path.as_str());
-    let title = match names.as_slice() {
-        [] => format!("Test support in `{path}`"),
-        [one] => format!("Test `{one}`"),
-        [first, second] => format!("Tests `{first}` and `{second}`"),
-        [first, second, rest @ ..] => {
-            format!("Tests `{first}`, `{second}`, and {} more", rest.len())
-        }
+    let title = if !tests.is_empty() {
+        format!(
+            "{} {}",
+            if tests.len() == 1 { "Test" } else { "Tests" },
+            listed(&tests)
+        )
+    } else if !helpers.is_empty() {
+        format!("Test helpers {}", listed(&helpers))
+    } else if edits {
+        format!("Changes to existing tests in `{path}`")
+    } else {
+        format!("Test setup in `{path}`")
     };
-    let mut prose: Vec<String> = Vec::new();
+    let mut prose: Vec<String> = pieces
+        .iter()
+        .filter_map(|piece| piece.module_doc.clone())
+        .collect();
     if index == 0 {
         prose.push(
             "Gewu wrote this section from the test code itself, without an agent; turn on \
@@ -47,8 +70,9 @@ fn chunk(
                 .to_owned(),
         );
     }
-    let listed: Vec<String> = pieces
+    let documented: Vec<String> = pieces
         .iter()
+        .filter(|piece| piece.role == Role::Test)
         .filter_map(|piece| {
             let name = piece.name.as_deref()?;
             Some(match &piece.doc {
@@ -57,38 +81,54 @@ fn chunk(
             })
         })
         .collect();
-    if listed.is_empty() {
-        prose.push("Helpers and setup the tests share.".to_owned());
-    } else {
-        prose.push(listed.join("\n"));
+    if !documented.is_empty() {
+        prose.push(documented.join("\n"));
     }
-    let quotes = quotes(pieces);
-    let added = quotes.iter().all(|quote| {
-        changes.get(&quote.change_id).is_some_and(|change| {
-            change
-                .body(quote.start, quote.end)
-                .iter()
-                .all(|line| line.starts_with('+'))
-        })
+    if !helpers.is_empty() {
+        prose.push(format!("Helpers the tests use: {}.", listed(&helpers)));
+    }
+    if edits {
+        prose.push("Edits to code already in the file; the diff shows what changed.".to_owned());
+    }
+    if tests.is_empty() && helpers.is_empty() && !edits {
+        prose.push("Imports and setup the tests share.".to_owned());
+    }
+    let added = pieces.iter().all(|piece| piece.added);
+    let mut parts = Vec::new();
+    match tests.len() {
+        0 => {}
+        1 => parts.push("One test".to_owned()),
+        count => parts.push(format!("{count} tests")),
+    }
+    if !helpers.is_empty() {
+        parts.push("helpers".to_owned());
+    }
+    if edits {
+        parts.push("edits to existing tests".to_owned());
+    }
+    if parts.is_empty() {
+        parts.push("Test setup".to_owned());
+    }
+    let mut summary = format!("{} in `{path}`", parts.join(", "));
+    if let Some(first) = summary.get_mut(..1) {
+        first.make_ascii_uppercase();
+    }
+    summary.push_str(if added {
+        ", shown as written."
+    } else {
+        ", as the diff changes them."
     });
     ReviewChunk {
         id: format!("{}-tests-{}", item.id, index + 1),
         title,
-        summary: format!(
-            "{} in `{path}`, shown as written.",
-            match names.len() {
-                0 => "Test support".to_owned(),
-                1 => "One test".to_owned(),
-                count => format!("{count} tests"),
-            }
-        ),
+        summary,
         kind: ChunkKind::Test,
         content: vec![
             ChunkBlock::Narrative {
                 markdown: prose.join("\n\n"),
             },
             ChunkBlock::Changes {
-                quotes,
+                quotes: quotes(pieces),
                 presentation: if added {
                     ChangePresentation::AddedCode
                 } else {
@@ -103,9 +143,8 @@ fn chunk(
     }
 }
 
-/// The expansion Gewu writes for an item of tests, or `None` when the code
-/// does not split into at most `max_chunks` chunks that fit, so an agent
-/// writes it instead.
+/// The expansion Gewu writes for an item of tests, or `None` when it does
+/// not validate, so an agent writes the item instead.
 #[must_use]
 pub fn test_expansion(
     input: &ReviewInput,
@@ -124,8 +163,9 @@ pub fn test_expansion(
     for quote in &item.covers {
         all.extend(pieces(changes.get(&quote.change_id)?, quote));
     }
-    let groups = match fitted(&all, &fits) {
-        Some(groups) if groups.len() <= max_chunks => groups,
+    let fitting = whole(&all, &fits);
+    let groups = match fitting {
+        groups if groups.len() <= max_chunks => groups,
         // Found by running Cursor on #276: test items of 200 to 370 lines,
         // which the plan accepts, do not fit six chunks of the row budget.
         // Whole tests are shown instead, in at most `max_chunks` views that
