@@ -19,6 +19,10 @@ mise install
 mise exec -- prek install
 ```
 
+Developer keys live in `mise.local.toml`, which is gitignored. Copy
+`mise.local.toml.example` and fill in only the keys you have; never commit a
+key or put one in `mise.toml`. Tests must not depend on these keys.
+
 Common commands:
 
 ```bash

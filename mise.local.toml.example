@@ -1,0 +1,13 @@
+# Developer secrets for this checkout. Copy to `mise.local.toml` (gitignored)
+# and fill in the keys you have; mise loads it on top of `mise.toml`:
+#
+#   cp mise.local.toml.example mise.local.toml
+#   mise trust mise.local.toml
+#
+# Leave a line commented out rather than empty: an empty value would hide a
+# key already exported in your shell. Tests never read these keys.
+
+[env]
+# TypeSafe Jev, for `gewu review load --jev`. Sends each chunk's prose and
+# quoted code to api.typesafe.ai.
+# TYPESAFE_API_KEY = "..."

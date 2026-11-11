@@ -2,6 +2,10 @@
 /.gewu
 __pycache__/
 
+# Developer secrets; see mise.local.toml.example.
+mise.local.toml
+mise.*.local.toml
+
 # Managed by ion
 .agents/skills/ion-cli
 .claude/skills/ion-cli
