@@ -155,7 +155,14 @@ Rules:
   dropped inside one step saves at that moment, which lowers peak memory only
   if that moment is the peak.
 - When you name callers, say which are production and which are tests; a
-  test-only constructor is not evidence of how the change is used.
+  test-only constructor is not evidence of how the change is used. Name only
+  code that calls it at the head, checked with a search of the head; base
+  code that does something similar is not a caller. When the diff contains
+  no caller of something new, say so plainly rather than finding one.
+- A section that delivers part of a measured result states its share once,
+  as an estimate when the change measures no part on its own, even when it
+  carries no claim block, and says whether the structure is alive at the
+  moment the result was measured (peak memory, say).
 - Connect the chunk to what the change claims. When `.gewu/description.md`
   claims an effect — faster, smaller, fixes a bug — and this chunk is one of
   the reasons, say how, with the mechanism and its size: not "drops the owned

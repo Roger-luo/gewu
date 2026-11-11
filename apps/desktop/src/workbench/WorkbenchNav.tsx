@@ -40,14 +40,9 @@ export function WorkbenchNav({
         >
           New review
         </button>
-        <button
-          type="button"
-          className="btn nav-add"
-          title="Add repository"
-          aria-label="Add repository"
-          onClick={onAddRepository}
-        >
-          <FolderPlusIcon size={18} />
+        <button type="button" className="btn nav-add" onClick={onAddRepository}>
+          <FolderPlusIcon size={16} />
+          Add repository
         </button>
       </div>
       <h2 className="nav-heading" id="repositories-heading">

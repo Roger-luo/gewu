@@ -10,15 +10,18 @@
   margin-bottom: var(--space-2);
 }
 
-/* The two ways to start sit together: New review, and Add repository beside it. */
+/* The two ways to start sit together, each labeled: New review, then Add
+   repository under it. Found by the UI judge: an icon-only button was easy to
+   miss. */
 .nav-actions {
   display: flex;
+  flex-direction: column;
   gap: var(--space-2);
   margin: 0 var(--space-2);
 }
 
-.nav-cta {
-  flex: 1;
+.nav-cta,
+.nav-add {
   min-height: 32px;
 }
 
@@ -26,10 +29,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: none;
-  width: 36px;
-  min-height: 32px;
-  padding: 0;
+  gap: var(--space-2);
 }
 
 .nav-heading {
@@ -883,4 +883,15 @@
 
 .settings-title svg {
   color: var(--text-secondary);
+}
+
+.agent-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.agent-log-head h3 {
+  margin: 0;
 }

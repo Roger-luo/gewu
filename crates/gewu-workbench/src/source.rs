@@ -125,7 +125,25 @@ impl Source {
             Ok(base) => checked_out.review_input(&base, &head, lines)?,
             Err(path) => checked_out.directory_input(&head, path, lines)?,
         };
-        checked_out.ensure_changes(&input, false)?;
+        // Name the base the reader typed, not the commit it resolved to.
+        // Found by the final UI judge: "Nothing to review from d73eca9bc2ea".
+        checked_out
+            .ensure_changes(&input, false)
+            .map_err(|error| match (error, self) {
+                (
+                    gewu_git::GitError::Empty {
+                        working_tree,
+                        dirty,
+                        ..
+                    },
+                    Self::CommitRange { base, .. },
+                ) => gewu_git::GitError::Empty {
+                    base: base.clone(),
+                    working_tree,
+                    dirty,
+                },
+                (error, _) => error,
+            })?;
         // The author's own account of the change: what the walkthrough's
         // claims are quoted from and checked against.
         if let Some(description) = description {

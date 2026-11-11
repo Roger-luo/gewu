@@ -251,3 +251,24 @@ fn reviews_of_one_range_read_apart() {
     assert!(first.title.starts_with("test: head ("), "{}", first.title);
     assert_eq!(second.title, format!("{} · 2", first.title));
 }
+
+/// Found by the final UI judge: an empty range named the commit `HEAD`
+/// resolved to, not what the reader typed.
+#[test]
+fn an_empty_range_names_the_base_the_reader_typed() {
+    let fixture = Fixture::new();
+    let id = fixture.start(
+        Source::CommitRange {
+            base: "HEAD".into(),
+            head: "HEAD".into(),
+        },
+        none(),
+    );
+    let task = fixture.settled(&id);
+    assert_eq!(task.status, TaskStatus::Failed);
+    let message = task.message.expect("message");
+    assert!(
+        message.starts_with("Nothing to review from HEAD:"),
+        "{message}"
+    );
+}

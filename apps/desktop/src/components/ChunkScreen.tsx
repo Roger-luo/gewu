@@ -117,12 +117,22 @@ export function ChunkScreen({
             <div className="toolbar-group" role="group" aria-label="Mark this step">
               <button
                 type="button"
-                className={chunk.status.reviewed ? "btn" : "btn primary"}
+                className={chunk.status.reviewed ? "btn reviewed-toggle" : "btn primary"}
                 aria-pressed={chunk.status.reviewed}
-                title="Marks this step read and opens the next unreviewed one"
+                title={
+                  chunk.status.reviewed
+                    ? "Marks this step unreviewed again"
+                    : "Marks this step read and opens the next unreviewed one"
+                }
                 onClick={() => void onToggleReviewed()}
               >
-                {chunk.status.reviewed ? "Reviewed" : "Mark reviewed"}
+                {chunk.status.reviewed ? (
+                  <>
+                    <span aria-hidden>✓ </span>Reviewed
+                  </>
+                ) : (
+                  "Mark reviewed"
+                )}
               </button>
             </div>
           </div>
@@ -254,8 +264,15 @@ function ChunkStatusChip({
       </span>
     );
   }
+  // Reviewed keeps its chip too, so the toolbar holds its shape from step to
+  // step. Found by the final UI judge: the chip vanished and the layout shifted.
   if (reviewed) {
-    return null;
+    return (
+      <span className="step-status done">
+        <span className="nav-state reviewed" aria-hidden />
+        Reviewed
+      </span>
+    );
   }
   return (
     <span className="step-status">

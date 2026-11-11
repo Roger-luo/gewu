@@ -21,11 +21,14 @@ export function PublicationPreview({
   state,
   account,
   rehearsing = false,
+  kinds = {},
 }: {
   state: PublicationState;
   account: GitHubAccount | null;
   /** Settings say to rehearse: Publish records and sends nothing. */
   rehearsing?: boolean;
+  /** Each note's kind by feedback id, so a comment never reads as a change request. */
+  kinds?: Record<string, string>;
 }) {
   const { publication, error } = state;
   const [confirming, setConfirming] = useState(false);
@@ -80,7 +83,10 @@ export function PublicationPreview({
             >
               {plan.pull_request.comments.map((comment) => (
                 <article key={comment.feedback_id} className="publication-item">
-                  <h4>{anchorLabel(comment)}</h4>
+                  <h4>
+                    <KindTag kind={kinds[comment.feedback_id]} />
+                    {anchorLabel(comment)}
+                  </h4>
                   <Markdown source={comment.body} />
                 </article>
               ))}
@@ -92,8 +98,10 @@ export function PublicationPreview({
               )}
             </Destination>
           )}
-          {plan.code_issues && <Issues bundle={plan.code_issues} blocked={publication.blocked} />}
-          {plan.gewu_issues && <Issues bundle={plan.gewu_issues} blocked={null} />}
+          {plan.code_issues && (
+            <Issues bundle={plan.code_issues} blocked={publication.blocked} kinds={kinds} />
+          )}
+          {plan.gewu_issues && <Issues bundle={plan.gewu_issues} blocked={null} kinds={kinds} />}
           {state.publish && (
             <PublishBar
               blocked={publication.blocked}
@@ -127,7 +135,15 @@ export function PublicationPreview({
   );
 }
 
-function Issues({ bundle, blocked }: { bundle: IssueBundle; blocked: string | null }) {
+function Issues({
+  bundle,
+  blocked,
+  kinds,
+}: {
+  bundle: IssueBundle;
+  blocked: string | null;
+  kinds: Record<string, string>;
+}) {
   const gewu = bundle.repository === GEWU_REPOSITORY;
   return (
     <Destination
@@ -140,7 +156,11 @@ function Issues({ bundle, blocked }: { bundle: IssueBundle; blocked: string | nu
       request={`POST /repos/${bundle.repository}/issues`}
     >
       {bundle.issues.map((issue) => (
-        <IssueCard key={issue.feedback_id ?? issue.title} issue={issue} />
+        <IssueCard
+          key={issue.feedback_id ?? issue.title}
+          issue={issue}
+          kind={issue.feedback_id ? kinds[issue.feedback_id] : undefined}
+        />
       ))}
       {bundle.tracking && (
         // Its list repeats the titles above, so it starts folded.
@@ -156,11 +176,20 @@ function Issues({ bundle, blocked }: { bundle: IssueBundle; blocked: string | nu
   );
 }
 
-function IssueCard({ issue }: { issue: IssueDraft }) {
+/** "Comment" or "Change request": what the reviewer wrote, before it became a post. */
+function KindTag({ kind }: { kind: string | undefined }) {
+  if (!kind) return null;
+  return (
+    <span className={`publication-kind ${kind}`}>{kind === "issue" ? "Change request" : "Comment"}</span>
+  );
+}
+
+function IssueCard({ issue, kind }: { issue: IssueDraft; kind?: string }) {
   return (
     // GitHub renders Markdown in issue titles and bodies; show it the same way.
     <article className="publication-item">
       <h4>
+        <KindTag kind={kind} />
         <InlineMarkdown source={issue.title} />
       </h4>
       <Markdown source={issue.body} />

@@ -176,7 +176,12 @@ export function SummaryScreen({
         </section>
       </div>
 
-      <PublicationPreview state={publication} account={account} rehearsing={rehearsing} />
+      <PublicationPreview
+        state={publication}
+        account={account}
+        rehearsing={rehearsing}
+        kinds={Object.fromEntries(snapshot.feedback.map((item) => [item.id, item.kind]))}
+      />
     </main>
   );
 }

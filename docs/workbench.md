@@ -219,8 +219,8 @@ dialog) for adding a repository.
 
 ## UI
 
-- **Sidebar**, top to bottom: the two ways to start, **New review** and the
-  **Add repository** icon button beside it; the repositories to filter by;
+- **Sidebar**, top to bottom: the two ways to start, **New review** with
+  **Add repository** under it; the repositories to filter by;
   and at its foot the "Account and settings" region: who publishing posts as,
   then **Settings** (gear icon) beside **Switch** or **Sign in to GitHub**.
   Sign out is in the account dialog **Switch** opens. The review navigator
@@ -256,7 +256,7 @@ part of the contract:
 | Where | Role | Name |
 |---|---|---|
 | Home | button | `New review` |
-| Sidebar | button | `Add repository` (icon, beside `New review`) |
+| Sidebar | button | `Add repository` (under `New review`) |
 | Sidebar | region | `Account and settings`, holding `Settings` and `Switch` or `Sign in to GitHub` |
 | Add repository | textbox | `Repository path` |
 | Add repository | button | `Add` (and `Choose folder…` under Tauri) |

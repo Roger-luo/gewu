@@ -22,6 +22,8 @@ Read the draft back, one chunk at a time, and answer for each:
 - Is "before" the base revision's own size, not a type the change adds
   elsewhere? Is a structure sized by what it holds, and is it said whether it
   lives at the peak or only for a moment?
+- Does every named caller call the code at the head, and is a missing
+  caller said to be missing rather than replaced by similar base code?
 - Does a chunk that claims a saving also say what it costs — an extra load
   per lookup, a rebuild every step, a new panic — and whether runtime moves?
 - Does a chunk that cites a measured result say its own share of it, and

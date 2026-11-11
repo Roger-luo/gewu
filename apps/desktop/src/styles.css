@@ -1656,3 +1656,33 @@ main[data-gewu-screen] {
 .summary-empty {
   padding: var(--space-2) var(--space-3);
 }
+
+.publication-kind {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 2px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+}
+
+.publication-kind.issue {
+  background: color-mix(in srgb, var(--warning, #b86a00) 18%, var(--bg-elevated));
+  color: var(--text);
+}
+
+/* A reviewed step reads as done: a green chip and a filled check button. */
+.step-status.done {
+  color: var(--success-ink);
+}
+
+.btn.reviewed-toggle {
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+  background: var(--success-soft);
+  color: var(--success-ink);
+  font-weight: 600;
+}
