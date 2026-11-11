@@ -30,6 +30,7 @@ export function SettingsScreen({
   const [draft, setDraft] = useState<Settings>({
     proofread_rounds: settings.proofread_rounds,
     default_agent: settings.default_agent,
+    explain_tests: settings.explain_tests,
   });
   // Only the GitHub fields edited here. The rest show the live value, so a
   // sign-in from the sidebar while this screen is open is not undone by Save.
@@ -158,6 +159,25 @@ export function SettingsScreen({
             many times, before you see it. Between 0 and {settings.max_proofread_rounds}; 0 turns
             proofreading off. Applies to reviews you start from now on.
           </p>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={draft.explain_tests}
+              onChange={(event) => {
+                setDraft({ ...draft, explain_tests: event.target.checked });
+                setState("idle");
+              }}
+            />
+            <span>
+              Explain tests
+              <span className="muted">
+                {" "}
+                · The agent walks through tests like the rest of the change. Off, Gewu shows each
+                test as written, with its name and doc comment, at once and without agent time.
+                Applies to reviews you start from now on.
+              </span>
+            </span>
+          </label>
         </section>
 
         <section className="panel settings-section" aria-labelledby="settings-storage">

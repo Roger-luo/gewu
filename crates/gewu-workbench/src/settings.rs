@@ -17,6 +17,12 @@ pub struct Settings {
     /// that is installed.
     #[serde(default)]
     pub default_agent: Option<AgentChoice>,
+    /// Has the agent walk through tests. Off, the default, Gewu writes test
+    /// sections itself from the test code: they are ready at once and cost
+    /// no agent time, but carry no explanation beyond the tests' own names and
+    /// doc comments.
+    #[serde(default)]
+    pub explain_tests: bool,
 }
 
 fn default_rounds() -> u32 {
@@ -28,6 +34,7 @@ impl Default for Settings {
         Self {
             proofread_rounds: default_rounds(),
             default_agent: None,
+            explain_tests: false,
         }
     }
 }

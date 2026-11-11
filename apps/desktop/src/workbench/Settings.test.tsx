@@ -42,6 +42,7 @@ describe("settings", () => {
       "The one you used last",
     );
     expect(within(agents).getByRole("spinbutton", { name: "Proofread rounds" })).toHaveValue(2);
+    expect(within(agents).getByRole("checkbox", { name: /Explain tests/ })).not.toBeChecked();
 
     const storage = within(settings).getByRole("region", { name: "Where Gewu keeps things" });
     expect(storage).toHaveTextContent("GEWU_HOME");
@@ -61,9 +62,11 @@ describe("settings", () => {
     const rounds = within(agents).getByRole("spinbutton", { name: "Proofread rounds" });
     await user.clear(rounds);
     await user.type(rounds, "0");
+    await user.click(within(agents).getByRole("checkbox", { name: /Explain tests/ }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(within(agents).getByRole("checkbox", { name: /Explain tests/ })).toBeChecked();
     expect(mockRehearsing()).toBe(true);
     expect((await mockGitHub.settings()).method).toBe("gh");
     const account = screen.getByRole("region", { name: "Account and settings" });

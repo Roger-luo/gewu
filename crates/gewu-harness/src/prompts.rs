@@ -433,6 +433,7 @@ mod tests {
             covers: Vec::<Quote>::new(),
             expanded: false,
             chunks: Vec::new(),
+            tests: false,
         };
         let expansion = expand(&item, &input, None, 40, 6);
 
@@ -488,6 +489,7 @@ mod tests {
             covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
             expanded: false,
             chunks: Vec::new(),
+            tests: false,
         };
         let source = expand(&item(&change), &input, None, 40, 6);
         let configured = expand(&item(&config), &input, None, 40, 6);
@@ -559,6 +561,7 @@ mod tests {
             covers: Vec::<Quote>::new(),
             expanded: false,
             chunks: Vec::new(),
+            tests: false,
         };
         let expansion = expand(&item, &input, None, 40, 6);
 
@@ -580,6 +583,7 @@ mod tests {
             covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
             expanded: false,
             chunks: Vec::new(),
+            tests: false,
         };
         let investigation = InvestigationCheckpoint {
             schema_version: 1,
@@ -621,6 +625,7 @@ mod tests {
             covers: Vec::<Quote>::new(),
             expanded: false,
             chunks: Vec::new(),
+            tests: false,
         };
 
         let prompt = expand(&item, &input, None, 40, 6);

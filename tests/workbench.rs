@@ -123,6 +123,7 @@ fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
             settings: Settings {
                 proofread_rounds: 0,
                 default_agent: None,
+                explain_tests: false,
             },
         })
         .expect("settings");

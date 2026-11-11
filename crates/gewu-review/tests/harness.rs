@@ -43,6 +43,7 @@ fn work_list(input: &ReviewInput) -> WorkList {
                 )],
                 expanded: false,
                 chunks: Vec::new(),
+                tests: false,
             },
             WorkItem {
                 id: "lock".into(),
@@ -54,6 +55,7 @@ fn work_list(input: &ReviewInput) -> WorkList {
                 )],
                 expanded: false,
                 chunks: Vec::new(),
+                tests: false,
             },
         ],
     }
@@ -150,6 +152,7 @@ fn views_may_overlap_as_long_as_their_union_covers_the_item() {
         covers: vec![Quote::whole(change.id.clone(), lines)],
         expanded: false,
         chunks: Vec::new(),
+        tests: false,
     };
     let view = |start, end| Quote {
         change_id: change.id.clone(),
@@ -203,6 +206,7 @@ fn a_quote_may_not_run_past_the_end_of_its_change() {
         covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
         expanded: false,
         chunks: Vec::new(),
+        tests: false,
     };
     let expansion = Expansion {
         schema_version: HARNESS_SCHEMA_VERSION,

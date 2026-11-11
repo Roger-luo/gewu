@@ -78,6 +78,8 @@ export interface Settings {
   proofread_rounds: number;
   /** Preselected on the new-review screen; `null` picks an installed one. */
   default_agent: AgentChoice | null;
+  /** Has the agent walk through tests; off, Gewu writes test sections itself. */
+  explain_tests: boolean;
 }
 
 /** The settings, and where Gewu keeps things (set only by environment variables). */

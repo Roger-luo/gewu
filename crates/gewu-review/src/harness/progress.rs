@@ -209,6 +209,7 @@ mod tests {
                     .position(|id| id == &change.id)
                     .map(|index| vec![format!("chunk-{index}")])
                     .unwrap_or_default(),
+                tests: false,
             })
             .collect();
         let spec = ReviewSpec::new(

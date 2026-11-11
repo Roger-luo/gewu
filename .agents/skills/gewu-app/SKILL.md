@@ -129,6 +129,9 @@ batch read starts the next run.
 `gewu review generate` and the workbench proofread with two rewrites by
 default (`--proofread-rounds`; in the workbench, Settings → Proofread rounds,
 saved in the home's `settings.json` and read when a review starts).
+Settings → Explain tests (off by default; `HarnessState::explain_tests`)
+decides whether items the plan marks `"tests": true` are written by the
+agent or by Gewu from the test code (`runner/written.rs`).
 An agent that refuses `session/new` with "authentication required", as
 Cursor's `agent acp` does even when its CLI is signed in, is sent
 `authenticate` with the first method it handles itself and retried once

@@ -20,6 +20,7 @@ fn settings_are_saved_and_outlive_the_run() {
             preset_id: "cursor".into(),
             command: None,
         }),
+        explain_tests: true,
     };
     let snapshot = fixture
         .workbench
@@ -44,6 +45,7 @@ fn out_of_range_settings_are_refused() {
         Settings {
             proofread_rounds: 99,
             default_agent: None,
+            explain_tests: false,
         },
         Settings {
             proofread_rounds: 1,
@@ -51,6 +53,7 @@ fn out_of_range_settings_are_refused() {
                 preset_id: "custom".into(),
                 command: Some("  ".into()),
             }),
+            explain_tests: false,
         },
     ] {
         let error = fixture

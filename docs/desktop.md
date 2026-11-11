@@ -232,8 +232,14 @@ only through an environment variable:
   post through `Workbench::rehearse` and send nothing. A rehearsal never writes
   `published.json`, so the notes stay unpublished.
 - **Agents and generation** (`gewu_workbench::Settings`, in `settings.json`):
-  the agent preselected for a new review, and proofread rounds (0 to 5, read
-  when a review starts).
+  the agent preselected for a new review, proofread rounds (0 to 5), and
+  **Explain tests**, all read when a review starts. Explain tests is off by
+  default: the plan marks items that only walk through tests (`"tests":
+  true`), and Gewu writes them itself (`gewu_review::harness::test_expansion`),
+  one chunk per test where it fits, named, with its doc comment as the prose,
+  so they are ready at once and cost no agent time. An item whose code will
+  not split within its chunk cap goes to the agent. On, the agent explains
+  tests like the rest of the change, as CLI runs always do.
 - **Where Gewu keeps things**: `GEWU_HOME`, `GEWU_BIN`, and `GEWU_GITHUB=record`,
   shown read-only because they are set before Gewu starts.
 

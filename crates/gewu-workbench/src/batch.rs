@@ -254,6 +254,7 @@ impl Workbench {
                     HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false)
                         .with_proofread(self.settings().proofread_rounds)
                         .with_write_ahead(true)
+                        .with_explain_tests(self.settings().explain_tests)
                         .start(
                             format!("review-{:x}", now()),
                             prepared.input,

@@ -14,6 +14,13 @@ Order the parts by comprehension dependency:
 3. Integration and wiring.
 4. Tests and supporting changes.
 
+Keep tests in items of their own, and mark each item that only walks
+through tests — a test module inside a source file counts — with
+`"tests": true`. Unless the run explains tests, Gewu writes those items
+itself from the test code, each test shown with its name and doc comment, so
+they cost you no time; when it explains them, you write them like any other
+item. Never mark an item that mixes tests with the code they test.
+
 Each item is one sitting: what a reviewer would read in one go and react to as a
 whole. Its title becomes the section name shown above every chunk written for
 it and listed on the overview, so name the part of the change's map it covers,
@@ -57,6 +64,7 @@ Write `.gewu/harness/worklist.json`:
       "title": "short purpose",
       "purpose": "one sentence on why this is reviewed here",
       "covers": [{ "change_id": "change-id", "start": 1, "end": 40 }],
+      "tests": false,
       "expanded": false
     }
   ]

@@ -3,6 +3,7 @@ mod progress;
 mod proofread;
 mod proofreading;
 mod store;
+mod tests_section;
 mod validation;
 
 pub use model::{
@@ -13,6 +14,7 @@ pub use progress::{Verdict, next_step};
 pub use proofread::{ChunkProofread, Proofread};
 pub use proofreading::Proofreading;
 pub use store::{HarnessStore, HarnessStoreError};
+pub use tests_section::test_expansion;
 pub use validation::{HarnessValidationError, HarnessValidationErrors};
 
 pub const HARNESS_SCHEMA_VERSION: u32 = 1;

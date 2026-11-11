@@ -83,7 +83,7 @@ impl Fixture {
         (list, next)
     }
 
-    fn investigation(&self) -> InvestigationCheckpoint {
+    pub(in crate::runner) fn investigation(&self) -> InvestigationCheckpoint {
         InvestigationCheckpoint {
             schema_version: HARNESS_SCHEMA_VERSION,
             source: self.input.source.clone(),
@@ -105,7 +105,7 @@ impl Fixture {
         }
     }
 
-    fn work_list(&self) -> WorkList {
+    pub(in crate::runner) fn work_list(&self) -> WorkList {
         WorkList {
             schema_version: HARNESS_SCHEMA_VERSION,
             source: self.input.source.clone(),
@@ -121,6 +121,7 @@ impl Fixture {
                     covers: vec![Quote::whole(change.id.clone(), change.body_lines())],
                     expanded: false,
                     chunks: Vec::new(),
+                    tests: false,
                 })
                 .collect(),
         }

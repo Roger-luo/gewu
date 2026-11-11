@@ -41,7 +41,7 @@ export class MockWorkbench implements WorkbenchBackend {
     this.delayMs = delayMs;
   }
 
-  private settings: Settings = { proofread_rounds: 2, default_agent: null };
+  private settings: Settings = { proofread_rounds: 2, default_agent: null, explain_tests: false };
 
   /** Two repositories and reviews in each state a reviewer meets. */
   static seeded(delayMs?: number): MockWorkbench {

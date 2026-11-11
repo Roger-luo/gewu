@@ -69,6 +69,19 @@ pub struct HarnessState {
     /// level with the reviewer, as runs started before this existed do.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub write_ahead: bool,
+    /// Has the agent explain items of tests. Off, Gewu writes them itself.
+    /// Runs started before this existed had every item explained.
+    #[serde(default = "explained", skip_serializing_if = "is_explained")]
+    pub explain_tests: bool,
+}
+
+fn explained() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_explained(explain: &bool) -> bool {
+    *explain
 }
 
 impl HarnessState {
@@ -86,6 +99,7 @@ impl HarnessState {
             proofread_rounds: 0,
             proofreading: None,
             write_ahead: false,
+            explain_tests: true,
         }
     }
 
@@ -156,6 +170,10 @@ pub struct WorkItem {
     /// reviewer may still be reading from the ones they have finished.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chunks: Vec<String>,
+    /// The item only walks through tests. Unless the run explains tests,
+    /// Gewu writes its chunks itself from the test code, with no agent.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub tests: bool,
 }
 
 impl WorkItem {

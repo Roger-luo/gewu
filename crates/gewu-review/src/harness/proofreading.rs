@@ -24,6 +24,13 @@ impl Proofreading {
 }
 
 impl HarnessState {
+    /// Has the agent explain items of tests when `on`; off, Gewu writes them.
+    #[must_use]
+    pub fn explaining_tests(mut self, on: bool) -> Self {
+        self.explain_tests = on;
+        self
+    }
+
     /// Writes one batch ahead of the reviewer when `on`.
     #[must_use]
     pub fn writing_ahead(mut self, on: bool) -> Self {

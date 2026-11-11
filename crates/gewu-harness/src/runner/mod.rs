@@ -32,9 +32,19 @@ pub struct HarnessRunner {
     proofread_rounds: u32,
     /// Whether runs this runner starts write one batch ahead of the reviewer.
     write_ahead: bool,
+    /// Whether runs this runner starts have the agent explain items of tests.
+    explain_tests: bool,
 }
 
 impl HarnessRunner {
+    /// Has runs this runner starts write items of tests with the agent
+    /// (`true`, the default) or from the test code itself (`false`).
+    #[must_use]
+    pub fn with_explain_tests(mut self, on: bool) -> Self {
+        self.explain_tests = on;
+        self
+    }
+
     /// Has runs this runner starts write one batch ahead of the reviewer, so
     /// the next is ready when they finish. Off by default: the gate holds the
     /// agent level with the reviewer.
@@ -118,6 +128,7 @@ impl HarnessRunner {
             force,
             proofread_rounds: 0,
             write_ahead: false,
+            explain_tests: true,
         }
     }
 
@@ -135,6 +146,7 @@ impl HarnessRunner {
             force,
             proofread_rounds: 0,
             write_ahead: false,
+            explain_tests: true,
         }
     }
 
@@ -179,6 +191,7 @@ impl HarnessRunner {
             force: false,
             proofread_rounds: 0,
             write_ahead: false,
+            explain_tests: true,
         }
     }
 
@@ -203,7 +216,8 @@ impl HarnessRunner {
         self.store.save_state(
             &HarnessState::new(review_id, input.source, origin)
                 .proofread(self.proofread_rounds)
-                .writing_ahead(self.write_ahead),
+                .writing_ahead(self.write_ahead)
+                .explaining_tests(self.explain_tests),
         )?;
         Ok(prompts::investigate())
     }
@@ -400,6 +414,9 @@ impl HarnessRunner {
             ));
         }
         self.advance(&mut run.state, HarnessStage::Expand)?;
+        if self.written_tests(run, &list).is_some() {
+            return Ok(accepted(self.finish_expansion(run)?, "`worklist.json`"));
+        }
         Ok(accepted(self.prompt_expand(run, &list)?, "`worklist.json`"))
     }
 
@@ -414,7 +431,10 @@ impl HarnessRunner {
         };
         let expansion = match self.store.expansion() {
             Ok(Some(expansion)) => expansion,
-            Ok(None) => return self.prompt_expand(run, &work),
+            Ok(None) => match self.written_tests(run, &work) {
+                Some(expansion) => expansion,
+                None => return self.prompt_expand(run, &work),
+            },
             Err(error) => return self.repair(run, &item, &[error.to_string()]),
         };
         if expansion.item_id != item.id {
@@ -477,6 +497,9 @@ impl HarnessRunner {
             }
             Verdict::Expand => {
                 self.advance(&mut run.state, HarnessStage::Expand)?;
+                if self.written_tests(run, &work).is_some() {
+                    return self.finish_expansion(run);
+                }
                 // Say what the reviewer left, so "no feedback" is not mistaken
                 // for "feedback ignored" (found by self-review).
                 let spec = self.spec()?;
@@ -652,6 +675,9 @@ impl HarnessRunner {
 
     fn prompt_expand(&self, run: &Run, work: &WorkList) -> Result<String> {
         match work.next_item() {
+            Some(item) if self.written_tests(run, work).is_some() => {
+                Ok(written::written_prompt(&item.id))
+            }
             Some(item) => {
                 let investigation = self.store.investigation()?;
                 Ok(prompts::expand(
@@ -817,3 +843,4 @@ mod reminders;
 mod share_tests;
 #[cfg(test)]
 mod tests;
+mod written;
