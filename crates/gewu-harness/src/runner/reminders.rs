@@ -46,7 +46,7 @@ fn amounts(text: &str) -> Vec<(String, String)> {
 ///
 /// Found by QA of Cursor's run E of #276: taking the first number read "32"
 /// there, and missed that the share repeated an earlier section's 24 MiB.
-fn credited(explainer: &Explainer) -> Option<String> {
+pub(super) fn credited(explainer: &Explainer) -> Option<String> {
     let Explainer::Claim {
         result: Some(result),
         share: Some(share),
@@ -161,6 +161,8 @@ impl HarnessRunner {
                 repeated.join(", ")
             ));
         }
+        let everything: Vec<&Explainer> = before.iter().chain(&drafted).copied().collect();
+        notes.extend(super::tally::overcredited(&everything));
         // Found by QA of Cursor's runs E and F of #276: a 104 MiB saving in
         // the exponential and a 56 MiB one at admission were offered toward
         // one peak, and neither said which phase it fell in.

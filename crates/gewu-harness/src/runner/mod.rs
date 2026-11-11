@@ -841,6 +841,7 @@ mod proofread;
 mod reminders;
 #[cfg(test)]
 mod share_tests;
+mod tally;
 #[cfg(test)]
 mod tests;
 mod written;
