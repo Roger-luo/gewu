@@ -185,16 +185,36 @@ fn the_sandbox_github_signs_in_without_contacting_github() {
     let (status, _, body) = http_get(&server.addr, "/api/github/account");
     assert_eq!((status, body.as_str()), (200, "null"));
 
+    let (status, _, body) = http_get(&server.addr, "/api/github/methods");
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        body.contains(r#""method":"gewu""#) && body.contains(r#""login":"gewu-sandbox""#),
+        "the sandbox's GitHub CLI is signed in: {body}"
+    );
+
+    let (status, _, body) = http_post(&server.addr, "/api/github/method", r#"{"method":"gh"}"#);
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains(r#""method":"gh""#), "{body}");
+    let (_, _, body) = http_get(&server.addr, "/api/github/account");
+    assert!(body.contains(r#""login":"gewu-sandbox""#), "{body}");
     let (status, _, body) = http_post(&server.addr, "/api/github/sign-in", r#"{"token":" "}"#);
     assert_eq!(status, 400, "{body}");
 
-    let (status, _, body) = http_post(
-        &server.addr,
-        "/api/github/sign-in",
-        r#"{"token":"ghp_example"}"#,
-    );
+    // Leaving the CLI goes back to Gewu's app, signed out.
+    let (status, _, body) = http_post(&server.addr, "/api/github/sign-out", "{}");
     assert_eq!(status, 200, "{body}");
-    assert!(body.contains(r#""login":"gewu-sandbox""#), "{body}");
+    let (_, _, body) = http_get(&server.addr, "/api/github/account");
+    assert_eq!(body, "null");
+
+    let (status, _, body) = http_post(&server.addr, "/api/github/sign-in/start", "{}");
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        body.contains(r#""kind":"device""#) && body.contains("GEWU-0000"),
+        "{body}"
+    );
+    let (status, _, body) = http_post(&server.addr, "/api/github/sign-in/poll", "{}");
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains(r#""status":"signed_in""#), "{body}");
 
     let (status, _, body) = http_get(&server.addr, "/api/tasks/missing/publication");
     assert_eq!(status, 404, "{body}");

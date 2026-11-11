@@ -141,3 +141,43 @@ fn a_pull_request_task_posts_one_review_to_its_remote() {
         "/repos/acme/project/pulls/12/reviews"
     );
 }
+
+#[test]
+fn contributors_are_read_from_the_remote_once_per_run() {
+    let fixture = Fixture::new();
+    let id = reviewed(&fixture);
+    let github = Recorder::signed_in("octocat");
+    assert!(
+        fixture
+            .workbench
+            .contributors(&id, &github)
+            .expect("contributors")
+            .is_empty(),
+        "a repository off GitHub has nobody to mention"
+    );
+    assert!(github.calls().is_empty());
+
+    fixture.git(&["remote", "add", "origin", "https://github.com/acme/project"]);
+    assert!(
+        fixture
+            .workbench
+            .contributors(&id, &Recorder::default())
+            .expect("signed out")
+            .is_empty()
+    );
+    for _ in 0..2 {
+        let logins: Vec<String> = fixture
+            .workbench
+            .contributors(&id, &github)
+            .expect("contributors")
+            .into_iter()
+            .map(|contributor| contributor.login)
+            .collect();
+        assert_eq!(logins, ["octocat", "grace", "linus"]);
+    }
+    assert_eq!(github.calls().len(), 1, "the second read is cached");
+    assert_eq!(
+        github.calls()[0].1,
+        "/repos/acme/project/contributors?per_page=100"
+    );
+}

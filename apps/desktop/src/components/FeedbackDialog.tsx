@@ -1,11 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 
+import type { Contributor } from "../backend/types";
 import type { FeedbackKind, FeedbackTarget } from "../protocol";
+import { MentionTextarea } from "./MentionTextarea";
 
 export function FeedbackDialog({
   kind,
   anchorSummary,
   initialTarget = "code",
+  contributors = [],
   onCancel,
   onSubmit,
 }: {
@@ -13,6 +16,8 @@ export function FeedbackDialog({
   anchorSummary: string | null;
   /** The target the reviewer opened the dialog on, e.g. a note's explanation. */
   initialTarget?: FeedbackTarget;
+  /** Who the body can `@`-mention. */
+  contributors?: Contributor[];
   onCancel: () => void;
   onSubmit: (body: string, target: FeedbackTarget) => void;
 }) {
@@ -56,11 +61,17 @@ export function FeedbackDialog({
               : "Targets the explanation, not a specific line."}
         </p>
         <label>
-          <span>Body</span>
-          <textarea
+          <span>
+            Body
+            {contributors.length > 0 && (
+              <span className="muted mention-hint"> · type @ to mention a contributor</span>
+            )}
+          </span>
+          <MentionTextarea
             ref={textareaRef}
             value={body}
-            onChange={(event) => setBody(event.target.value)}
+            onChange={setBody}
+            contributors={contributors}
           />
         </label>
         <div className="dialog-actions">

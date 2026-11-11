@@ -1434,3 +1434,99 @@ main[data-gewu-screen] {
     padding: var(--space-4);
   }
 }
+
+.sign-in-code {
+  margin: var(--space-4) 0;
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-align: center;
+  user-select: all;
+}
+
+.mention-field {
+  position: relative;
+}
+
+.dialog label > span .mention-hint {
+  display: inline;
+  font-weight: 400;
+}
+
+.mention-list {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  top: calc(100% + 2px);
+  min-width: 14rem;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+}
+
+.mention-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+}
+
+.mention-list li.active {
+  background: var(--accent-soft, rgb(0 0 0 / 0.06));
+}
+
+.mention-list img {
+  border-radius: 50%;
+}
+
+.github-via {
+  display: block;
+  font-size: 11px;
+}
+
+.sign-in-methods {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.sign-in-method {
+  display: grid;
+  gap: var(--space-1);
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sign-in-method:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.sign-in-method[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sign-in-method:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.sign-in-method .muted {
+  font-size: 12px;
+}
+
+.sign-in-in-use {
+  color: var(--accent-ink);
+  font-weight: 400;
+}

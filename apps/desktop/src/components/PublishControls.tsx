@@ -84,6 +84,14 @@ export function ReceiptView({ receipt }: { receipt: Receipt }) {
         </p>
       )}
       {receipt.failure && <p className="publication-failure">{receipt.failure}</p>}
+      {receipt.failure?.includes("OAuth App access restrictions") && (
+        <p>
+          This organization has not approved Gewu&apos;s GitHub app. Press Switch on
+          the account at the bottom of the sidebar and use the GitHub CLI, or ask an
+          owner to approve Gewu. Nothing more was sent, so publishing again picks up
+          where this stopped.
+        </p>
+      )}
     </div>
   );
 }

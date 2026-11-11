@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { signInMockGitHub, signOutMockGitHub } from "./backend/mockGitHub";
 import { renderApp, waitForReady } from "./test/renderApp";
 
 async function openFirstChunk(fixture = "showcase") {
@@ -71,5 +72,53 @@ describe("comments on blocks and explanations", () => {
     await user.click(within(main).getByRole("button", { name: /^comment$/i }));
     const plain = screen.getByRole("dialog", { name: /add comment/i });
     expect(plain.textContent).toMatch(/applies to the whole chunk/i);
+  });
+});
+
+describe("mentions in comments", () => {
+  beforeEach(() => signOutMockGitHub());
+  afterEach(() => signOutMockGitHub());
+
+  async function openComment(user: ReturnType<typeof userEvent.setup>) {
+    const main = await openFirstChunk();
+    const [codeGroup] = within(main).getAllByRole("group", { name: /feedback on this code/i });
+    await user.click(within(codeGroup).getByRole("button", { name: /comment on code/i }));
+    return screen.getByRole("dialog", { name: /add comment/i });
+  }
+
+  it("suggests the repository's contributors after @ and inserts the pick", async () => {
+    signInMockGitHub();
+    const user = userEvent.setup();
+    const dialog = await openComment(user);
+    const body = within(dialog).getByRole("textbox");
+    expect(await within(dialog).findByText(/type @ to mention/i)).toBeInTheDocument();
+
+    await user.type(body, "cc @li");
+    const list = within(dialog).getByRole("listbox", { name: /mention a contributor/i });
+    expect(within(list).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "@linus",
+    ]);
+    await user.keyboard("{Enter}");
+    expect(body).toHaveValue("cc @linus ");
+    expect(within(dialog).queryByRole("listbox")).not.toBeInTheDocument();
+
+    await user.type(body, "and @");
+    const everyone = within(dialog).getByRole("listbox", { name: /mention a contributor/i });
+    expect(within(everyone).getAllByRole("option")).toHaveLength(4);
+    await user.keyboard("{ArrowDown}{ArrowDown}{Tab}");
+    expect(body).toHaveValue("cc @linus and @linus ");
+
+    await user.type(body, "@g");
+    await user.keyboard("{Escape}");
+    expect(within(dialog).queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /add comment/i })).toBeInTheDocument();
+  });
+
+  it("suggests nobody while signed out", async () => {
+    const user = userEvent.setup();
+    const dialog = await openComment(user);
+    await user.type(within(dialog).getByRole("textbox"), "cc @");
+    expect(within(dialog).queryByRole("listbox")).not.toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/type @ to mention/i);
   });
 });

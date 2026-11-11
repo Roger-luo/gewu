@@ -3,7 +3,7 @@ mod workbench;
 use std::sync::Mutex;
 
 use gewu_app::{Action, ReviewWorkspace};
-use gewu_workbench::{Home, Recorder, Workbench};
+use gewu_workbench::{GitHub, Home, Recorder, Workbench};
 use serde::Serialize;
 use tiny_http::{Method, Request};
 
@@ -18,7 +18,7 @@ pub(crate) enum Backend {
     Review(Box<Mutex<ReviewWorkspace>>),
     /// The HTTP server is the UI sandbox, so GitHub is always the
     /// [`Recorder`]: publishing from it never leaves the machine.
-    Workbench(Workbench, Box<Recorder>),
+    Workbench(Workbench, Box<GitHub>),
 }
 
 impl Backend {
@@ -27,9 +27,10 @@ impl Backend {
             Mode::Review { root } => {
                 Self::Review(Box::new(Mutex::new(ReviewWorkspace::open(&root)?)))
             }
-            Mode::Workbench { home, gewu } => {
-                Self::Workbench(Workbench::open(Home::new(home), &gewu)?, Box::default())
-            }
+            Mode::Workbench { home, gewu } => Self::Workbench(
+                Workbench::open(Home::new(home), &gewu)?,
+                Box::new(GitHub::recorded(Recorder::default())),
+            ),
         })
     }
 

@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { signOutMockGitHub } from "./backend/mockGitHub";
+import { MOCK_CLI_LOGIN, MOCK_CODE, signOutMockGitHub } from "./backend/mockGitHub";
 import { renderApp, waitForReady } from "./test/renderApp";
 
 async function openSummary(user: ReturnType<typeof userEvent.setup>) {
@@ -11,12 +11,14 @@ async function openSummary(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByRole("region", { name: /publication preview/i });
 }
 
+/** The device flow: the dialog shows the code and closes once GitHub approves it. */
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
   const account = await screen.findByRole("button", { name: /sign in to github/i });
   await user.click(account);
-  const dialog = screen.getByRole("dialog", { name: /sign in to github/i });
-  await user.type(within(dialog).getByLabelText(/github token/i), "ghp_example");
-  await user.click(within(dialog).getByRole("button", { name: /^sign in$/i }));
+  const dialog = await screen.findByRole("dialog", { name: /sign in to github/i });
+  await user.click(within(dialog).getByRole("button", { name: /sign in with your browser/i }));
+  expect(within(dialog).getByLabelText(/device code/i)).toHaveTextContent(MOCK_CODE);
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 }
 
 describe("publication preview", () => {
@@ -57,6 +59,19 @@ describe("publication preview", () => {
     expect(within(preview).getByRole("button", { name: /^publish/i })).toBeEnabled();
   });
 
+  it("signs out and forgets the account", async () => {
+    const user = userEvent.setup();
+    renderApp("showcase-feedback");
+    await waitForReady();
+    await signIn(user);
+
+    const account = screen.getByRole("contentinfo", { name: /github account/i });
+    await user.click(within(account).getByRole("button", { name: /sign out/i }));
+
+    expect(await within(account).findByRole("button", { name: /sign in to github/i })).toBeInTheDocument();
+    expect(account).not.toHaveTextContent("octocat");
+  });
+
   it("sends nothing when the confirmation is cancelled", async () => {
     const user = userEvent.setup();
     const { backend } = renderApp("showcase-feedback");
@@ -94,5 +109,42 @@ describe("publication preview", () => {
     );
     expect(preview).toHaveTextContent("No open notes to publish.");
     expect(within(preview).queryByRole("button", { name: /^publish/i })).not.toBeInTheDocument();
+  });
+
+  it("uses the GitHub CLI's login without a code, and switches back", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderApp("showcase-feedback");
+    await waitForReady();
+
+    await user.click(await screen.findByRole("button", { name: /sign in to github/i }));
+    const dialog = screen.getByRole("dialog", { name: /sign in to github/i });
+    const methods = within(dialog).getByRole("group", { name: /sign-in method/i });
+    const [first] = within(methods).getAllByRole("button");
+    expect(first).toHaveTextContent(`Post as ${MOCK_CLI_LOGIN} through gh`);
+    await user.click(first);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const account = screen.getByRole("contentinfo", { name: /github account/i });
+    expect(account).toHaveTextContent(MOCK_CLI_LOGIN);
+    expect(account).toHaveTextContent("via GitHub CLI");
+    expect(within(account).queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
+
+    const preview = await openSummary(user);
+    expect(within(preview).getByRole("button", { name: /^publish/i })).toBeEnabled();
+
+    await user.click(within(account).getByRole("button", { name: /switch/i }));
+    const again = screen.getByRole("dialog", { name: /sign in to github/i });
+    expect(within(again).getByRole("button", { name: /use the github cli/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(within(again).getByRole("button", { name: /sign in with your browser/i }));
+    expect(within(again).getByLabelText(/device code/i)).toHaveTextContent(MOCK_CODE);
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(account).toHaveTextContent("octocat");
+    expect(account).toHaveTextContent("via Gewu's app");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });

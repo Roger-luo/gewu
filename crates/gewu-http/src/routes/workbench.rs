@@ -1,23 +1,25 @@
 use gewu_app::Action;
-use gewu_workbench::{Account, Recorder, Workbench, WorkbenchAction, WorkbenchError};
+use gewu_workbench::{GitHub, SignInMethod, Workbench, WorkbenchAction, WorkbenchError};
 use serde::{Deserialize, Serialize};
 use tiny_http::{Method, Request};
 
 use crate::response::{Json, Reply};
-
-/// The sandbox's sign-in: any token signs in as this login.
-const SANDBOX_LOGIN: &str = "gewu-sandbox";
 
 #[derive(Deserialize)]
 struct SignIn {
     token: String,
 }
 
+#[derive(Deserialize)]
+struct UseMethod {
+    method: SignInMethod,
+}
+
 /// `/api/workbench`, `/api/repositories/<id>/refs`, `/api/tasks/<id>/…`,
 /// and `/api/github/…`.
 pub(super) fn route(
     workbench: &Workbench,
-    github: &Recorder,
+    github: &GitHub,
     method: &Method,
     path: &str,
     query: &str,
@@ -38,20 +40,40 @@ pub(super) fn route(
             Err(reply) => reply,
         },
         (Method::Get, ["tasks", id, "publication"]) => answer(workbench.publication(id)),
-        (Method::Post, ["tasks", id, "publish"]) => answer(workbench.publish(id, github)),
-        (Method::Get, ["github", "account"]) => {
-            answer(Account::current(github).map_err(Into::into))
-        }
+        (Method::Post, ["tasks", id, "publish"]) => answer(
+            github
+                .with_transport(|github| workbench.publish(id, github))
+                .map_err(Into::into)
+                .and_then(|reply| reply),
+        ),
+        (Method::Get, ["tasks", id, "contributors"]) => answer(
+            github
+                .with_transport(|github| workbench.contributors(id, github))
+                .map_err(Into::into)
+                .and_then(|reply| reply),
+        ),
+        (Method::Get, ["github", "account"]) => answer(github.account().map_err(Into::into)),
+        (Method::Get, ["github", "methods"]) => answer(github.methods().map_err(Into::into)),
+        (Method::Post, ["github", "method"]) => match Json::body::<UseMethod>(request) {
+            Ok(choice) => answer(github.use_method(choice.method).map_err(Into::into)),
+            Err(reply) => reply,
+        },
         (Method::Post, ["github", "sign-in"]) => match Json::body::<SignIn>(request) {
             Ok(sign_in) if sign_in.token.trim().is_empty() => {
                 Json::error(400, "paste a GitHub token to sign in")
             }
-            Ok(_) => {
-                github.set_login(Some(SANDBOX_LOGIN));
-                answer(Account::current(github).map_err(Into::into))
-            }
+            Ok(sign_in) => answer(
+                github
+                    .sign_in_with_token(&sign_in.token)
+                    .map_err(Into::into),
+            ),
             Err(reply) => reply,
         },
+        (Method::Post, ["github", "sign-in", "start"]) => {
+            answer(github.start().map_err(Into::into))
+        }
+        (Method::Post, ["github", "sign-in", "poll"]) => answer(github.poll().map_err(Into::into)),
+        (Method::Post, ["github", "sign-out"]) => answer(github.sign_out().map_err(Into::into)),
         _ => Json::error(404, "not found"),
     }
 }

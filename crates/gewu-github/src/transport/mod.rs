@@ -15,3 +15,9 @@ pub trait Transport: Send + Sync {
     /// Calls `method path` with an optional JSON body and returns the reply.
     fn call(&self, method: &str, path: &str, body: Option<&Value>) -> Result<Value, GitHubError>;
 }
+
+impl<T: Transport + ?Sized> Transport for &T {
+    fn call(&self, method: &str, path: &str, body: Option<&Value>) -> Result<Value, GitHubError> {
+        (**self).call(method, path, body)
+    }
+}

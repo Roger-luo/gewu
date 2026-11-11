@@ -2,11 +2,13 @@
 //! writing them. Every method is safe to call from several threads.
 
 mod actions;
+mod contributors;
 mod publication;
 
 pub use publication::Publication;
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
 };
@@ -53,6 +55,8 @@ pub(crate) struct Inner {
     /// Held while a publish run is sending, so a second click cannot post
     /// the same notes twice.
     pub(crate) publishing: Mutex<()>,
+    /// Each GitHub repository's contributors, read once per run.
+    pub(crate) contributors: Mutex<HashMap<String, Vec<gewu_github::Contributor>>>,
 }
 
 #[derive(Clone)]
@@ -100,6 +104,7 @@ impl Workbench {
                     tasks,
                 }),
                 publishing: Mutex::new(()),
+                contributors: Mutex::default(),
             }),
         })
     }

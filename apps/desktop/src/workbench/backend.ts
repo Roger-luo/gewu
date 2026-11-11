@@ -1,6 +1,15 @@
 import { HttpBackend, request } from "../backend/http";
 import { command } from "../backend/tauri";
-import type { Backend, GitHubAccount, GitHubBackend } from "../backend/types";
+import type {
+  Backend,
+  Contributor,
+  GitHubAccount,
+  GitHubBackend,
+  SignInMethod,
+  SignInMethods,
+  SignInPoll,
+  SignInStart,
+} from "../backend/types";
 import type { Action, Snapshot } from "../protocol";
 import type { Publication, Receipt } from "../publication";
 import type {
@@ -53,6 +62,7 @@ export class HttpWorkbench implements WorkbenchBackend {
       dispatch: (action: Action) => review.dispatch(action),
       publication: () => request<Publication>(`${base}/publication`),
       publish: () => request<Receipt>(`${base}/publish`, {}),
+      contributors: () => request<Contributor[]>(`${base}/contributors`),
       github: httpGitHub,
     };
   }
@@ -61,12 +71,22 @@ export class HttpWorkbench implements WorkbenchBackend {
 /** The HTTP server is the UI sandbox: its GitHub records calls and sends nothing. */
 const httpGitHub: GitHubBackend = {
   account: () => request<GitHubAccount | null>("/api/github/account"),
+  startSignIn: () => request<SignInStart>("/api/github/sign-in/start", {}),
+  pollSignIn: () => request<SignInPoll>("/api/github/sign-in/poll", {}),
   signIn: (token: string) => request<GitHubAccount | null>("/api/github/sign-in", { token }),
+  signOut: () => request<null>("/api/github/sign-out", {}).then(() => undefined),
+  methods: () => request<SignInMethods>("/api/github/methods"),
+  chooseMethod: (method: SignInMethod) => request<SignInMethods>("/api/github/method", { method }),
 };
 
 const tauriGitHub: GitHubBackend = {
   account: () => command<GitHubAccount | null>("github_account"),
+  startSignIn: () => command<SignInStart>("github_sign_in_start"),
+  pollSignIn: () => command<SignInPoll>("github_sign_in_poll"),
   signIn: (token: string) => command<GitHubAccount | null>("github_sign_in", { token }),
+  signOut: () => command<null>("github_sign_out").then(() => undefined),
+  methods: () => command<SignInMethods>("github_methods"),
+  chooseMethod: (method: SignInMethod) => command<SignInMethods>("github_use_method", { method }),
 };
 
 export class TauriWorkbench implements WorkbenchBackend {
@@ -94,6 +114,7 @@ export class TauriWorkbench implements WorkbenchBackend {
       dispatch: (action: Action) => command<Snapshot>("task_dispatch", { taskId, action }),
       publication: () => command<Publication>("publication", { taskId }),
       publish: () => command<Receipt>("publish", { taskId }),
+      contributors: () => command<Contributor[]>("contributors", { taskId }),
       github: tauriGitHub,
     };
   }

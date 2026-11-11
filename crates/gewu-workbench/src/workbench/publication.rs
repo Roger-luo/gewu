@@ -28,33 +28,29 @@ pub struct Publication {
 impl Workbench {
     /// The draft for `task_id`. Building it does not contact GitHub.
     pub fn publication(&self, task_id: &str) -> Result<Publication, WorkbenchError> {
-        let (snapshot, title, source, repository) = {
+        let (snapshot, title, source) = {
             let mut state = self.state()?;
             let task = state.task(task_id)?;
             let snapshot = task
                 .review()?
                 .ok_or_else(|| WorkbenchError::invalid("no walkthrough has been written yet"))?
                 .snapshot();
-            let record = task.record.clone();
-            let repository = state.repository(&record.repository_id)?.clone();
-            (snapshot, record.title, record.source, repository)
+            (
+                snapshot,
+                task.record.title.clone(),
+                task.record.source.clone(),
+            )
         };
-        let remote = match &source {
-            Source::PullRequest { remote, .. } => remote.as_str(),
-            _ => "origin",
-        };
-        let slug = repository
-            .git()
-            .remote_url(remote)
-            .as_deref()
-            .and_then(Slug::from_remote_url);
-        let blocked = slug.is_none().then(|| {
+        let remote = self.remote(task_id)?;
+        let blocked = remote.slug.is_none().then(|| {
             format!(
-                "{} has no GitHub remote named `{remote}`, so this draft can be read but not sent.",
-                repository.name()
+                "{} has no GitHub remote named `{}`, so this draft can be read but not sent.",
+                remote.repository, remote.name
             )
         });
-        let name = slug.map_or_else(|| repository.name(), |slug| slug.to_string());
+        let name = remote
+            .slug
+            .map_or(remote.repository, |slug| slug.to_string());
         let published = self.published(task_id)?;
         let mut plan = draft(&snapshot, &venue(&source, name), &title, &published);
         if let Some(review) = plan.pull_request.as_mut() {
@@ -97,6 +93,28 @@ impl Workbench {
         Ok(receipt)
     }
 
+    /// The GitHub repository `task_id` publishes to: the remote a pull
+    /// request came from, otherwise `origin`.
+    pub(super) fn remote(&self, task_id: &str) -> Result<Remote, WorkbenchError> {
+        let mut state = self.state()?;
+        let record = state.task(task_id)?.record.clone();
+        let repository = state.repository(&record.repository_id)?;
+        let name = match &record.source {
+            Source::PullRequest { remote, .. } => remote.clone(),
+            _ => "origin".to_string(),
+        };
+        let slug = repository
+            .git()
+            .remote_url(&name)
+            .as_deref()
+            .and_then(Slug::from_remote_url);
+        Ok(Remote {
+            repository: repository.name(),
+            name,
+            slug,
+        })
+    }
+
     fn published(&self, task_id: &str) -> Result<Vec<Posted>, WorkbenchError> {
         Ok(Home::read(&self.published_path(task_id))?.unwrap_or_default())
     }
@@ -104,6 +122,15 @@ impl Workbench {
     fn published_path(&self, task_id: &str) -> PathBuf {
         self.inner.home.task(task_id).join("published.json")
     }
+}
+
+pub(super) struct Remote {
+    /// The repository's display name.
+    pub(super) repository: String,
+    /// The Git remote, such as `origin`.
+    pub(super) name: String,
+    /// `None` when that remote is not on github.com.
+    pub(super) slug: Option<Slug>,
 }
 
 fn venue(source: &Source, repository: String) -> Venue {

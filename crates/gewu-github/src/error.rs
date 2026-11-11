@@ -12,6 +12,12 @@ pub enum GitHubError {
         path: String,
         message: String,
     },
+    #[error("could not reach GitHub: {0}")]
+    Network(String),
+    #[error("could not use the saved GitHub sign-in: {0}")]
+    Keychain(String),
+    #[error("GitHub sign-in failed: {0}")]
+    SignIn(String),
     #[error("GitHub sent a reply Gewu could not read: {0}")]
     Reply(String),
     #[error(transparent)]

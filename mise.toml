@@ -138,6 +138,21 @@ pnpm --dir apps/ui-harness ui journeys --out "$PWD/$run"
 echo "Captured $run; brief a judge with: pnpm --dir apps/ui-harness ui brief --run $PWD/$run"
 '''
 
+[tasks.desktop-record]
+description = "Run the desktop app with a recording GitHub that sends nothing: mise run desktop-record [home]"
+usage = '''
+arg "[home]" default=".gewu/record-home" help="GEWU_HOME for this run; pass ~/.gewu to use your real reviews"
+'''
+run = '''
+set -euo pipefail
+mkdir -p "${usage_home}"
+export GEWU_HOME="$(cd "${usage_home}" && pwd)"
+export GEWU_GITHUB=record
+echo "Recording GitHub: sign-in approves code GEWU-0000 as gewu-sandbox; Publish sends nothing."
+echo "GEWU_HOME=$GEWU_HOME"
+mise run desktop
+'''
+
 [tasks.desktop]
 description = "Run the Tauri desktop app in dev mode: mise run desktop [root]"
 usage = '''

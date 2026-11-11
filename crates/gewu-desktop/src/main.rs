@@ -2,6 +2,7 @@
 //! repositories, tasks, and agents in `gewu-workbench`.
 
 mod commands;
+mod github;
 mod root;
 mod state;
 
@@ -14,8 +15,10 @@ use state::AppState;
 
 fn main() {
     let state = AppState::open(Launch::from_env()).unwrap_or_else(|message| fail(&message));
+    let github = github::from_env().unwrap_or_else(|message| fail(&message));
     tauri::Builder::default()
         .manage(state)
+        .manage(github)
         .invoke_handler(tauri::generate_handler![
             commands::mode,
             commands::snapshot,
@@ -29,8 +32,14 @@ fn main() {
             commands::pick_directory,
             commands::publication,
             commands::publish,
+            commands::contributors,
             commands::github_account,
             commands::github_sign_in,
+            commands::github_sign_in_start,
+            commands::github_sign_in_poll,
+            commands::github_sign_out,
+            commands::github_methods,
+            commands::github_use_method,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| fail(&format!("Gewu failed to start:\n\n{error}")));

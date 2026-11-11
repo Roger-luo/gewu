@@ -10,6 +10,7 @@ import { Navigator } from "./components/Navigator";
 import { OverviewScreen } from "./components/OverviewScreen";
 import { SummaryScreen } from "./components/SummaryScreen";
 import { useFocusOnNavigate } from "./hooks/useFocusOnNavigate";
+import { useContributors } from "./hooks/useContributors";
 import { useGitHub } from "./hooks/useGitHub";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePublication } from "./hooks/usePublication";
@@ -115,6 +116,11 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
   }, [anchor, app.chunkIndex, app.snapshot, commentOn]);
 
   const github = useGitHub(backend.github);
+  const contributors = useContributors(
+    backend,
+    app.overlay === "feedback",
+    github.account?.login ?? null,
+  );
   const localDraft = (): Publication =>
     app.snapshot
       ? localPublication(
@@ -240,6 +246,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
           kind={app.feedbackKind}
           anchorSummary={anchorSummary}
           initialTarget={commentOn?.target}
+          contributors={contributors}
           onCancel={app.closeOverlay}
           onSubmit={(body, target) => void submitFeedback(body, target)}
         />

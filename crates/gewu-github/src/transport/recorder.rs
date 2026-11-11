@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use serde_json::{Value, json};
 
 use super::Transport;
-use crate::GitHubError;
+use crate::{Account, GitHubError, SignInPoll, SignInStart};
 
 /// Answers like GitHub without contacting it, and remembers every call.
 ///
@@ -34,6 +34,39 @@ impl Recorder {
     /// Makes the next call to `path` fail, as GitHub refusing it would.
     pub fn refuse(&self, path: &str) {
         self.lock().refuse = Some(path.to_string());
+    }
+
+    /// The login [`Recorder::sign_in`] signs in as.
+    pub const SANDBOX_LOGIN: &'static str = "gewu-sandbox";
+
+    /// The sandbox's sign-in: any non-empty token signs in as
+    /// [`Recorder::SANDBOX_LOGIN`], and nothing is sent anywhere.
+    pub fn sign_in(&self, token: &str) -> Result<(), GitHubError> {
+        if token.trim().is_empty() {
+            return Err(GitHubError::SignedOut);
+        }
+        self.set_login(Some(Self::SANDBOX_LOGIN));
+        Ok(())
+    }
+
+    /// The device flow, minus GitHub: a fixed code that is approved on the
+    /// first poll, so the sandbox shows the same screens as a real sign-in.
+    #[must_use]
+    pub fn start_device(&self) -> SignInStart {
+        SignInStart::Device {
+            user_code: "GEWU-0000".to_string(),
+            verification_uri: "https://github.com/login/device".to_string(),
+            interval: 1,
+            expires_in: 900,
+        }
+    }
+
+    pub fn poll_device(&self) -> Result<SignInPoll, GitHubError> {
+        self.set_login(Some(Self::SANDBOX_LOGIN));
+        Ok(match Account::current(self)? {
+            Some(account) => SignInPoll::SignedIn { account },
+            None => SignInPoll::Denied,
+        })
     }
 
     /// Signs in or out.
@@ -80,9 +113,15 @@ impl Transport for Recorder {
             ("GET", "/user") => json!({
                 "login": login,
                 "name": null,
-                "avatar_url": format!("https://avatars.githubusercontent.com/{login}"),
+                "avatar_url": avatar(&login),
                 "html_url": format!("https://github.com/{login}"),
             }),
+            ("GET", path) if path.contains("/contributors") => json!([
+                { "login": login, "avatar_url": avatar(&login), "type": "User" },
+                { "login": "grace", "avatar_url": avatar("grace"), "type": "User" },
+                { "login": "dependabot[bot]", "avatar_url": avatar("dependabot"), "type": "Bot" },
+                { "login": "linus", "avatar_url": avatar("linus"), "type": "User" },
+            ]),
             (_, path) if path.ends_with("/issues") => json!({
                 "number": count,
                 "html_url": format!("https://github.com/{repository}/issues/{count}"),
@@ -99,5 +138,27 @@ impl Transport for Recorder {
             }
             _ => json!({}),
         })
+    }
+}
+
+fn avatar(login: &str) -> String {
+    format!("https://avatars.githubusercontent.com/{login}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Recorder;
+    use crate::Account;
+
+    #[test]
+    fn any_token_signs_in_as_the_sandbox_and_nothing_is_sent() {
+        let github = Recorder::default();
+        assert_eq!(Account::current(&github).expect("account"), None);
+        assert!(github.sign_in("  ").is_err());
+        github.sign_in("ghp_example").expect("sign in");
+        let account = Account::current(&github)
+            .expect("account")
+            .expect("signed in");
+        assert_eq!(account.login, Recorder::SANDBOX_LOGIN);
     }
 }

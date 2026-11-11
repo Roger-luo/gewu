@@ -70,8 +70,12 @@ tracking issue. For a workbench task the draft comes from
 `Workbench::publication`; `publication.ts` builds the same JSON for the mock
 and a single-review window. Publish sends through `crates/gewu-github` only
 after a confirmation dialog, records posts in the task's `published.json`, and
-never resends a note. Sign-in is the GitHub CLI's (`gh auth login
---with-token`). Never test publishing against GitHub: use
+never resends a note. The reviewer picks the sign-in in the window
+(`gewu_github::GitHub`, choice saved in the home's `github.json`): Gewu's OAuth
+app through the device flow (`OAuthSession`, scope `repo`, token in the
+keychain) or the GitHub CLI's existing login. `GEWU_GITHUB=gh` starts on the
+CLI when nothing is saved, and `mise run desktop-record` uses the recorder. Never test
+publishing against GitHub: use
 `gewu_github::Recorder` in Rust (the `gewu ui serve` sandbox uses it too) and
 the mock in the desktop tests.
 

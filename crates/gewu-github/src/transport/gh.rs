@@ -82,6 +82,9 @@ impl Transport for GhCli {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         if output.status.success() {
+            if stdout.trim().is_empty() {
+                return Ok(Value::Null);
+            }
             return serde_json::from_str(&stdout)
                 .map_err(|error| GitHubError::Reply(error.to_string()));
         }

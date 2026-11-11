@@ -3,12 +3,12 @@
 
 use gewu_app::{Action, Snapshot};
 use gewu_workbench::{
-    Account, GhCli, Publication, Receipt, RepositoryRefs, TaskLog, WorkbenchAction,
-    WorkbenchSnapshot,
+    Account, Contributor, GitHub, GitHubError, Publication, Receipt, RepositoryRefs, SignInMethod,
+    SignInMethods, SignInPoll, SignInStart, TaskLog, WorkbenchAction, WorkbenchSnapshot,
 };
 use tauri::State;
 
-use crate::state::AppState;
+use crate::{github, state::AppState};
 
 type Reply<T> = Result<T, String>;
 
@@ -74,31 +74,76 @@ pub fn publication(state: State<'_, AppState>, task_id: String) -> Reply<Publica
     text(state.workbench()?.publication(&task_id))
 }
 
-/// Sends the task's draft through the GitHub CLI. The UI calls this only
-/// after the reviewer confirms the preview.
+/// Sends the task's draft. The UI calls this only after the reviewer
+/// confirms the preview.
 #[tauri::command(async)]
-pub fn publish(state: State<'_, AppState>, task_id: String) -> Reply<Receipt> {
-    text(state.workbench()?.publish(&task_id, &github()))
+pub fn publish(
+    state: State<'_, AppState>,
+    github: State<'_, GitHub>,
+    task_id: String,
+) -> Reply<Receipt> {
+    let workbench = state.workbench()?;
+    text(github.with_transport(|transport| workbench.publish(&task_id, transport)))?
+        .map_err(|error| error.to_string())
 }
 
-/// Who the GitHub CLI is signed in as, or `None`.
+/// Who a note on the task can `@`-mention: the repository's contributors.
+/// Empty when signed out.
 #[tauri::command(async)]
-pub fn github_account() -> Reply<Option<Account>> {
-    text(Account::current(&github()))
+pub fn contributors(
+    state: State<'_, AppState>,
+    github: State<'_, GitHub>,
+    task_id: String,
+) -> Reply<Vec<Contributor>> {
+    let workbench = state.workbench()?;
+    match github.with_transport(|transport| workbench.contributors(&task_id, transport)) {
+        Ok(listed) => text(listed),
+        Err(GitHubError::SignedOut) => Ok(Vec::new()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
-/// Signs the GitHub CLI in with a pasted token, then reads the account.
+/// Who publishing would post as, or `None`.
 #[tauri::command(async)]
-pub fn github_sign_in(token: String) -> Reply<Option<Account>> {
-    let github = github();
-    text(github.sign_in(&token))?;
-    text(Account::current(&github))
+pub fn github_account(github: State<'_, GitHub>) -> Reply<Option<Account>> {
+    text(github.account())
 }
 
-/// `gh` on the same search path agents use, since an app opened from the
-/// Finder does not inherit the shell's `PATH`.
-fn github() -> GhCli {
-    GhCli::new(gewu_agent::Preset::which("gh").unwrap_or_else(|| "gh".into()))
+/// Starts a sign-in: a device code to approve on github.com, or a request
+/// for a pasted token when Gewu uses the GitHub CLI.
+#[tauri::command(async)]
+pub fn github_sign_in_start(github: State<'_, GitHub>) -> Reply<SignInStart> {
+    text(github::start(&github))
+}
+
+/// Checks once whether the reviewer approved the device code.
+#[tauri::command(async)]
+pub fn github_sign_in_poll(github: State<'_, GitHub>) -> Reply<SignInPoll> {
+    text(github.poll())
+}
+
+/// Signs in with a pasted token (the GitHub CLI fallback).
+#[tauri::command(async)]
+pub fn github_sign_in(github: State<'_, GitHub>, token: String) -> Reply<Option<Account>> {
+    text(github.sign_in_with_token(&token))
+}
+
+/// Forgets Gewu's token, or stops using the GitHub CLI's login.
+#[tauri::command(async)]
+pub fn github_sign_out(github: State<'_, GitHub>) -> Reply<()> {
+    text(github.sign_out())
+}
+
+/// The sign-in method in use, and whether `gh` is signed in.
+#[tauri::command(async)]
+pub fn github_methods(github: State<'_, GitHub>) -> Reply<SignInMethods> {
+    text(github.methods())
+}
+
+/// Switches between Gewu's OAuth app and the GitHub CLI.
+#[tauri::command(async)]
+pub fn github_use_method(github: State<'_, GitHub>, method: SignInMethod) -> Reply<SignInMethods> {
+    text(github.use_method(method))
 }
 
 /// A folder the reviewer picks, or `None` if they cancel.

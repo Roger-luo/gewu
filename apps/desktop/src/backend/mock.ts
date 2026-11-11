@@ -14,8 +14,8 @@ import {
   type Receipt,
   type Venue,
 } from "../publication";
-import { mockGitHub, mockSignedIn } from "./mockGitHub";
-import { BackendError, type Backend } from "./types";
+import { avatarFor, MOCK_CONTRIBUTORS, mockGitHub, mockSignedIn } from "./mockGitHub";
+import { BackendError, type Backend, type Contributor } from "./types";
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -117,6 +117,12 @@ export class MockBackend implements Backend {
 
   async publication(): Promise<Publication> {
     return localPublication(this.target.venue, this.target.title, this.state, clone(this.posted));
+  }
+
+  /** The fixture's contributors; nobody while signed out, as on GitHub. */
+  async contributors(): Promise<Contributor[]> {
+    if (!mockSignedIn()) return [];
+    return MOCK_CONTRIBUTORS.map((login) => ({ login, avatar_url: avatarFor(login) }));
   }
 
   /** Answers like GitHub would, without sending anything. */

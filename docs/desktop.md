@@ -127,14 +127,45 @@ number. What was posted is kept in the task's `published.json`; those notes
 drop out of the next draft and the preview lists them under "Already on
 GitHub", so pressing Publish again never posts a note twice.
 
-Sign-in is the GitHub CLI's. The account chip at the bottom of the sidebar
-shows `gh`'s signed-in user and avatar (`GET /user`). **Sign in to GitHub**
-takes a pasted token and passes it to `gh auth login --with-token`, which
-keeps it; Gewu never stores a token. The `gewu ui serve` sandbox answers with
-`gewu_github::Recorder` instead, where any token signs in as `gewu-sandbox`
-and Publish records the requests without sending them, so a QA agent can
-press every button. Tests use the same recorder or the mock and never reach
-GitHub.
+**Sign in to GitHub** first asks how. **Sign in with your browser** uses Gewu's
+GitHub OAuth app (client ID `Ov23liMKKIvqy32L2nuS`, device flow, scope `repo`
+for public and private repositories): the dialog shows a code, opens
+`github.com/login/device`, and polls until the reviewer approves it. The token
+is kept in the system keychain (service `gewu`, account `github.com`) and Gewu
+calls `api.github.com` with it directly. **Sign out** deletes it from the
+keychain; the reviewer can also revoke Gewu under GitHub's Settings →
+Applications.
+
+**Use the GitHub CLI** posts through `gh api` with the CLI's own login, so a
+reviewer who already uses `gh` has nothing to set up. It also works in
+organizations that restrict OAuth apps but have approved the GitHub CLI; when
+GitHub refuses a post for that reason, the receipt says to switch. The dialog
+lists the CLI first when `gh` is signed in, shows its login, and greys it out
+when `gh` is not installed. If `gh` is installed but signed out, it asks for a
+token to pass to `gh auth login --with-token`. Leaving the CLI goes back to
+Gewu's app; it never signs `gh` out.
+
+The account chip shows which method is in use and has **Switch** to change
+it. The choice (`gewu_github::GitHub`) is saved in the workbench home's
+`github.json` and outlives the run. `GEWU_GITHUB=gh` starts on the CLI when
+nothing is saved, and `GEWU_GITHUB_CLIENT_ID` replaces the client ID.
+
+Typing `@` in a comment suggests the repository's contributors (humans only,
+top 100 by commits) and inserts the picked `@login`. The list comes from
+`GET /repos/{owner}/{name}/contributors`, a read that notifies nobody, made
+when the comment dialog first opens and then cached by the workbench for the
+rest of the run (`Workbench::contributors`). Signed out, or for a repository
+with no GitHub remote, there are no suggestions. The sandbox's recorder lists
+the signed-in login plus `grace` and `linus`.
+
+The `gewu ui serve` sandbox answers with `gewu_github::Recorder` instead: its
+device code is `GEWU-0000`, approved on the first poll as `gewu-sandbox`; its
+"GitHub CLI" is always signed in as `gewu-sandbox`; and
+Publish records the requests without sending them, so a QA agent can press
+every button. `mise run desktop-record [home]` opens the desktop window
+the same way (`GEWU_GITHUB=record`), with `GEWU_HOME` defaulting to
+`.gewu/record-home` so recorded posts never mark real notes as sent. Tests use
+the same recorder or the mock and never reach GitHub.
 
 Comments on a block and on an explanation do not need line numbers picked by
 hand. The block's buttons anchor to the block's span; the explanation beside a
