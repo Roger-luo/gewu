@@ -154,9 +154,11 @@ impl HarnessRunner {
             .collect();
         if explainers.is_empty() {
             return "\nNo chunk has an explainer. `description.md` makes claims: if this item \
-                    delivers one, quote it in a `claim` block on its first chunk, and show a size \
-                    or per-step change with a `layout`, `cost_model`, or `timeline` (see the \
-                    expand prompt). If it delivers none, say what it enables instead.\n"
+                    delivers one, quote it in a `claim` block on its first chunk, and show it: a \
+                    record with a `layout`, a cost that scales with a `cost_model`, an algorithm \
+                    a reader would simulate with a `stepper`, work moved out of a loop with a \
+                    `timeline` (see the expand prompt). If it delivers none, say what it enables \
+                    instead.\n"
                 .to_owned();
         }
         let mut notes = Vec::new();
@@ -184,7 +186,9 @@ impl HarnessRunner {
             notes.push(
                 "`description.md` reports measured results and no chunk states its share. If \
                  this item delivers part of one, say how much, as an estimate when the change \
-                 measures no part on its own (a `claim` with `result` and `share`).",
+                 measures no part on its own (a `claim` with `result` and `share`). A share is \
+                 this item's part of that result, never what its own code costs; if it delivers \
+                 none, leave `share` out.",
             );
         }
         if notes.is_empty() {

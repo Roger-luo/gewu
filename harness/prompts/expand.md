@@ -232,7 +232,11 @@ Rules:
     from your cost model or your reasoning, and says whether that share is
     estimated or measured — an estimate set beside a measurement must say so —
     and `how` names what else contributes. A small honest share convinces; an implied large one is
-    found out.
+    found out. A share is this chunk's part of the described result, never
+    what the new code itself costs (say that in `how` or the narrative); a
+    chunk that only enables a result states none. When a structure is counted
+    in an earlier section's share too, say so, so the shares are not added
+    twice.
   - `layout`: when the point is what a record holds — fields dropped, packed,
     or shrunk. Sizes come from the code: a `size_of` assertion when there is
     one, otherwise the field types, with padding drawn as its own `pad`

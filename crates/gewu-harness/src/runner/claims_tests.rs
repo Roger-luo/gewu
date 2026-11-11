@@ -115,6 +115,9 @@ fn measuring_a_draft_without_explainers_reminds_when_claims_exist() {
     .expect("description");
     let reminded = fixture.runner.status().expect("measure");
     assert!(reminded.contains("No chunk has an explainer"), "{reminded}");
+    // Found by QA of the #276 rerun: a reminder naming only layouts, cost
+    // models, and timelines cost the walkthrough every stepper it had.
+    assert!(reminded.contains("`stepper`"), "{reminded}");
 }
 
 /// Found by QA of Cursor's #276 run: explainers that were all claims, and no
@@ -139,6 +142,12 @@ fn measuring_reminds_when_explainers_only_quote_or_no_share_is_stated() {
         "{reminded}"
     );
     assert!(reminded.contains("no chunk states its share"), "{reminded}");
+    // Found by QA of the #276 rerun: shares filled with the new code's own
+    // cost, and with results the item only enables.
+    assert!(
+        reminded.contains("never what its own code costs"),
+        "{reminded}"
+    );
 }
 
 /// Found by QA of Cursor's #276 run: the reminder fired on test-only items,
