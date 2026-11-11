@@ -193,8 +193,10 @@ impl Explainer {
     }
 }
 
-/// Columns a stepper line may use: wider code is clipped beside its caption.
-const MAX_STEP_COLUMNS: usize = 80;
+/// Columns a stepper line may use: rustfmt's default width. Found by
+/// dogfooding: at 80, a faithful copy of formatted code with a long comment
+/// could not pass. Wider boxes scroll and fade their edge.
+const MAX_STEP_COLUMNS: usize = 100;
 
 fn stepper_problems(steps: &[Step], first: usize) -> Vec<String> {
     let mut problems = Vec::new();
@@ -217,8 +219,8 @@ fn stepper_problems(steps: &[Step], first: usize) -> Vec<String> {
                 .any(|line| line.chars().count() > MAX_STEP_COLUMNS)
             {
                 problems.push(format!(
-                    "stepper step {number} has a line over {MAX_STEP_COLUMNS} columns; wrap it as \
-                     rustfmt or prettier would, so nothing is clipped"
+                    "stepper step {number} has a line over {MAX_STEP_COLUMNS} columns; replace a long \
+                     comment with `// …`, or break the code where its formatter would"
                 ));
             }
         }

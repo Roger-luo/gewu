@@ -258,12 +258,69 @@ fn a_stepper_numbers_lines_like_the_file_and_keeps_them_narrow() {
 
     let wide: Explainer = serde_json::from_value(serde_json::json!({
         "kind": "stepper", "title": "t",
-        "steps": [ { "caption": "a", "code": "x".repeat(81) }, { "caption": "b" } ]
+        "steps": [ { "caption": "a", "code": "x".repeat(101) }, { "caption": "b" } ]
     }))
     .expect("stepper");
     assert!(
-        wide.problems()[0].contains("over 80 columns"),
+        wide.problems()[0].contains("over 100 columns"),
         "{:?}",
         wide.problems()
     );
+}
+
+/// Found by dogfooding: charged to the row budget, a stepper could never sit
+/// beside the quote it explains, so explainers are measured beside it.
+#[test]
+fn explainers_are_measured_beside_the_budget_not_charged_to_it() {
+    let chunk = |content: Vec<crate::ChunkBlock>| crate::ReviewChunk {
+        id: "c".into(),
+        title: "t".into(),
+        summary: "s".into(),
+        kind: crate::ChunkKind::Concept,
+        content,
+        context: None,
+        confidence: None,
+        oversized_reason: None,
+        section: None,
+    };
+    let narrative = crate::ChunkBlock::Narrative {
+        markdown: "What to look for.".into(),
+    };
+    let plain = chunk(vec![narrative.clone()]);
+    let explained = chunk(vec![narrative, crate::ChunkBlock::Explainer(stepper("2"))]);
+    let changes = std::collections::HashMap::new();
+    assert_eq!(
+        crate::chunk_height(&explained, &changes),
+        crate::chunk_height(&plain, &changes)
+    );
+    assert!(crate::explainer_height(&explained) > 4);
+    assert_eq!(crate::explainer_height(&plain), 0);
+}
+
+/// Found by dogfooding: a refactor pane's headings alone came near half the
+/// budget, so the warning judges the pane's text, not its fixed rows.
+#[test]
+fn a_small_context_pane_has_little_text() {
+    let mut chunk = crate::ReviewChunk {
+        id: "c".into(),
+        title: "t".into(),
+        summary: "s".into(),
+        kind: crate::ChunkKind::Refactor,
+        content: Vec::new(),
+        context: None,
+        confidence: None,
+        oversized_reason: None,
+        section: None,
+    };
+    chunk.context = Some(crate::ChunkContext::Refactor {
+        before: "struct A { b: u8 }".into(),
+        after: "struct A;".into(),
+        reason: "Drops `b`.".into(),
+    });
+    assert!(
+        crate::pane_text_height(&chunk) <= 4,
+        "{}",
+        crate::pane_text_height(&chunk)
+    );
+    assert!(crate::pane_height(&chunk) > crate::pane_text_height(&chunk));
 }

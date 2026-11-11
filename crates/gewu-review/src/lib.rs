@@ -17,7 +17,10 @@ mod validation;
 
 pub use explainer::Explainer;
 pub use handover::Handover;
-pub use height::{CHUNK_HEIGHT_GUIDANCE, HeightBreakdown, chunk_height, pane_height};
+pub use height::{
+    CHUNK_HEIGHT_GUIDANCE, HeightBreakdown, chunk_height, explainer_height, pane_height,
+    pane_text_height,
+};
 pub use input::{Change, ReviewInput, SourceIdentity};
 pub use publication::{
     GEWU_REPOSITORY, GitHubRequest, InlineComment, IssueBundle, IssueDraft, Note, Plan,

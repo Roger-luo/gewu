@@ -208,7 +208,7 @@ A chunk's `blocks` may include `{ "type": "explainer", "kind": … }`
   file's numbers (`start_line`), and `source` names the file above the code.
   Back, Next, and Play (which holds each step for reading time, even with
   reduced motion); focus moves on when the pressed button disables. Lines are
-  at most 80 columns; a box narrower than its code scrolls and fades its
+  at most 100 columns; a box narrower than its code scrolls and fades its
   right edge. It stacks code above the caption by its own
   width (a container query), so a context pane narrowing it is handled too.
 - **Timeline** (`TimelineView`): lanes over N steps, work drawn in every

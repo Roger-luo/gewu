@@ -333,7 +333,10 @@ impl HarnessRunner {
             ));
         }
         self.advance(&mut run.state, HarnessStage::Plan)?;
-        Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks))
+        Ok(accepted(
+            prompts::plan(run.input.max_chunk_lines, self.max_chunks),
+            "`investigation.json`",
+        ))
     }
 
     fn investigation_prompt(&self, run: &Run) -> String {
@@ -362,7 +365,7 @@ impl HarnessRunner {
             ));
         }
         self.advance(&mut run.state, HarnessStage::Expand)?;
-        self.prompt_expand(run, &list)
+        Ok(accepted(self.prompt_expand(run, &list)?, "`worklist.json`"))
     }
 
     /// Validates the pending expansion and appends its chunks to the spec.
@@ -399,7 +402,7 @@ impl HarnessRunner {
             ));
         }
         let mut spec = self.spec_so_far(run)?;
-        let batch = expansion
+        let batch: Vec<String> = expansion
             .chunks
             .iter()
             .map(|chunk| chunk.id.clone())
@@ -419,7 +422,13 @@ impl HarnessRunner {
         artifacts::write(&self.spec_path, &spec)?;
         self.store.save_work_list(&work)?;
         self.store.discard_expansion()?;
-        self.after_batch(run, batch)
+        let chunks = batch.len();
+        let note = format!(
+            "`expansion.json`: {chunks} chunk{} for `{}`",
+            if chunks == 1 { "" } else { "s" },
+            item.id
+        );
+        Ok(accepted(self.after_batch(run, batch)?, &note))
     }
 
     /// Applies the continue gates once the reviewer has had the current batch.
@@ -740,6 +749,19 @@ fn replace_chunks(spec: &mut ReviewSpec, mut rewritten: Vec<ReviewChunk>) {
     }
 }
 
+/// Puts "Accepted …" under the next prompt's heading, so an agent knows its
+/// checkpoint went through before it reads what comes next. Found by
+/// dogfooding: `harness next` printed the next stage with no word that the
+/// last one was taken. The heading stays first, since drivers match on it.
+fn accepted(prompt: String, what: &str) -> String {
+    match prompt.split_once('\n') {
+        Some((heading, rest)) => format!("{heading}\n\nAccepted {what}.\n{rest}"),
+        None => format!("{prompt}\n\nAccepted {what}."),
+    }
+}
+
+#[cfg(test)]
+mod claims_tests;
 mod proofread;
 #[cfg(test)]
 mod tests;

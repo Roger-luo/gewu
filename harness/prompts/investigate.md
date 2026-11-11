@@ -19,7 +19,10 @@ deliver each claim, and say so plainly when the code does not support one.
 The description often covers more than this diff — a whole pull request
 reviewed in parts, or claims that rest on code outside it. Name the claims
 this diff delivers, and list the rest as outside it rather than stretching
-the code to fit them.
+the code to fit them: one finding titled "Claims outside this diff", tied
+to the change they are closest to, whose `summary` lists them. Code that
+cannot build as written — a missing module or dependency — is a finding of
+its own, stated as what the source shows.
 
 Do not build, test, or run the project: `cargo check`, `npm test`, and the
 like write build output into the repository. Judge from the source, and say

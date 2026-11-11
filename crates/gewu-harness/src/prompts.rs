@@ -308,15 +308,30 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
             // and an agent that saw only one number would cut the reminder a
             // reviewer asked for to buy rows it never needed.
             let pane = gewu_review::pane_height(chunk);
-            let beside = if pane > input.max_chunk_lines / 2 {
+            let pane_text = gewu_review::pane_text_height(chunk);
+            let mut beside = if pane_text > input.max_chunk_lines / 2 {
                 format!(
-                    ", beside a `context` pane of about {pane} more — over half the budget; trim it"
+                    ", beside a `context` pane of about {pane} more whose text runs {pane_text} \
+                     rows — over half the budget; trim it"
                 )
             } else if pane > 0 {
                 format!(", beside a `context` pane of about {pane} more")
             } else {
                 String::new()
             };
+            // Explainers are reported too, not charged; one taller than the
+            // whole budget is too much to take in beside the code.
+            let explained = gewu_review::explainer_height(chunk);
+            if explained > input.max_chunk_lines {
+                beside.push_str(&format!(
+                    ", with explainers of about {explained} more — over the budget; shorten them"
+                ));
+            } else if explained > 0 {
+                beside.push_str(&format!(
+                    ", with explainers of about {explained} more (not charged; keep them under {})",
+                    input.max_chunk_lines
+                ));
+            }
             // Say which side of the budget it is on: "40 of 40" passes, and an
             // agent left to guess that wastes a revision finding out.
             let budget = input.max_chunk_lines;
@@ -340,7 +355,7 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
             // Self-review found authors trimming blind: name what costs rows.
             format!(
                 "- `{}` — about {height} of {budget} rows, {verdict}{beside} (prose {}, \
-                 source {}, wrapped source {}, layout {}: fixed {}, view headers {}, \
+                 source {}, wrapped source {}, chrome {}: fixed {}, view headers {}, \
                  elisions {}, blanks after prose {})",
                 chunk.id,
                 parts.prose,

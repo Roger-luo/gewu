@@ -45,6 +45,13 @@ never writes markup, so they render safely and the harness can check them:
 - `timeline`: work done once versus in every step, for caching, pooling, and
   hoisting work out of a loop.
 
+Explainers, like a context pane, are measured beside a chunk rather than
+charged to its row budget, so a stepper can sit next to the quote it walks
+through. When the description claims more than the diff delivers, the
+investigation lists those claims in one "Claims outside this diff" finding,
+and a claim quoted there carries `how` only. `gewu harness next` confirms
+each accepted checkpoint under the next prompt's heading.
+
 #### Review flow
 
 ```mermaid

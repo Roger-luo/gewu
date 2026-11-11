@@ -34,8 +34,10 @@ Exempt edge context may be in an item's spans or left out; either validates.
 
 When `.gewu/description.md` makes claims, the `purpose` of each item says
 which claim it serves and how, in one clause: "the memory saving: the index
-stops copying each string". An item that serves none — plumbing, tests, a
-lockfile — says what it enables instead. The reviewer should never reach the
+stops copying each string". Only the description's own claims count; a doc
+comment or a commit message is evidence, not the author's claim. An item
+that serves none — plumbing, tests, groundwork for code not yet called —
+says what it enables instead, and that is a full answer. The reviewer should never reach the
 end of a section without knowing why it was in the change.
 
 Keep mechanically repeated configuration together when it supports one review

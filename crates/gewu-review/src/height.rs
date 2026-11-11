@@ -31,7 +31,7 @@ const REFERENCE_WIDTH: usize = 80;
 /// The public approximation authors use before the harness measures their
 /// actual draft. Keeping the prose beside the implementation makes prompt and
 /// validator drift visible in review.
-pub const CHUNK_HEIGHT_GUIDANCE: &str = "Start with 8 rows of chunk chrome, plus any title rows beyond its first when wrapped at 80 columns. Add the summary wrapped at 80 columns. Add each narrative block wrapped at 80 columns plus 1 closing blank row. For each consecutive run of quotes from one file, add 3 rows for its source header and surrounding blanks, plus any extra rows needed to wrap that header. Add 1 explicit elision row between separate views and at either edge where the view omits hunk lines. Then add every displayed source row, including wrapping after the line-number gutter; rendered Markdown is charged by its rendered rows plus 1 closing blank row, and a summary-only artifact costs 1 row. Add a confidence note at its wrapped height plus 1 blank row. An explainer block adds 1 closing blank row, its longest prose wrapped at 80 columns, and fixed rows by kind: a claim 3, plus 1 each for `result` and `share`; a layout 2 plus 2 per row; a cost model 3 plus 2 per parameter plus 1 per series; a stepper 4 plus the lines of its longest code; a timeline 3 plus 2 per lane. A context pane is measured separately and is not charged to the chunk budget.";
+pub const CHUNK_HEIGHT_GUIDANCE: &str = "Start with 8 rows of chunk chrome, plus any title rows beyond its first when wrapped at 80 columns. Add the summary wrapped at 80 columns. Add each narrative block wrapped at 80 columns plus 1 closing blank row. For each consecutive run of quotes from one file, add 3 rows for its source header and surrounding blanks, plus any extra rows needed to wrap that header. Add 1 explicit elision row between separate views and at either edge where the view omits hunk lines. Then add every displayed source row, including wrapping after the line-number gutter; rendered Markdown is charged by its rendered rows plus 1 closing blank row, and a summary-only artifact costs 1 row. Add a confidence note at its wrapped height plus 1 blank row. Explainer blocks and a context pane are measured separately and are not charged to the chunk budget.";
 
 /// The gutter is as wide as the largest line number it has to print, so a file
 /// past a thousand lines costs a column more than a short one.
@@ -111,16 +111,9 @@ impl HeightBreakdown {
                     parts.prose += prose_height(markdown, REFERENCE_WIDTH);
                     parts.closings += 1;
                 }
-                ChunkBlock::Explainer(explainer) => {
-                    parts.prose += explainer.rows()
-                        + explainer
-                            .prose()
-                            .iter()
-                            .map(|prose| prose_height(prose, REFERENCE_WIDTH))
-                            .max()
-                            .unwrap_or(0);
-                    parts.closings += 1;
-                }
+                // Measured separately (`explainer_height`), like a context
+                // pane: a stepper beside the quote it explains must fit.
+                ChunkBlock::Explainer(_) => {}
                 ChunkBlock::Changes {
                     quotes,
                     presentation,
@@ -166,6 +159,56 @@ impl HeightBreakdown {
         parts.chrome = parts.fixed + parts.frames + parts.elisions + parts.closings;
         parts
     }
+}
+
+/// Rows the chunk's explainers take, reported beside the budget rather than
+/// charged to it. Found by dogfooding: charged, a stepper could never sit
+/// beside the quote it explains.
+#[must_use]
+pub fn explainer_height(chunk: &ReviewChunk) -> usize {
+    chunk
+        .content
+        .iter()
+        .filter_map(|block| match block {
+            ChunkBlock::Explainer(explainer) => Some(explainer),
+            _ => None,
+        })
+        .map(|explainer| {
+            1 + explainer.rows()
+                + explainer
+                    .prose()
+                    .iter()
+                    .map(|prose| prose_height(prose, REFERENCE_WIDTH))
+                    .max()
+                    .unwrap_or(0)
+        })
+        .sum()
+}
+
+/// The rows a context pane's own text takes, without the headings and blanks
+/// every pane has. Found by dogfooding: a refactor pane's fixed rows alone
+/// came near half the budget, so a warning on the whole pane never cleared.
+#[must_use]
+pub fn pane_text_height(chunk: &ReviewChunk) -> usize {
+    let Some(context) = &chunk.context else {
+        return 0;
+    };
+    let fields = match context {
+        ChunkContext::Concept {
+            definition,
+            example,
+            relation,
+        } => [definition, example, relation],
+        ChunkContext::Refactor {
+            before,
+            after,
+            reason,
+        } => [before, after, reason],
+    };
+    fields
+        .iter()
+        .map(|field| prose_height(field, REFERENCE_WIDTH))
+        .sum()
 }
 
 /// What a chunk's `context` pane costs, measured apart from the review work it

@@ -152,6 +152,11 @@ impl Fixture {
         artifacts::read(&self.runner.spec_path).expect("spec")
     }
 
+    /// Marks a chunk reviewed, as the reader would.
+    pub(in crate::runner) fn record_reviewed(&self, chunk_id: &str) {
+        self.record(&ReviewEvent::reviewed(chunk_id.to_string(), true));
+    }
+
     fn record(&self, event: &ReviewEvent) {
         let path = self
             .runner

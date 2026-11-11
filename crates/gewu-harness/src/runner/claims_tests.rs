@@ -1,0 +1,92 @@
+//! Claims are checked against the author's description beside the review
+//! input, at the runner, where every way of submitting an expansion passes.
+
+use gewu_review::{
+    ChangePresentation, ChunkBlock, ChunkKind, Explainer, ReviewChunk,
+    harness::{Expansion, HARNESS_SCHEMA_VERSION},
+};
+
+use super::tests::fixture;
+use crate::artifacts;
+
+fn stage_claim(fixture: &super::tests::Fixture, claim: &str) {
+    let work = fixture
+        .runner
+        .store
+        .work_list()
+        .expect("load")
+        .expect("present");
+    let item = work.next_item().expect("an item left");
+    let expansion = Expansion {
+        schema_version: HARNESS_SCHEMA_VERSION,
+        source: fixture.input.source.clone(),
+        item_id: item.id.clone(),
+        chunks: vec![ReviewChunk {
+            id: format!("chunk-{}", item.id),
+            title: item.title.clone(),
+            summary: "Summary.".into(),
+            kind: ChunkKind::Other,
+            content: vec![
+                ChunkBlock::Narrative {
+                    markdown: "What to look for.".into(),
+                },
+                ChunkBlock::Explainer(Explainer::Claim {
+                    claim: claim.into(),
+                    result: None,
+                    share: None,
+                    how: "This item delivers it.".into(),
+                }),
+                ChunkBlock::Changes {
+                    quotes: item.covers.clone(),
+                    presentation: ChangePresentation::AddedCode,
+                },
+            ],
+            context: None,
+            confidence: None,
+            oversized_reason: None,
+            section: None,
+        }],
+    };
+    artifacts::write(fixture.runner.store.expansion_path(), &expansion).expect("write expansion");
+}
+
+/// Found by dogfooding the explainers: a claim must be refused when there is
+/// no description to quote, and accepted once the description holds it.
+#[test]
+fn a_claim_needs_the_authors_description_to_quote() {
+    let fixture = fixture();
+    let (_, awaiting) = fixture.append_first();
+    assert!(
+        awaiting.starts_with("# Gewu harness: waiting for the reviewer"),
+        "{awaiting}"
+    );
+    fixture.record_reviewed("chunk-item-0");
+    fixture.runner.next().expect("gate opens");
+
+    stage_claim(&fixture, "Lookups no longer copy each word.");
+    let repair = fixture.runner.next().expect("validate");
+    assert!(
+        repair.contains("no author description to quote"),
+        "{repair}"
+    );
+
+    std::fs::write(
+        fixture
+            .runner
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        "# Faster lookups\n\nLookups no longer copy\neach word.\n",
+    )
+    .expect("description");
+    stage_claim(&fixture, "Lookups no longer copy each word.");
+    let accepted = fixture.runner.next().expect("validate");
+    assert!(
+        accepted.starts_with("# Gewu harness: waiting for the reviewer")
+            || accepted.starts_with("# COMPLETE"),
+        "{accepted}"
+    );
+    assert!(
+        accepted.contains("Accepted `expansion.json`: 1 chunk for `item-1`."),
+        "the agent is told its checkpoint went through: {accepted}"
+    );
+}

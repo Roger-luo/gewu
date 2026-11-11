@@ -135,6 +135,10 @@ Rules:
     form enables and put the open question in `confidence`; never invent a
     motive.
 
+  When the earlier form still exists beside the new one — the new type is
+  added, not swapped in yet — say so, and still show the earlier form, since
+  the comparison is the point.
+
   If the quote shows only the new definition, put the earlier one in a
   refactor `context`: `before` is the old definition as written, `after` the
   new one, and `reason` names the dropped fields and the advantage. A diff
@@ -159,11 +163,14 @@ Rules:
     "result": "optional measured result it reports, e.g. 940 → 367 MiB (−61%)",
     "share": "required with result: this chunk's part, e.g. about 36 MiB of the 573 MiB drop",
     "how": "Markdown: how this chunk contributes to it" }
-  { "type": "explainer", "kind": "layout", "title": "One index entry",
-    "rows": [ { "label": "Before", "fields": [ { "name": "Word<C>", "bytes": 32 },
-                                               { "name": "u32", "bytes": 4 } ] },
+  { "type": "explainer", "kind": "layout", "title": "One cache entry",
+    "rows": [ { "label": "Before", "fields": [ { "name": "Key copy", "bytes": 24 },
+                                               { "name": "u32", "bytes": 4 },
+                                               { "name": "pad", "bytes": 4 } ] },
               { "label": "After", "fields": [ { "name": "u32", "bytes": 4 } ] } ],
     "source": "where the sizes come from: a type, a size_of test, a comment" }
+
+  (The sizes in these examples are placeholders; take yours from the code.)
   { "type": "explainer", "kind": "cost_model", "title": "Index memory at size B",
     "params": [ { "id": "b", "label": "Strings in the basis (B)", "min": 32768,
                   "max": 2097152, "default": 524288, "scale": "log2",
@@ -187,8 +194,10 @@ Rules:
   - `claim`: only for a claim in `description.md`, copied exactly (a phrase
     of a longer sentence is fine, and better when the sentence also claims
     things this chunk does not explain); Gewu rejects a claim it cannot find
-    there, and any claim when there is no description. Put it on the first
-    chunk of the section that delivers it, not on every chunk.
+    there, and any claim when there is no description. Quote each claim
+    once per section: on the first chunk that delivers it, or, when nothing
+    here delivers it yet, on the chunk whose code it is about, with `how`
+    saying what is still missing.
   - When the description makes a claim this chunk relates to but does not
     credit it with a measured saving — or the new code is not called yet —
     quote the claim with `how` alone, and say in `how` what is and is not
@@ -225,21 +234,23 @@ Rules:
     file and lines it shows; a later step changes `code` only when the point is
     that the code changes, and otherwise moves `highlight`. Set `start_line`
     to the file line the code starts at, and number `highlight` the same way,
-    so the reader sees the diff's numbers. Keep lines within 80 columns. `state` shows the values a reader would track; use
+    so the reader sees the diff's numbers. Keep lines within 100 columns,
+    replacing an overlong comment with `// …` rather than rewording it. `state` shows the values a reader would track; use
     real or clearly illustrative values, never invented results.
   - `timeline`: when the point is work moved out of a loop — built once
     instead of every step, pooled instead of reallocated. One lane per
     version, `when` is `once` or `each`, and `cost` (optional) is per run in
     `unit`. Give costs only when the code or a measurement supports them;
     otherwise leave them out and let the lanes show the shape.
-  - An explainer is charged to the chunk's row budget (the measurement
-    guidance above gives its cost). Put it in the chunk whose code it
-    explains; when that does not fit, split the chunk where the story
-    allows, and let the explainer's chunk still quote the lines it is about
-    when it can.
+  - Like a context pane, an explainer is measured beside the chunk, not
+    charged to its row budget, so put it in the chunk whose code it
+    explains, next to the quote. Keep each one smaller than the budget;
+    the measurement says when it is not.
   - An explainer supports the narrative and does not replace it: the prose
-    still says what to look for in the code. One or two per chunk at most;
-    a chunk that only moves code around needs none.
+    still says what to look for in the code. Use as many as teach something
+    distinct — a cost model belongs beside the layout it builds on — and none
+    in a chunk that only moves code around. Their rows together stay under
+    the chunk budget; the measurement reports them.
 - Put code in a context `example` as code text, without an outer Markdown fence;
   Gewu supplies the visual code boundary. Keep explanation and headings in the
   `definition` or `relation` fields instead of embedding them in the example.
