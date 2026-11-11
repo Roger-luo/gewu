@@ -299,8 +299,9 @@ impl HarnessRunner {
                         };
                         let teach = self.explainer_reminder(&expansion.chunks);
                         let names = self.name_reminder(&run, &expansion.chunks);
+                        let steps = self.stepper_reminder(&run, &expansion.chunks);
                         Ok(format!(
-                            "{}\n{verdict}{cited}{names}{teach}\nRevise `.gewu/harness/expansion.json` if \
+                            "{}\n{verdict}{cited}{names}{steps}{teach}\nRevise `.gewu/harness/expansion.json` if \
                              needed, measure again, then run `gewu harness next`.\n",
                             prompts::measured(&expansion.chunks, &run.input)
                         ))
@@ -841,6 +842,7 @@ mod proofread;
 mod reminders;
 #[cfg(test)]
 mod share_tests;
+mod steppers;
 mod tally;
 #[cfg(test)]
 mod tests;

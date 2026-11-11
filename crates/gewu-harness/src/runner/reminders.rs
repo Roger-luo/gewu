@@ -101,15 +101,30 @@ impl HarnessRunner {
         if chunks.iter().all(|chunk| chunk.kind == ChunkKind::Test) {
             return String::new();
         }
+        // Found by QA of the full #276 walkthrough: Cursor marked 45 of its
+        // 46 chunks oversized, so almost every view scrolled.
+        let oversized = chunks
+            .iter()
+            .filter(|chunk| chunk.oversized_reason.is_some())
+            .count();
+        let scrolls = (oversized >= 2 && oversized * 2 > chunks.len()).then(|| {
+            format!(
+                "\n{oversized} of {} chunks here are marked oversized, so they scroll. A view can \
+                 almost always be made smaller: split where the code's subject changes, and keep \
+                 `oversized_reason` for a unit that cannot be split.\n",
+                chunks.len()
+            )
+        });
         let drafted = explainers(chunks);
+        let scrolls = scrolls.unwrap_or_default();
         if drafted.is_empty() {
-            return "\nNo chunk has an explainer. `description.md` makes claims: if this item \
+            return scrolls
+                + "\nNo chunk has an explainer. `description.md` makes claims: if this item \
                     delivers one, quote it in a `claim` block on its first chunk, and show it: a \
                     record with a `layout`, a cost that scales with a `cost_model`, an algorithm \
                     a reader would simulate with a `stepper`, work moved out of a loop with a \
                     `timeline` (see the expand prompt). If it delivers none, say what it enables \
-                    instead.\n"
-                .to_owned();
+                    instead.\n";
         }
         let earlier = self.spec_path.exists().then(|| self.spec().ok()).flatten();
         let before = earlier
@@ -184,11 +199,12 @@ impl HarnessRunner {
                 notes.push(note.to_owned());
             }
         }
-        if notes.is_empty() {
+        let notes = if notes.is_empty() {
             String::new()
         } else {
             format!("\n{}\n", notes.join("\n\n"))
-        }
+        };
+        format!("{scrolls}{notes}")
     }
 }
 

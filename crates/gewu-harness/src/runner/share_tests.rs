@@ -122,3 +122,33 @@ fn measuring_notes_a_saving_an_earlier_section_already_credited() {
     let measured = fixture.runner.status().expect("measure");
     assert!(!measured.contains("falls at the peak"), "{measured}");
 }
+
+/// Found by QA of the full #276 walkthrough: Cursor marked 45 of its 46
+/// chunks oversized, so almost every view scrolled.
+#[test]
+fn measuring_notes_a_draft_whose_views_mostly_scroll() {
+    let fixture = fixture();
+    let list = fixture.reach_expand();
+    describe(&fixture);
+    fixture.stage_expansion(&list.items[0]);
+    let path = fixture.runner.store.expansion_path();
+    let mut expansion: gewu_review::harness::Expansion =
+        artifacts::read(&path).expect("read expansion");
+    let mut second = expansion.chunks[0].clone();
+    second.id.push_str("-again");
+    expansion.chunks.push(second);
+    for chunk in &mut expansion.chunks {
+        chunk.oversized_reason = Some("It is long.".into());
+    }
+    artifacts::write(&path, &expansion).expect("write expansion");
+    let measured = fixture.runner.status().expect("measure");
+    assert!(
+        measured.contains("2 of 2 chunks here are marked oversized"),
+        "{measured}"
+    );
+
+    expansion.chunks[1].oversized_reason = None;
+    artifacts::write(&path, &expansion).expect("write expansion");
+    let measured = fixture.runner.status().expect("measure");
+    assert!(!measured.contains("marked oversized"), "{measured}");
+}
