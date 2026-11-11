@@ -130,24 +130,60 @@ impl HarnessRunner {
     /// every section's purpose named the claim it delivered, and the draft
     /// still told "32 bytes instead of 48" in prose alone.
     fn explainer_reminder(&self, chunks: &[ReviewChunk]) -> String {
-        let described = self
-            .input_path
-            .with_file_name(gewu_review::harness::DESCRIPTION_FILE)
-            .exists();
-        let explained = chunks.iter().any(|chunk| {
-            chunk
-                .content
-                .iter()
-                .any(|block| matches!(block, gewu_review::ChunkBlock::Explainer(_)))
-        });
-        if !described || explained {
+        let Ok(description) = std::fs::read_to_string(
+            self.input_path
+                .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        ) else {
             return String::new();
+        };
+        let explainers: Vec<&gewu_review::Explainer> = chunks
+            .iter()
+            .flat_map(|chunk| &chunk.content)
+            .filter_map(|block| match block {
+                gewu_review::ChunkBlock::Explainer(explainer) => Some(explainer),
+                _ => None,
+            })
+            .collect();
+        if explainers.is_empty() {
+            return "\nNo chunk has an explainer. `description.md` makes claims: if this item \
+                    delivers one, quote it in a `claim` block on its first chunk, and show a size \
+                    or per-step change with a `layout`, `cost_model`, or `timeline` (see the \
+                    expand prompt). If it delivers none, say what it enables instead.\n"
+                .to_owned();
         }
-        "\nNo chunk has an explainer. `description.md` makes claims: if this item \
-         delivers one, quote it in a `claim` block on its first chunk, and show a size or \
-         per-step change with a `layout`, `cost_model`, or `timeline` (see the expand \
-         prompt). If it delivers none, say what it enables instead.\n"
-            .to_owned()
+        let mut notes = Vec::new();
+        // Found by QA of Cursor's #276 run: 21 claim blocks restating the
+        // description, and not one layout or timeline in 38 sections.
+        if explainers
+            .iter()
+            .all(|explainer| matches!(explainer, gewu_review::Explainer::Claim { .. }))
+        {
+            notes.push(
+                "Every explainer here is a `claim`. A claim quotes; it does not show. If this \
+                 item shrinks a record, scales a cost, steps through an algorithm, or moves work \
+                 out of a loop, show it with a `layout`, `cost_model`, `stepper`, or `timeline`.",
+            );
+        }
+        // Found by the same QA: no section stated its share of a measured result.
+        let measured = description.contains('%') || description.contains("MiB");
+        let shared = explainers.iter().any(|explainer| {
+            matches!(
+                explainer,
+                gewu_review::Explainer::Claim { share: Some(_), .. }
+            )
+        });
+        if measured && !shared {
+            notes.push(
+                "`description.md` reports measured results and no chunk states its share. If \
+                 this item delivers part of one, say how much, as an estimate when the change \
+                 measures no part on its own (a `claim` with `result` and `share`).",
+            );
+        }
+        if notes.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}\n", notes.join("\n\n"))
+        }
     }
 
     /// An expansion's own checks, plus claims checked against the author's

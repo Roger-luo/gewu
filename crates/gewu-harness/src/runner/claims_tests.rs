@@ -116,3 +116,27 @@ fn measuring_a_draft_without_explainers_reminds_when_claims_exist() {
     let reminded = fixture.runner.status().expect("measure");
     assert!(reminded.contains("No chunk has an explainer"), "{reminded}");
 }
+
+/// Found by QA of Cursor's #276 run: explainers that were all claims, and no
+/// section that stated its share of a measured result.
+#[test]
+fn measuring_reminds_when_explainers_only_quote_or_no_share_is_stated() {
+    let fixture = fixture();
+    let list = fixture.reach_expand();
+    std::fs::write(
+        fixture
+            .runner
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        "Peak memory falls by 61% (940 → 367 MiB).\n",
+    )
+    .expect("description");
+    let _ = list;
+    stage_claim(&fixture, "Peak memory falls by 61%");
+    let reminded = fixture.runner.status().expect("measure");
+    assert!(
+        reminded.contains("Every explainer here is a `claim`"),
+        "{reminded}"
+    );
+    assert!(reminded.contains("no chunk states its share"), "{reminded}");
+}

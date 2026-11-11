@@ -22,6 +22,9 @@ Read the draft back, one chunk at a time, and answer for each:
 - Is "before" the base revision's own size, not a type the change adds
   elsewhere? Is a structure sized by what it holds, and is it said whether it
   lives at the peak or only for a moment?
+- Is each number recomputed from the code it names, and does it agree with
+  the same quantity stated in an earlier chunk? (Found by QA: one buffer was
+  24 MiB in one section and 48 MiB in another.)
 - Does every named caller call the code at the head, and is a missing
   caller said to be missing rather than replaced by similar base code?
 - Does a chunk that claims a saving also say what it costs — an extra load
