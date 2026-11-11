@@ -10,6 +10,17 @@ use super::tests::fixture;
 use crate::artifacts;
 
 fn stage_claim(fixture: &super::tests::Fixture, claim: &str) {
+    stage_claim_with(fixture, claim, None, None);
+}
+
+/// Stages a one-chunk draft of the next item quoting `claim`, with a measured
+/// `result` and this item's `share` of it.
+pub(super) fn stage_claim_with(
+    fixture: &super::tests::Fixture,
+    claim: &str,
+    result: Option<&str>,
+    share: Option<&str>,
+) {
     let work = fixture
         .runner
         .store
@@ -32,8 +43,8 @@ fn stage_claim(fixture: &super::tests::Fixture, claim: &str) {
                 },
                 ChunkBlock::Explainer(Explainer::Claim {
                     claim: claim.into(),
-                    result: None,
-                    share: None,
+                    result: result.map(Into::into),
+                    share: share.map(Into::into),
                     how: "This item delivers it.".into(),
                 }),
                 ChunkBlock::Changes {

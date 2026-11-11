@@ -10,11 +10,13 @@
 //!   drags, with [`formula`] arithmetic, so the claim can be checked.
 
 pub mod formula;
+mod share;
 #[cfg(test)]
 mod tests;
 mod text;
 mod validate;
 
+pub use share::vague_shares;
 pub use validate::unquoted_claims;
 
 pub use text::format_value;
@@ -210,6 +212,18 @@ pub enum Unit {
 }
 
 impl Explainer {
+    /// The `kind` it is written with, e.g. `"stepper"`.
+    #[must_use]
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Claim { .. } => "claim",
+            Self::Layout { .. } => "layout",
+            Self::CostModel { .. } => "cost_model",
+            Self::Stepper { .. } => "stepper",
+            Self::Timeline { .. } => "timeline",
+        }
+    }
+
     /// Reader-facing prose the audits read with the narrative.
     #[must_use]
     pub fn prose(&self) -> Vec<&str> {

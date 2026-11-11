@@ -324,3 +324,17 @@ fn a_small_context_pane_has_little_text() {
     );
     assert!(crate::pane_height(&chunk) > crate::pane_text_height(&chunk));
 }
+
+/// The harness matches explainers by `kind()`, so it must name the tag they
+/// are written with.
+#[test]
+fn kind_names_the_serialized_tag() {
+    let claim = Explainer::Claim {
+        claim: "Twice as fast.".into(),
+        result: None,
+        share: None,
+        how: "It does less.".into(),
+    };
+    let written = serde_json::to_value(&claim).expect("serialize");
+    assert_eq!(written["kind"], claim.kind());
+}

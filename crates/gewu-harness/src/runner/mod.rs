@@ -125,97 +125,6 @@ impl HarnessRunner {
         }
     }
 
-    /// A reminder, not a rejection: the author's description makes claims and
-    /// this draft has no explainer at all. Found by running Cursor on #276:
-    /// every section's purpose named the claim it delivered, and the draft
-    /// still told "32 bytes instead of 48" in prose alone.
-    fn explainer_reminder(&self, chunks: &[ReviewChunk]) -> String {
-        let Ok(description) = std::fs::read_to_string(
-            self.input_path
-                .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
-        ) else {
-            return String::new();
-        };
-        // Found by QA of Cursor's #276 run: the reminder asked for claims and
-        // layouts on all thirteen test sections, where neither fits.
-        if chunks
-            .iter()
-            .all(|chunk| chunk.kind == gewu_review::ChunkKind::Test)
-        {
-            return String::new();
-        }
-        let explainers: Vec<&gewu_review::Explainer> = chunks
-            .iter()
-            .flat_map(|chunk| &chunk.content)
-            .filter_map(|block| match block {
-                gewu_review::ChunkBlock::Explainer(explainer) => Some(explainer),
-                _ => None,
-            })
-            .collect();
-        if explainers.is_empty() {
-            return "\nNo chunk has an explainer. `description.md` makes claims: if this item \
-                    delivers one, quote it in a `claim` block on its first chunk, and show it: a \
-                    record with a `layout`, a cost that scales with a `cost_model`, an algorithm \
-                    a reader would simulate with a `stepper`, work moved out of a loop with a \
-                    `timeline` (see the expand prompt). If it delivers none, say what it enables \
-                    instead.\n"
-                .to_owned();
-        }
-        let mut notes = Vec::new();
-        // Found by QA of Cursor's #276 run: 21 claim blocks restating the
-        // description, and not one layout or timeline in 38 sections.
-        if explainers
-            .iter()
-            .all(|explainer| matches!(explainer, gewu_review::Explainer::Claim { .. }))
-        {
-            notes.push(
-                "Every explainer here is a `claim`. A claim quotes; it does not show. If this \
-                 item shrinks a record, scales a cost, steps through an algorithm, or moves work \
-                 out of a loop, show it with a `layout`, `cost_model`, `stepper`, or `timeline`.",
-            );
-        }
-        // Found by the same QA: no section stated its share of a measured result.
-        let measured = description.contains('%') || description.contains("MiB");
-        let shared = explainers.iter().any(|explainer| {
-            matches!(
-                explainer,
-                gewu_review::Explainer::Claim { share: Some(_), .. }
-            )
-        });
-        if measured && !shared {
-            notes.push(
-                "`description.md` reports measured results and no chunk states its share. If \
-                 this item delivers part of one, say how much, as an estimate when the change \
-                 measures no part on its own (a `claim` with `result` and `share`). A share is \
-                 this item's part of that result, never what its own code costs; if it delivers \
-                 none, leave `share` out.",
-            );
-        }
-        // Found by QA of two Cursor reruns of #276: once a draft had layouts,
-        // nothing named steppers, and none was drawn in sixteen sections.
-        let is_stepper = |explainer: &gewu_review::Explainer| {
-            matches!(explainer, gewu_review::Explainer::Stepper { .. })
-        };
-        let stepped_before = self.spec_path.exists()
-            && self.spec().is_ok_and(|spec| {
-                spec.chunks.iter().flat_map(|chunk| &chunk.content).any(
-                    |block| matches!(block, gewu_review::ChunkBlock::Explainer(explainer) if is_stepper(explainer)),
-                )
-            });
-        if !stepped_before && !explainers.iter().any(|explainer| is_stepper(explainer)) {
-            notes.push(
-                "No section so far steps through an algorithm. If this item has code a reader \
-                 would simulate in their head — a compaction, a heap sift, a probe or a \
-                 bound-and-prune loop — show it with a `stepper`.",
-            );
-        }
-        if notes.is_empty() {
-            String::new()
-        } else {
-            format!("\n{}\n", notes.join("\n\n"))
-        }
-    }
-
     /// An expansion's own checks, plus claims checked against the author's
     /// description beside the review input.
     fn check_expansion(
@@ -237,6 +146,7 @@ impl HarnessRunner {
             &expansion.chunks,
             description.as_deref(),
         ));
+        errors.extend(gewu_review::explainer::vague_shares(&expansion.chunks));
         if errors.is_empty() {
             Ok(())
         } else {
@@ -855,5 +765,8 @@ fn accepted(prompt: String, what: &str) -> String {
 #[cfg(test)]
 mod claims_tests;
 mod proofread;
+mod reminders;
+#[cfg(test)]
+mod share_tests;
 #[cfg(test)]
 mod tests;
