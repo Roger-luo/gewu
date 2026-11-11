@@ -109,9 +109,10 @@ impl HarnessRunner {
             .count();
         let scrolls = (oversized >= 2 && oversized * 2 > chunks.len()).then(|| {
             format!(
-                "\n{oversized} of {} chunks here are marked oversized, so they scroll. A view can \
-                 almost always be made smaller: split where the code's subject changes, and keep \
-                 `oversized_reason` for a unit that cannot be split.\n",
+                "\n{oversized} of {} chunks here are marked over their budget with \
+                 `oversized_reason`, so the reviewer takes in more at once than the budget allows. \
+                 A view can almost always be made smaller: split where the code's subject \
+                 changes, and keep `oversized_reason` for a unit that cannot be split.\n",
                 chunks.len()
             )
         });

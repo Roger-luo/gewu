@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 use crate::{
-    Change, ChangePresentation, ChunkBlock, Quote, ReviewChunk, ReviewInput, chunk_height,
+    Change, ChangePresentation, ChunkBlock, ChunkBudget, Quote, ReviewChunk, ReviewInput,
+    chunk_height,
 };
 
 use super::{
@@ -48,6 +49,14 @@ pub enum HarnessValidationError {
         chunk: String,
         lines: usize,
         budget: usize,
+    },
+    #[error(
+        "chunk `{chunk}` takes about {reading} to read but the budget is {budget}; split it, cut what the reviewer does not need, or explain it in `oversized_reason`"
+    )]
+    OverlongChunk {
+        chunk: String,
+        reading: String,
+        budget: String,
     },
     #[error("duplicate work item id `{0}`")]
     DuplicateItem(String),
@@ -372,14 +381,21 @@ impl CheckpointValidator {
                     chunk.id.clone(),
                 ));
             }
-            let lines = chunk_height(chunk, &known);
-            if lines > input.max_chunk_lines
+            let budget = input.chunk_budget();
+            if !budget.fits(chunk, &known)
                 && chunk.oversized_reason.as_deref().is_none_or(str::is_empty)
             {
-                errors.push(HarnessValidationError::OversizedChunk {
-                    chunk: chunk.id.clone(),
-                    lines,
-                    budget: input.max_chunk_lines,
+                errors.push(match budget {
+                    ChunkBudget::Rows(rows) => HarnessValidationError::OversizedChunk {
+                        chunk: chunk.id.clone(),
+                        lines: chunk_height(chunk, &known),
+                        budget: rows,
+                    },
+                    ChunkBudget::Seconds(seconds) => HarnessValidationError::OverlongChunk {
+                        chunk: chunk.id.clone(),
+                        reading: budget.amount(budget.cost(chunk, &known)),
+                        budget: budget.amount(f64::from(seconds)),
+                    },
                 });
             }
         }

@@ -73,7 +73,7 @@ Rules:
   them show every line of every span at least once; blank lines and unchanged
   context at a hunk's edges are exempt.
 - A chunk is the unit a reviewer comments on. Keep it to at most
-  {{max_chunk_lines}} rendered rows — title, summary, prose, and quote headers
+  {{chunk_budget}} — title, summary, prose, and quote headers
   included. Validation uses this estimate:
 
   {{height_guidance}}

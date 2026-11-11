@@ -72,13 +72,7 @@ impl HarnessRunner {
         let item = work
             .next_item()
             .ok_or_else(|| Error::message("no pending work item"))?;
-        Ok(prompts::expand(
-            item,
-            &run.input,
-            None,
-            run.input.max_chunk_lines,
-            self.max_chunks,
-        ))
+        Ok(prompts::expand(item, &run.input, None, self.max_chunks))
     }
 
     pub fn measure_expansion(&self, path: &Path) -> Result<serde_json::Value> {
@@ -256,7 +250,7 @@ impl HarnessRunner {
         let run = self.run()?;
         match run.state.stage {
             HarnessStage::Investigate => Ok(self.investigation_prompt(&run)),
-            HarnessStage::Plan => Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks)),
+            HarnessStage::Plan => Ok(prompts::plan(&run.input, self.max_chunks)),
             HarnessStage::Expand | HarnessStage::Repair => {
                 let work = self.work_list()?;
                 let prompt = self.prompt_expand(&run, &work)?;
@@ -384,7 +378,7 @@ impl HarnessRunner {
         }
         self.advance(&mut run.state, HarnessStage::Plan)?;
         Ok(accepted(
-            prompts::plan(run.input.max_chunk_lines, self.max_chunks),
+            prompts::plan(&run.input, self.max_chunks),
             "`investigation.json`",
         ))
     }
@@ -400,7 +394,7 @@ impl HarnessRunner {
     fn finish_plan(&self, run: &mut Run) -> Result<String> {
         let list = match self.store.work_list() {
             Ok(Some(list)) => list,
-            Ok(None) => return Ok(prompts::plan(run.input.max_chunk_lines, self.max_chunks)),
+            Ok(None) => return Ok(prompts::plan(&run.input, self.max_chunks)),
             Err(error) => {
                 return Ok(prompts::checkpoint_retry(
                     ".gewu/harness/worklist.json",
@@ -628,11 +622,7 @@ impl HarnessRunner {
             .iter()
             .filter(|chunk| chunk_ids.contains(&chunk.id))
             .collect();
-        Ok(prompts::revise(
-            &chunks,
-            &session,
-            run.input.max_chunk_lines,
-        ))
+        Ok(prompts::revise(&chunks, &session, &run.input))
     }
 
     /// Keeps the review work that survived the reviewer's edits and asks for a
@@ -685,7 +675,6 @@ impl HarnessRunner {
                     item,
                     &run.input,
                     investigation.as_ref(),
-                    run.input.max_chunk_lines,
                     self.max_chunks,
                 ))
             }
@@ -699,13 +688,7 @@ impl HarnessRunner {
         }
         let investigation = self.store.investigation()?;
         Ok(prompts::retry(
-            &prompts::expand(
-                item,
-                &run.input,
-                investigation.as_ref(),
-                run.input.max_chunk_lines,
-                self.max_chunks,
-            ),
+            &prompts::expand(item, &run.input, investigation.as_ref(), self.max_chunks),
             errors,
         ))
     }

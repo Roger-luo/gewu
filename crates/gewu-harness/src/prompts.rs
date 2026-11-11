@@ -20,20 +20,28 @@ pub fn investigate() -> String {
     INVESTIGATE.to_owned()
 }
 
-pub fn plan(max_chunk_lines: usize, max_chunks: usize) -> String {
-    PLAN.replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
-        .replace("{{max_chunks}}", &max_chunks.to_string())
-        .replace("{{height_guidance}}", gewu_review::CHUNK_HEIGHT_GUIDANCE)
+pub fn plan(input: &gewu_review::ReviewInput, max_chunks: usize) -> String {
+    budgeted(PLAN, input).replace("{{max_chunks}}", &max_chunks.to_string())
+}
+
+/// Fills in the chunk budget the run holds chunks to — rows in the terminal,
+/// reading time in the app — and how it is estimated. `{{max_chunk_lines}}`
+/// stays rows: it sizes the source an item may own, not a chunk.
+pub fn budgeted(template: &str, input: &gewu_review::ReviewInput) -> String {
+    let budget = input.chunk_budget();
+    template
+        .replace("{{chunk_budget}}", &budget.describe())
+        .replace("{{height_guidance}}", &budget.guidance())
+        .replace("{{max_chunk_lines}}", &input.max_chunk_lines.to_string())
 }
 
 pub fn expand(
     item: &WorkItem,
     input: &gewu_review::ReviewInput,
     investigation: Option<&InvestigationCheckpoint>,
-    max_chunk_lines: usize,
     max_chunks: usize,
 ) -> String {
-    EXPAND
+    budgeted(EXPAND, input)
         .replace("{{item_id}}", &item.id)
         .replace("{{item_title}}", &item.title)
         .replace("{{item_purpose}}", &item.purpose)
@@ -42,9 +50,7 @@ pub fn expand(
             "{{investigation}}",
             &investigation_evidence(item, investigation),
         )
-        .replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
         .replace("{{max_chunks}}", &max_chunks.to_string())
-        .replace("{{height_guidance}}", gewu_review::CHUNK_HEIGHT_GUIDANCE)
         .replace("{{rubric}}", &rubric_for(item, input))
 }
 
@@ -194,7 +200,11 @@ pub fn handover(handover: &Handover<'_>, feedback_ids: &[String]) -> String {
 }
 
 /// The chunks to rewrite, alongside what the reviewer said about each.
-pub fn revise(chunks: &[&ReviewChunk], session: &ReviewSession, max_chunk_lines: usize) -> String {
+pub fn revise(
+    chunks: &[&ReviewChunk],
+    session: &ReviewSession,
+    input: &gewu_review::ReviewInput,
+) -> String {
     let requests = chunks
         .iter()
         .map(|chunk| {
@@ -211,11 +221,10 @@ pub fn revise(chunks: &[&ReviewChunk], session: &ReviewSession, max_chunk_lines:
         })
         .collect::<Vec<_>>()
         .join("\n");
-    REVISE
+    budgeted(REVISE, input)
         .replace("{{count}}", &chunks.len().to_string())
         .replace("{{requests}}", &requests)
         .replace("{{chunks}}", &chunk_json(chunks))
-        .replace("{{max_chunk_lines}}", &max_chunk_lines.to_string())
         .replace("{{rubric}}", rubric())
 }
 
@@ -302,6 +311,7 @@ pub fn draft_retry(errors: &[String], measured: &str) -> String {
 /// What each chunk costs, so a rewrite can see where the rows went instead of
 /// guessing which sentence to cut.
 pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::ReviewInput) -> String {
+    use gewu_review::ChunkBudget;
     let known: std::collections::HashMap<_, _> = input
         .changes
         .iter()
@@ -342,30 +352,40 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
             }
             // Say which side of the budget it is on: "40 of 40" passes, and an
             // agent left to guess that wastes a revision finding out.
-            let budget = input.max_chunk_lines;
-            let verdict = if height <= budget {
+            let budget = input.chunk_budget();
+            let cost = budget.cost(chunk, &known);
+            let over = budget.amount(cost - budget.limit());
+            let verdict = if cost <= budget.limit() {
                 "fits".to_owned()
             } else if chunk
                 .oversized_reason
                 .as_deref()
                 .is_some_and(|r| !r.is_empty())
             {
-                format!(
-                    "over by {}, justified by `oversized_reason`",
-                    height - budget
-                )
+                format!("over by {over}, justified by `oversized_reason`")
             } else {
-                format!(
-                    "over by {}; split it, drop exempt edge context, or justify it",
-                    height - budget
-                )
+                match budget {
+                    ChunkBudget::Rows(_) => {
+                        format!("over by {over}; split it, drop exempt edge context, or justify it")
+                    }
+                    ChunkBudget::Seconds(_) => format!(
+                        "over by {over}; split it, cut what the reviewer need not read, or \
+                         justify it"
+                    ),
+                }
+            };
+            let reading = gewu_review::ReadingTime::of(chunk, &known);
+            let size = match budget {
+                ChunkBudget::Rows(rows) => format!("about {height} of {rows} rows, {verdict}"),
+                ChunkBudget::Seconds(_) => format!(
+                    "{reading} against a budget of {}, {verdict}; about {height} rows",
+                    budget.amount(budget.limit())
+                ),
             };
             // Self-review found authors trimming blind: name what costs rows.
-            format!(
-                "- `{}` — about {height} of {budget} rows, {verdict}{beside} (prose {}, \
-                 source {}, wrapped source {}, chrome {}: fixed {}, view headers {}, \
-                 elisions {}, blanks after prose {})",
-                chunk.id,
+            let breakdown = format!(
+                "prose {}, source {}, wrapped source {}, chrome {}: fixed {}, view headers {}, \
+                 elisions {}, blanks after prose {}",
                 parts.prose,
                 parts.source,
                 parts.wrapping,
@@ -373,8 +393,16 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
                 parts.fixed,
                 parts.frames,
                 parts.elisions,
-                parts.closings
-            )
+                parts.closings,
+            );
+            match budget {
+                ChunkBudget::Rows(_) => {
+                    format!("- `{}` — {size}{beside} ({breakdown}); {reading}", chunk.id)
+                }
+                ChunkBudget::Seconds(_) => {
+                    format!("- `{}` — {size}{beside} ({breakdown})", chunk.id)
+                }
+            }
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -435,7 +463,7 @@ mod tests {
             chunks: Vec::new(),
             tests: false,
         };
-        let expansion = expand(&item, &input, None, 40, 6);
+        let expansion = expand(&item, &input, None, 6);
 
         assert!(expansion.contains("names that chunk by its title, in"));
         // Minimality stayed near 0.83 with the rules only in the checklist.
@@ -491,8 +519,8 @@ mod tests {
             chunks: Vec::new(),
             tests: false,
         };
-        let source = expand(&item(&change), &input, None, 40, 6);
-        let configured = expand(&item(&config), &input, None, 40, 6);
+        let source = expand(&item(&change), &input, None, 6);
+        let configured = expand(&item(&config), &input, None, 6);
         assert!(!source.contains("When the change configures tools"));
         assert!(source.contains("tests included"));
         assert!(configured.contains("When the change configures tools"));
@@ -519,7 +547,11 @@ mod tests {
     #[test]
     fn author_contract_explains_driver_continuation_and_height_accounting() {
         let investigation = investigate();
-        let plan = plan(40, 6);
+        let input = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            Vec::new(),
+        );
+        let plan = plan(&input, 6);
 
         // Self-review found authors guessing which path applied.
         assert!(investigation.contains("If you can read every change"));
@@ -563,7 +595,7 @@ mod tests {
             chunks: Vec::new(),
             tests: false,
         };
-        let expansion = expand(&item, &input, None, 40, 6);
+        let expansion = expand(&item, &input, None, 6);
 
         assert!(investigation.contains("check every member"));
         assert!(investigation.contains("internal relationships"));
@@ -608,7 +640,7 @@ mod tests {
             ],
         };
 
-        let prompt = expand(&item, &input, Some(&investigation), 40, 6);
+        let prompt = expand(&item, &input, Some(&investigation), 6);
 
         assert!(prompt.contains("The exact source-backed qualification."));
         assert!(prompt.contains("evidence: src/lib.rs"));
@@ -628,7 +660,7 @@ mod tests {
             tests: false,
         };
 
-        let prompt = expand(&item, &input, None, 40, 6);
+        let prompt = expand(&item, &input, None, 6);
 
         assert!(prompt.contains("\"context\""));
         assert!(prompt.contains("\"confidence\""));
@@ -665,5 +697,32 @@ mod tests {
         assert!(retry.contains("Correct `.gewu/harness/investigation.json`"));
         assert!(retry.contains("gewu harness status"));
         assert!(!retry.contains("Inspect every change"));
+    }
+
+    /// The app holds chunks to reading time; every prompt must say so, or an
+    /// agent trims rows the budget no longer counts.
+    #[test]
+    fn prompts_state_the_budget_the_run_holds_chunks_to() {
+        let rows = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            Vec::new(),
+        );
+        let seconds = rows.clone().with_max_chunk_seconds(Some(240));
+        use super::{EXPAND, PLAN, REVISE, budgeted};
+        for template in [PLAN, EXPAND, REVISE] {
+            let by_rows = budgeted(template, &rows);
+            let by_time = budgeted(template, &seconds);
+            for filled in [
+                "{{chunk_budget}}",
+                "{{height_guidance}}",
+                "{{max_chunk_lines}}",
+            ] {
+                assert!(!by_time.contains(filled), "{filled} left unfilled");
+            }
+            assert!(by_rows.contains("40 rendered rows"));
+            assert!(by_time.contains("about 4 min of reading"), "{by_time}");
+            assert!(!by_time.contains("40 rendered rows"));
+        }
+        assert!(budgeted(EXPAND, &seconds).contains("words a minute"));
     }
 }

@@ -422,3 +422,83 @@ fn an_overview_diagram_must_be_mermaid() {
     });
     investigation.validate(&input).expect("a Mermaid flowchart");
 }
+
+/// One item over one change of `body`, expanded into a single chunk.
+fn single(body: &str, seconds: Option<u32>) -> (ReviewInput, WorkItem, Expansion) {
+    let lines = body.lines().count() as u32;
+    let change = Change::new(
+        "src/a.rs",
+        (0, 0, 1, lines),
+        format!("@@ -0,0 +1,{lines} @@\n{body}"),
+    );
+    let input = ReviewInput::new(SourceIdentity::new("base", "head", b"diff"), vec![change])
+        .with_max_chunk_seconds(seconds);
+    let quote = Quote::whole(input.changes[0].id.clone(), input.changes[0].body_lines());
+    let item = WorkItem {
+        id: "item".into(),
+        title: "Item".into(),
+        purpose: "Purpose.".into(),
+        covers: vec![quote.clone()],
+        expanded: false,
+        chunks: Vec::new(),
+        tests: false,
+    };
+    let expansion = Expansion {
+        schema_version: HARNESS_SCHEMA_VERSION,
+        source: input.source.clone(),
+        item_id: item.id.clone(),
+        chunks: vec![chunk("item-1", vec![quote], ChangePresentation::AddedCode)],
+    };
+    (input, item, expansion)
+}
+
+fn overlong(errors: &[HarnessValidationError]) -> bool {
+    errors
+        .iter()
+        .any(|error| matches!(error, HarnessValidationError::OverlongChunk { .. }))
+}
+
+/// The app scrolls, so a long chunk that reads quickly passes there and fails
+/// the terminal's row budget; a chunk dense with logic fails on reading time.
+#[test]
+fn a_reading_budget_replaces_rows_when_the_app_sets_it() {
+    let notes: String = (0..60).map(|index| format!("+// note {index}\n")).collect();
+    let (input, item, expansion) = single(&notes, None);
+    let errors = expansion
+        .validate(&input, &item, 6)
+        .expect_err("too many rows")
+        .0;
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, HarnessValidationError::OversizedChunk { .. })),
+        "{errors:?}"
+    );
+    let (input, item, expansion) = single(&notes, Some(240));
+    expansion.validate(&input, &item, 6).expect("quick to read");
+
+    // Forty differently shaped lines: near-repeats would be read as one.
+    let logic: String = (1..=40)
+        .map(|arity| {
+            format!(
+                "+    if let Some(v) = call({})? {{ total += v; }}\n",
+                vec!["a"; arity].join(", ")
+            )
+        })
+        .collect();
+    let (input, item, mut expansion) = single(&logic, Some(240));
+    let errors = expansion
+        .validate(&input, &item, 6)
+        .expect_err("slow to read")
+        .0;
+    assert!(overlong(&errors), "{errors:?}");
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.to_string().contains("to read but the budget is 4 min"))
+    );
+
+    expansion.chunks[0].oversized_reason =
+        Some("One table walk; splitting it loses the loop.".into());
+    expansion.validate(&input, &item, 6).expect("justified");
+}

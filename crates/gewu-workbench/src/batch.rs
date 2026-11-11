@@ -282,7 +282,11 @@ impl Workbench {
                         .with_explain_tests(self.settings().explain_tests)
                         .start(
                             format!("review-{:x}", now()),
-                            prepared.input,
+                            // The app scrolls, so chunks are held to reading
+                            // time rather than the terminal's rows.
+                            prepared.input.with_max_chunk_seconds(Some(
+                                gewu_review::load::Rubric::builtin().budget.chunk_seconds,
+                            )),
                             prepared.origin,
                         )?;
                 } else {

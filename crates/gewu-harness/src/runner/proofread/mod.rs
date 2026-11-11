@@ -121,15 +121,11 @@ impl HarnessRunner {
             batch.rewrites + 1,
             run.state.proofread_rounds
         );
-        Ok(POLISH
+        Ok(prompts::budgeted(POLISH, &run.input)
             .replace("{{count}}", &chunks.len().to_string())
             .replace("{{round}}", &round)
             .replace("{{findings}}", &findings)
             .replace("{{chunks}}", &prompts::chunk_json(&chunks))
-            .replace(
-                "{{max_chunk_lines}}",
-                &run.input.max_chunk_lines.to_string(),
-            )
             .replace("{{rubric}}", prompts::rubric()))
     }
 

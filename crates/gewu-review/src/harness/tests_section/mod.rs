@@ -13,9 +13,7 @@ use std::collections::HashMap;
 use pack::{Piece, Role, balanced, pieces, quotes, whole};
 
 use super::{Expansion, HARNESS_SCHEMA_VERSION, WorkItem};
-use crate::{
-    Change, ChangePresentation, ChunkBlock, ChunkKind, ReviewChunk, ReviewInput, chunk_height,
-};
+use crate::{Change, ChangePresentation, ChunkBlock, ChunkKind, ReviewChunk, ReviewInput};
 
 /// Names written as a short list: "`a`", "`a` and `b`", "`a`, `b`, and 2 more".
 fn listed(names: &[&str]) -> String {
@@ -156,8 +154,9 @@ pub fn test_expansion(
         .iter()
         .map(|change| (&change.id, change))
         .collect();
+    let budget = input.chunk_budget();
     let fits = |index: usize, pieces: &[Piece]| {
-        chunk_height(&chunk(item, index, pieces, &changes), &changes) <= input.max_chunk_lines
+        budget.fits(&chunk(item, index, pieces, &changes), &changes)
     };
     let mut all = Vec::new();
     for quote in &item.covers {
@@ -182,7 +181,7 @@ pub fn test_expansion(
         .enumerate()
         .map(|(index, pieces)| {
             let mut chunk = chunk(item, index, pieces, &changes);
-            if chunk_height(&chunk, &changes) > input.max_chunk_lines {
+            if !budget.fits(&chunk, &changes) {
                 chunk.oversized_reason = Some(
                     "Gewu shows these tests whole rather than cut mid-test; the view scrolls."
                         .to_owned(),

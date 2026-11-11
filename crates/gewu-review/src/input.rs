@@ -190,6 +190,11 @@ pub struct ReviewInput {
     /// only when a reviewer has asked for larger chunks.
     #[serde(default = "default_max_chunk_lines")]
     pub max_chunk_lines: usize,
+    /// Estimated reading seconds a chunk may take before it must justify
+    /// itself. The desktop app sets it, because it scrolls; when set, it
+    /// replaces the row budget ([`crate::ChunkBudget`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_chunk_seconds: Option<u32>,
     pub changes: Vec<Change>,
 }
 
@@ -215,6 +220,7 @@ impl ReviewInput {
             schema_version: SCHEMA_VERSION,
             source,
             max_chunk_lines,
+            max_chunk_seconds: None,
             changes,
         }
     }
@@ -235,6 +241,13 @@ impl ReviewInput {
     #[must_use]
     pub fn with_max_chunk_lines(mut self, lines: usize) -> Self {
         self.max_chunk_lines = lines.max(1);
+        self
+    }
+
+    /// Holds chunks to `seconds` of estimated reading instead of rows.
+    #[must_use]
+    pub fn with_max_chunk_seconds(mut self, seconds: Option<u32>) -> Self {
+        self.max_chunk_seconds = seconds.map(|seconds| seconds.max(1));
         self
     }
 }

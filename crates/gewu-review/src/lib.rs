@@ -1,6 +1,7 @@
 //! Domain primitives for human-guided code and design review.
 
 pub mod audit;
+mod budget;
 pub mod context;
 pub mod explainer;
 mod fallback;
@@ -17,6 +18,7 @@ mod side;
 mod spec;
 mod validation;
 
+pub use budget::ChunkBudget;
 pub use explainer::Explainer;
 pub use handover::Handover;
 pub use height::{

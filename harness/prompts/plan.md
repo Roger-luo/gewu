@@ -86,7 +86,7 @@ blank lines and the unchanged context at a hunk's edges, which Gewu exempts. Ite
 overlap where the story needs the same lines twice; nothing may be left out.
 
 An item becomes at most {{max_chunks}} chunks, and a chunk holds about
-{{max_chunk_lines}} rendered rows including its title, summary, prose, and quote
+{{chunk_budget}} including its title, summary, prose, and quote
 headers. Use this estimate as planning guidance:
 
 {{height_guidance}}

@@ -143,12 +143,12 @@ fn measuring_notes_a_draft_whose_views_mostly_scroll() {
     artifacts::write(&path, &expansion).expect("write expansion");
     let measured = fixture.runner.status().expect("measure");
     assert!(
-        measured.contains("2 of 2 chunks here are marked oversized"),
+        measured.contains("2 of 2 chunks here are marked over their budget"),
         "{measured}"
     );
 
     expansion.chunks[1].oversized_reason = None;
     artifacts::write(&path, &expansion).expect("write expansion");
     let measured = fixture.runner.status().expect("measure");
-    assert!(!measured.contains("marked oversized"), "{measured}");
+    assert!(!measured.contains("marked over their budget"), "{measured}");
 }

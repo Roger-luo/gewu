@@ -32,11 +32,11 @@ Rules:
 - Show the same lines the chunk shows now. Where a view begins and ends, how
   many views there are, and what you say about them are yours to change; which
   code the reviewer is looking at is not.
-- Keep each chunk to at most {{max_chunk_lines}} rendered rows. In a direct CLI
+- Keep each chunk to at most {{chunk_budget}}. In a direct CLI
   session run `gewu harness status` after writing the file: with a draft in
   place it reports measured heights without advancing. Under a driver, send the
   complete revision through its measure action instead.
-- A `context` pane is not charged to those rows, so a reviewer asking to be
+- A `context` pane is not charged to that budget, so a reviewer asking to be
   reminded what a type is can be answered with one. Add it where they asked;
   keep it to what they need to read the code in front of them.
 - You cannot quote code the chunk does not already show, so a request for

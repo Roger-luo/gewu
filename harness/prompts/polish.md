@@ -27,11 +27,11 @@ Rules:
 - Replace exactly these chunk ids, all of them, and nothing else.
 - Show the same lines the chunk shows now. Where a view begins and ends and
   what you say about it are yours to change; which code is shown is not.
-- Keep each chunk to at most {{max_chunk_lines}} rendered rows. In a direct
+- Keep each chunk to at most {{chunk_budget}}. In a direct
   CLI session `gewu harness status` measures a draft without advancing; under
   a driver, use its measure action.
 - An earlier definition you cannot quote goes in a refactor `context`, which
-  is not charged to those rows: `before` is the old definition as written,
+  is not charged to that budget: `before` is the old definition as written,
   with its fields — not a type alias that keeps its name — `after` is the new
   one, and `reason` names the fields dropped or added and what that buys.
   Find it in the patch's removed lines or with `gewu harness context base

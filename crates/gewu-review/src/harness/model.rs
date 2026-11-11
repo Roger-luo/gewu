@@ -216,6 +216,7 @@ impl WorkList {
             schema_version: input.schema_version,
             source: input.source.clone(),
             max_chunk_lines: input.max_chunk_lines,
+            max_chunk_seconds: input.max_chunk_seconds,
             changes: input
                 .changes
                 .iter()

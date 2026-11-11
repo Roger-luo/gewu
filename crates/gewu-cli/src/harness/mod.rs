@@ -92,6 +92,11 @@ pub struct StartArgs {
     /// larger chunks than one terminal viewport.
     #[arg(long, default_value_t = gewu_review::DEFAULT_MAX_CHUNK_LINES)]
     max_chunk_lines: usize,
+    /// Hold chunks to this many seconds of estimated reading instead of rows,
+    /// as the desktop app does (its default is the rubric's, see `gewu
+    /// review rubric`).
+    #[arg(long)]
+    max_chunk_seconds: Option<u32>,
     /// Chunks one work item may expand into.
     #[arg(long, default_value_t = DEFAULT_MAX_CHUNKS)]
     max_chunks: usize,
@@ -111,6 +116,7 @@ impl StartArgs {
             head,
             working_tree,
             max_chunk_lines: gewu_review::DEFAULT_MAX_CHUNK_LINES,
+            max_chunk_seconds: None,
             max_chunks: DEFAULT_MAX_CHUNKS,
             proofread_rounds: 0,
         }
@@ -127,6 +133,7 @@ impl StartArgs {
                 self.max_chunk_lines,
             )
         }?;
+        let input = input.with_max_chunk_seconds(self.max_chunk_seconds);
         repository.ensure_changes(&input, self.working_tree)?;
         let origin = ReviewOrigin {
             base: self.base,
