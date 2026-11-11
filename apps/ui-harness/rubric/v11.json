@@ -1,0 +1,909 @@
+{
+  "version": 11,
+  "title": "Gewu desktop UI rubric v11: a chunk that argues an improvement lets the reviewer check it",
+  "scale": {
+    "min": 0,
+    "max": 3,
+    "anchors": {
+      "0": "broken",
+      "1": "material problems",
+      "2": "usable with small gaps",
+      "3": "clear"
+    }
+  },
+  "dimensions": [
+    {
+      "id": "orientation",
+      "name": "Orientation",
+      "weight": 3,
+      "question": "On every screen, can the reviewer tell which review stage they are on, which chunk they are in, and where that chunk sits in the guided sequence?",
+      "look_for": [
+        "Screenshot chrome: screen title or landmark (overview / chunk / summary), chunk title, position N of M, progress or visited state",
+        "Aria: main[data-gewu-screen], nav Review navigator landmarks, chunk name or position exposed",
+        "At 1024x700 as well as 1440x900: orientation chrome remains visible without relying on off-screen content"
+      ],
+      "anchors": {
+        "0": "A chunk or summary screenshot has no readable stage, chunk title, or N-of-M cue; the reviewer cannot tell where they are.",
+        "1": "Orientation exists on some pages but is missing, wrong, or scrolled off on others (e.g. chunk body visible without title or position).",
+        "2": "Every page shows stage and position, but one cue is weak (tiny, ambiguous, or only in aria, not visible in the screenshot).",
+        "3": "On every overview, chunk, and summary page at both viewports, stage, chunk title (when on a chunk), and N-of-M or equivalent progress are visible without scrolling."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "checks",
+        "interaction"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "shneiderman-golden-rules",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "overview_intent",
+      "name": "Overview intent",
+      "weight": 3,
+      "question": "Does the overview answer what the change does before asking the reviewer to inspect mechanics, with a clear start action?",
+      "look_for": [
+        "Overview screenshot: one-sentence intent, short behavioral bullets, scope (files / +/-), optional illustration, primary start-review control",
+        "Aria names on the start action and overview structure",
+        "Absence of raw hunk dumps or unexplained file lists as the first content",
+        "When the overview maps how parts connect, the desktop screenshot shows a drawn diagram (boxes and arrows), not ASCII art; checks.json illustration.ascii counts a text diagram",
+        "Diagram labels are large enough to read at the captured size, at least body text (about 14px tall). A diagram squeezed to fit the first screen fails even though its CSS font-size is unchanged; checks.json illustration.too_small counts it. Scrolling to the rest of a readable diagram is fine"
+      ],
+      "anchors": {
+        "0": "Overview is empty, is a raw diff/file list, or never states intent; no clear way to begin the guided review.",
+        "1": "Intent is missing or buried under mechanics; scope or start action is hard to find.",
+        "2": "Intent and start action are present, but bullets are vague, scope is incomplete, an illustration repeats the summary, a map of the change is ASCII art, or its labels are too small to read.",
+        "3": "Overview leads with a one-sentence intent, 3–5 concrete behavioral changes, readable scope, and an obvious start-review action; any illustration clarifies rather than restates, and a map of the change is a drawn diagram whose labels can be read without zooming."
+      },
+      "evidence": [
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics",
+        "code-review-file-position"
+      ]
+    },
+    {
+      "id": "prose_with_code",
+      "name": "Prose with code",
+      "weight": 3,
+      "question": "On chunk pages, does explanatory prose sit with the quoted code it refers to so the reviewer need not remember a previous screen?",
+      "look_for": [
+        "Chunk screenshots: narrative blocks immediately above or beside the quotes they introduce",
+        "Clear framing between Gewu prose and reviewed material (gutter, path label, or region)",
+        "Interaction screenshots after next/prev: new page still carries enough introducing prose for any code that opens the view"
+      ],
+      "anchors": {
+        "0": "Code appears without any introducing prose on the same page, or prose and code are so separated the link is lost.",
+        "1": "Many quotes lack an adjacent point, or the reviewer must scroll or change pages to reconnect explanation and code.",
+        "2": "Most blocks pair prose with code; a minority of quotes are orphaned or the prose/code boundary is easy to miss.",
+        "3": "Every visible quote is preceded or framed by prose that says what to look for; Gewu explanation and reviewed code are visually distinct on the same page."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "interaction"
+      ],
+      "sources": [
+        "gewu-design",
+        "shneiderman-golden-rules",
+        "nielsen-heuristics"
+      ]
+    },
+    {
+      "id": "code_legibility",
+      "name": "Code and diff legibility",
+      "weight": 3,
+      "question": "Are diffs and code quotes readable: path, line numbers, add/remove distinction, syntax color for the file's real language, wrapping, and no garbling?",
+      "look_for": [
+        "Screenshots of change blocks: file path, new-side line numbers, added vs removed styling, monospace alignment",
+        "checks.json for clipped_text, overlap, text.too_small on code regions",
+        "Both viewports: long lines wrap or scroll without colliding with gutters or chrome",
+        "Syntax color on every source quote, including lock files, config, and extensionless files such as .gitignore; a quote in one color is code.unhighlighted in checks.json"
+      ],
+      "anchors": {
+        "0": "Code is unreadable: missing path/lines, garbled wrap, or add/remove indistinguishable in the screenshot.",
+        "1": "Path or line numbers often missing; gutters misalign on wrap; or diff colors fail contrast so changes are hard to see. Or source quotes, including lock files and .gitignore, are one color.",
+        "2": "Quotes are generally readable with path, lines, and syntax color; a minority of files (often lock files or extensionless names) stay monochrome, or wrap and contrast slip on some pages.",
+        "3": "Every quote shows path and line numbers; added and removed lines are distinct; source is colored for its language, including TOML lock files and .gitignore; wraps keep gutters aligned at both viewports."
+      },
+      "evidence": [
+        "screenshot",
+        "checks",
+        "aria"
+      ],
+      "sources": [
+        "gewu-design",
+        "wcag-contrast",
+        "wcag-non-text-contrast",
+        "code-review-cognitive-load"
+      ]
+    },
+    {
+      "id": "shown_result",
+      "name": "What the code produces",
+      "weight": 3,
+      "question": "When a quote is something a reviewer judges by looking — a color, a diagram, a drawing function, a rendered document — does the page show that result beside the source?",
+      "look_for": [
+        "A quoted color is drawn as that color, not only written as a hex code",
+        "A quoted function that draws (a connector, an arrow, a glyph, a figure) shows a rendered example of that function, not an empty frame",
+        "An aside labeled Rendered output or Example of … contains a visible drawing. A white or empty box is preview.blank in checks.json and scores 0",
+        "A picture that was never committed still counts; the reviewer should not have to imagine the result",
+        "The whole drawing is visible in the panel. A frame that cuts off part of the example is preview.clipped and scores 1",
+        "The ground behind the drawing is one surface the size of the whole figure, or there is no separate page fill. A white patch smaller than the marks, with the rest of the figure on the app background, is preview.backdrop and scores 1",
+        "The picture column sits on the same surface as the code beside it, with no step in shade where the picture box ends. A darker or lighter box that stops partway down the quote, while the code area continues below it, is a visible step; it scores at most 2 for that quote. Judge it in dark mode as well as light"
+      ],
+      "anchors": {
+        "0": "Drawable code is shown with an empty rendered panel, or with no picture at all, so the reviewer cannot see what the code produces.",
+        "1": "A picture is present but blank, unrelated, cropped, or sitting on a page fill that does not cover the drawing, so the reviewer still has to imagine the rest.",
+        "2": "Most drawable quotes show a result; one quoted function or color is missing its picture, or the example is easy to miss.",
+        "3": "Every quoted color, diagram, or drawing function shows its whole result beside the source. A library is shown by an example of the bindings in the step, and that example is actually drawn, with nothing cut off and no page fill smaller than the figure. Score 3 with a note if the capture quotes no drawable code."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "checks"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics"
+      ]
+    },
+    {
+      "id": "context_pane",
+      "name": "Context pane",
+      "weight": 2,
+      "question": "When a chunk has supporting context, does the pane help without crowding the code; when absent, does the code use the full width?",
+      "look_for": [
+        "Chunk screenshots with aside Context vs without: width given to code",
+        "Aria: aside[aria-label=Context] only when context exists; title stays with content",
+        "At 1024x700: context does not crush code into an unreadable column; if stacked or overlayed, return path is clear",
+        "Whether a replacement structure shows its predecessor is representation_contrast. This dimension scores the pane's layout, not that omission."
+      ],
+      "anchors": {
+        "0": "Context permanently steals the reading width, duplicates the chunk summary, or appears as an unlabeled fragment.",
+        "1": "Context is present but often redundant, untitled after scroll, or squeezes code below usable width at 1024x700.",
+        "2": "Context helps on some chunks; occasional crowding or mild duplication; chunks without context correctly go full width.",
+        "3": "Context appears only when useful, stays titled, adds definition/example/relationship without repeating the summary, and leaves code comfortably readable; score 3 with a note if no chunk has context."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "checks"
+      ],
+      "sources": [
+        "gewu-design",
+        "apple-hig-sidebars",
+        "apple-hig-layout",
+        "nng-gestalt-proximity"
+      ]
+    },
+    {
+      "id": "representation_contrast",
+      "name": "What changed in a representation",
+      "weight": 3,
+      "question": "When a chunk presents a new or replacement data structure, encoding, or codec, does the reviewer learn how it differs from the previous one, and see that previous definition beside the new one?",
+      "look_for": [
+        "A chunk whose title claims a property of a new shape (compact, packed, smaller, replaced) says what the previous shape stored and which difference earns that claim. Restating the new fields, or the title, does not.",
+        "The previous definition is on the same page as the new one: a diff that shows the removed definition, or a Context pane labeled Refactor with the previous structure, the new structure, and the reason.",
+        "The claim is checkable against those two definitions. A motive the page does not derive from them does not count.",
+        "Score 3 with a note when no chunk replaces or redefines a structure."
+      ],
+      "anchors": {
+        "0": "The chunk shows only the new definition, and the prose does not say it replaces anything.",
+        "1": "The title or prose names the change, such as a compact word or a new codec, but does not say how it differs from the previous structure, or the previous definition is not on the page. Restating the new fields is this score.",
+        "2": "The prose names a real difference, or the previous definition is beside the new one, but not both. Or the claimed property, such as being more compact, is not tied to that difference.",
+        "3": "For every such chunk, the prose says what changed and which difference earns the claimed property, and the previous definition sits beside the new one. Score 3 with a note if the capture replaces no structure."
+      },
+      "evidence": [
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics"
+      ]
+    },
+    {
+      "id": "teaching_explainers",
+      "name": "Teaching an improvement",
+      "weight": 3,
+      "question": "When a chunk argues that the change is better — less memory, less work, a bug fixed — can the reviewer check it on the page: the mechanism with numbers and their source, this part's share of any measured result, and explainers (claim, layout, cost model, stepper, timeline) that agree with the prose and with each other and play correctly?",
+      "look_for": [
+        "Chunk screenshots and -full.png: a claim card quotes the change's own claim, gives the measured result, and states this chunk's share of it; the share agrees with any cost model on the page",
+        "A layout is drawn to scale (segment widths proportional to bytes) with a legend of exact sizes; an animated comparison ends in the state its legend describes",
+        "A cost model's values follow from its formulas at the shown parameters, and its default is the size the claim was measured at",
+        "A stepper's highlighted lines match its caption, values that change are marked, and Back/Next/Play are present",
+        "A timeline separates work done once from work done every step and its totals follow from its lanes",
+        "Explainers support the prose rather than repeat it; none is unreadable, clipped, or misaligned in light or dark",
+        "Captures without explainers or improvement claims: score 3 and note that nothing argued an improvement"
+      ],
+      "anchors": {
+        "0": "An explainer contradicts the prose or another explainer, or credits this chunk with the whole change's result (a part's ratio beside the whole's number with no share).",
+        "1": "The chunk asserts an improvement with names and line numbers but no mechanism or numbers, or an explainer is broken (wrong highlight, values that do not follow, clipped).",
+        "2": "The argument is checkable with one lapse: a missing source, an unmarked estimate, a share not reconciled with the cost model, or a small rendering defect.",
+        "3": "The reviewer can check the mechanism, the numbers, and this chunk's share, and every explainer agrees with the prose and with the others, in light and dark at every viewport."
+      },
+      "evidence": [
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "nng-visual-design",
+        "code-review-cognitive-load",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "feedback_flow",
+      "name": "Feedback flow",
+      "weight": 3,
+      "question": "Can the reviewer tell comment vs change request, code vs explanation target, and how to leave, select, resolve, or delete feedback?",
+      "look_for": [
+        "Chunk and interaction screenshots of feedback UI: kind labels (note/comment vs issue/change request), target (code vs explanation), optional line anchor",
+        "Aria names on feedback controls and dialogs (role=dialog with accessible name)",
+        "checks/hooks for feedback actions; keyboard shortcuts c/x reflected in help or labels"
+      ],
+      "anchors": {
+        "0": "No workable feedback path, or kinds/targets are indistinguishable so the reviewer cannot leave the intended record.",
+        "1": "Feedback can be left but kind or target is ambiguous, line attach is unclear, or resolve/delete appear without selecting an item.",
+        "2": "Comment vs change request and code vs explanation are labeled; minor friction in attach, confirm-delete, or selected-item actions.",
+        "3": "Kinds and targets are explicit; leaving, selecting, resolving, and confirmed delete are obvious in UI and aria; change requests remain visibly distinct from comments."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "interaction",
+        "checks"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "review_flow",
+      "name": "Review flow",
+      "weight": 3,
+      "question": "Does the guided sequence carry the reviewer forward: marking a step reviewed opens the next unreviewed step, and the last one lands on the summary, without a trip to the navigator?",
+      "look_for": [
+        "journeys.json simple-diff: 'Mark the first step reviewed and land on the next' and 'Mark the last step reviewed and land on the summary' pass, and their screenshots show the next chunk or the summary",
+        "Number of actions per step: reading one chunk should cost one primary action; count navigator clicks the stories needed",
+        "After marking reviewed, focus and scroll start at the new step's title, not mid-page",
+        "Unmarking a step stays put; marking with open change requests still moves on but the request remains visible in the summary"
+      ],
+      "anchors": {
+        "0": "Marking reviewed changes nothing visible, or the reviewer cannot find the next step.",
+        "1": "Marking reviewed works but the reviewer must navigate by hand to every next step or to the summary.",
+        "2": "Marking reviewed advances, but skips are surprising (reviewed steps revisited, summary not reached) or focus lands mid-page.",
+        "3": "One action per step carries the reviewer through every unreviewed step to the summary, with focus at the new step's title."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria",
+        "interaction"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "summary_decision",
+      "name": "Summary and decision",
+      "weight": 3,
+      "question": "Does the summary surface unresolved work and support a clear, correctly scoped final decision?",
+      "look_for": [
+        "Summary screenshots: unreviewed chunks, unresolved change requests, jump links, Approve / Comment / Request changes",
+        "Batch-scoped or incomplete-generation warnings when remaining work exists",
+        "Aria labels on decision controls; interaction screenshots after opening summary"
+      ],
+      "anchors": {
+        "0": "Summary missing, decisions absent, or no path to unresolved items; reviewer cannot close the review.",
+        "1": "Decision controls exist but unresolved lists are incomplete/wrong, or batch-scope warnings are missing when generation is incomplete.",
+        "2": "Unresolved items and decisions are present; one of jump links, warnings, or suggested decision is weak.",
+        "3": "Summary lists unreviewed chunks and unresolved requests with jumps; decisions are clear; incomplete generation is labeled batch-scoped; recording a decision does not look like discarding pending work."
+      },
+      "evidence": [
+        "screenshot",
+        "aria",
+        "interaction"
+      ],
+      "sources": [
+        "gewu-design",
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "visual_hierarchy",
+      "name": "Visual hierarchy",
+      "weight": 2,
+      "question": "Does scale, weight, color, and grouping guide the eye to the primary review content in a stable order?",
+      "look_for": [
+        "Screenshots: title > summary > prose/code > chrome; primary actions stronger than secondary",
+        "Gestalt grouping: related controls clustered; whitespace separating navigator, main, context, feedback",
+        "Alignment of columns and gutters across overview, chunk, and summary",
+        "Within each toolbar or action row: captions and buttons share one center line, groups are separated, and the primary action is visually distinct from status chips; checks.json layout.misaligned",
+        "Within each list of rows: the status label starts at the same x in every row, whether or not that row has a button beside it; checks.json layout.column_drift"
+      ],
+      "anchors": {
+        "0": "No readable order: chrome, prose, and code compete equally or key actions are visually lost.",
+        "1": "Hierarchy is inconsistent across screens or groups mislead (e.g. feedback controls look like navigation).",
+        "2": "Primary content usually wins; a few pages have competing emphasis, weak grouping, a caption that does not line up with its controls, or a list whose status labels start at different x positions.",
+        "3": "Across pages, the eye hits title and review body first; controls group by role; status labels in a list form one column; alignment and spacing make structure scannable at both viewports."
+      },
+      "evidence": [
+        "screenshot"
+      ],
+      "sources": [
+        "nng-visual-design",
+        "nng-gestalt-proximity",
+        "apple-hig-layout"
+      ]
+    },
+    {
+      "id": "layout_density",
+      "name": "Layout and density",
+      "weight": 2,
+      "question": "Is space spent on review content, without sparse emptiness, cramped overlap, or broken reflow at the harness viewports?",
+      "look_for": [
+        "1440x900 vs 1024x700 screenshots: content vs chrome ratio; no large empty voids pushing code away",
+        "checks.json: layout.horizontal_overflow, layout.clipped_text, layout.overlap",
+        "Narrow viewport: panes stack or collapse without horizontal page scroll for primary reading"
+      ],
+      "anchors": {
+        "0": "Unusable layout: overlapping regions, clipped primary text, or horizontal overflow on the main reading path.",
+        "1": "Material waste or crush: chrome dominates, or 1024x700 forces unreadable columns / overflow.",
+        "2": "Mostly comfortable density; minor excess padding or tight spots that do not block reading.",
+        "3": "Both viewports keep code and prose readable; chrome is compact; no overflow/clip/overlap on primary content; unused space is purposeful, not empty."
+      },
+      "evidence": [
+        "screenshot",
+        "checks"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "wcag-reflow",
+        "apple-hig-layout",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "typography_legibility",
+      "name": "Typography and legibility",
+      "weight": 2,
+      "question": "Are prose and UI labels legible: size, contrast, line length, type hierarchy distinct from code, and agent Markdown rendered rather than shown as syntax?",
+      "look_for": [
+        "Screenshots light (and dark if captured): body vs muted text contrast; code monospace vs UI sans",
+        "checks.json text.too_small; WCAG-ish contrast failures visible in screenshots",
+        "Line length of narrative: not a full-bleed wall of text at 1440; not crushed at 1024",
+        "Titles, summaries, intent, and list items written by the agent: inline code renders as code and no literal backticks, ** or [text](url) reach the screen; checks.json text.raw_markdown"
+      ],
+      "anchors": {
+        "0": "Body or critical labels fail contrast or size so they cannot be read in screenshots.",
+        "1": "Widespread low-contrast secondary text, tiny labels, or prose/code type roles confused. Or agent Markdown shows as literal syntax in titles or summaries.",
+        "2": "Generally legible; occasional muted text near the edge of contrast or slightly long lines.",
+        "3": "Prose, labels, and code each have clear type roles; body text meets comfortable size/contrast in light and dark; hierarchy of heading/body/meta is consistent."
+      },
+      "evidence": [
+        "screenshot",
+        "checks"
+      ],
+      "sources": [
+        "wcag-contrast",
+        "wcag-non-text-contrast",
+        "apple-hig-dark-mode",
+        "nng-visual-design"
+      ]
+    },
+    {
+      "id": "platform_consistency",
+      "name": "Platform consistency",
+      "weight": 2,
+      "question": "Does the UI feel at home on macOS desktop: predictable structure, sidebar/toolbar roles, and coherent light/dark treatment?",
+      "look_for": [
+        "Screenshots: leading navigator vs main vs optional trailing context; review actions are not only at the window bottom, while app-wide controls (account, Settings) belong at the sidebar's foot",
+        "Dark captures if present: semantic surfaces, not inverted-broken colors; chrome vs content separation",
+        "Consistent labels and control placement across overview, chunk, summary"
+      ],
+      "anchors": {
+        "0": "Layout fights desktop reading (critical controls only at bottom edge, broken dark mode, or randomly rearranging structure per page).",
+        "1": "Structure works but violates familiar roles (e.g. context competing as primary nav) or dark mode has systemic contrast failures.",
+        "2": "Recognizable desktop split and consistent controls; small platform mismatches or uneven dark styling.",
+        "3": "Stable navigator/main/context roles, consistent terminology, and light/dark both keep content ahead of chrome without hard-coded clash."
+      },
+      "evidence": [
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "apple-hig-layout",
+        "apple-hig-sidebars",
+        "apple-hig-dark-mode",
+        "nielsen-heuristics"
+      ]
+    },
+    {
+      "id": "navigation_structure",
+      "name": "Navigation structure",
+      "weight": 2,
+      "question": "Is every control where a user would look for it, grouped with the controls that do the same kind of thing: the ways to start work together at the top of the sidebar, the lists to move between in the middle, and app-wide controls (account, Settings) together at the sidebar's foot, each with a recognizable label or icon?",
+      "look_for": [
+        "Sidebar screenshots on every screen: actions that start work (New review, Add repository) sit side by side or stacked together, not split by a list",
+        "App-wide controls (account, sign-in method, Settings) share one region at the foot; Settings is not floating among content actions or list items",
+        "Settings and other global screens have a recognizable icon and a page title; the control that opened a screen shows it is current (aria-current or highlight)",
+        "The same control sits in the same place on every screen that shows it, including review screens and the workbench",
+        "Narrow viewport: the grouping survives reflow; no control is squeezed so its label wraps one word per line or is clipped",
+        "aria: grouped controls are siblings in one container; landmarks (navigation, contentinfo) name what they hold"
+      ],
+      "anchors": {
+        "0": "A primary action or Settings is hard to find: hidden, unlabeled, or placed among unrelated items so users miss it.",
+        "1": "Everything is reachable, but related actions are split apart or an app-wide control sits among content actions, so the user hunts.",
+        "2": "Grouping is right with one small lapse, such as an unlabeled icon, a missing current-page state, or a group that breaks at the narrow viewport.",
+        "3": "Start actions together at the top, lists in the middle, account and Settings together at the foot with a clear icon and current state, the same on every screen and at every viewport."
+      },
+      "evidence": [
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "apple-hig-sidebars",
+        "nng-gestalt-proximity",
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "accessibility_interaction",
+      "name": "Accessibility and interaction",
+      "weight": 2,
+      "question": "Beyond axe counters: are focus, names, landmarks, keyboard shortcuts, and action feedback usable from aria and interaction evidence?",
+      "look_for": [
+        "Aria snapshots: landmarks (nav, main, aside), dialog names, button/link names, heading structure",
+        "Interaction screenshots: visible focus after keyboard moves; j/k/o/s/r/c/x/?/Esc behave; help overlay",
+        "checks.json: axe.* residual, targets.too_small, keyboard.failures; console/hooks only as context for shippability"
+      ],
+      "anchors": {
+        "0": "Keyboard path broken, focus invisible, or interactive controls unnamed so aria cannot drive the review.",
+        "1": "Landmarks or names missing on major regions; focus hard to see; shortcuts undocumented or unreliable.",
+        "2": "Main flows work from keyboard and aria; minor unnamed icons, weak focus on secondary controls, or incomplete help.",
+        "3": "Landmarks and names cover navigator, main, context, dialogs; focus is visible and not obscured; shortcuts match desktop.md and feedback confirms actions (reviewed toggle, feedback saved, dialog closed)."
+      },
+      "evidence": [
+        "aria",
+        "screenshot",
+        "interaction",
+        "checks"
+      ],
+      "sources": [
+        "wcag-focus-visible",
+        "wcag-focus-not-obscured",
+        "wcag-target-size",
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "journey_completion",
+      "name": "Journey completion",
+      "weight": 3,
+      "question": "Can each user story in journeys.json be completed from start to finish through visible, named controls, with every step's screenshot showing the result the step claims?",
+      "look_for": [
+        "journeys.json: every journey has blocked = null and each step ok",
+        "Each step screenshot under journeys/ shows the state its name promises (e.g. 'Wait for the first batch' shows Ready to read)",
+        "No step depends on knowledge the screen does not give (hidden controls, typed URLs, terminal commands)"
+      ],
+      "anchors": {
+        "0": "A story is blocked, or a step needs the terminal or a hidden control.",
+        "1": "All stories finish, but at least one step's screenshot contradicts its name or the path relies on guessing.",
+        "2": "All stories finish and screenshots match, but one path takes needless detours (extra screens, re-entering data).",
+        "3": "Every story finishes directly; each screenshot shows the promised result and the next control is obvious."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "source_selection",
+      "name": "Choosing what to review",
+      "weight": 3,
+      "question": "Does New review make the four sources (commit range, uncommitted changes, pull request, directory), the repository, and the agent clear, with pickers that save typing and say what each choice covers?",
+      "look_for": [
+        "Tabs for the four sources with one panel at a time",
+        "Recent commits, open pull requests, and directories offered as choices; typed values still possible",
+        "Agent choices show what will run, or why a choice is unavailable",
+        "Explanations of what each source covers (e.g. directory reviewed as newly added; uncommitted changes reviewed in place)"
+      ],
+      "anchors": {
+        "0": "A source cannot be chosen, or the agent choice is unexplained.",
+        "1": "Sources are present but at least one needs typing a value the UI could have offered, or a choice's meaning is unclear.",
+        "2": "All sources and agents are clear with pickers; one explanation or default is weak.",
+        "3": "Each source and agent is self-explanatory, offers pickers, and states its consequences."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "shneiderman-golden-rules",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "agent_progress",
+      "name": "Agent progress and gates",
+      "weight": 3,
+      "question": "While an agent writes a walkthrough, can the reviewer see that it is working, what it is doing, when a batch is ready, and what to do next, including why Continue is held?",
+      "look_for": [
+        "Generating vs Ready to read vs Complete visibly distinct on Home, Task, and the review strip",
+        "Live Agent log with readable kinds (agent text, tool, refusal, error)",
+        "A held Continue explains what the reviewer must do first",
+        "Partial walkthroughs say how much is still to be written"
+      ],
+      "anchors": {
+        "0": "The reviewer cannot tell whether anything is running or when it is done.",
+        "1": "Status exists but is ambiguous, or the log is unreadable, or the gate gives no reason.",
+        "2": "Status, log, and gates are clear; one state reads weakly (e.g. a long message truncated without a way to read it).",
+        "3": "Every state, transition, and next step is visible and worded for the reviewer."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "gewu-design"
+      ]
+    },
+    {
+      "id": "multi_review_navigation",
+      "name": "Many reviews",
+      "weight": 2,
+      "question": "With several reviews across repositories, can the reviewer see each one's state at a glance, switch between them, and return to where they were?",
+      "look_for": [
+        "Home lists reviews with title, repository, source, agent, status, progress, updated time",
+        "Repository filter in the sidebar",
+        "Back to reviews from Task and Review; reopening a review restores the reader's place",
+        "Delete asks for confirmation and says what is removed",
+        "Status labels in the list form one column: a row with an action button and a row without one show the status at the same x position; checks.json layout.column_drift"
+      ],
+      "anchors": {
+        "0": "Reviews cannot be told apart or switching loses work.",
+        "1": "The list exists but lacks key state, or returning loses the reader's place.",
+        "2": "State, switching, and place are kept; one cue is weak, or status labels drift sideways between rows.",
+        "3": "State at a glance in one aligned column, one-step switching, and place kept everywhere."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    },
+    {
+      "id": "failure_recovery",
+      "name": "Failure and recovery",
+      "weight": 3,
+      "question": "When the agent is missing, exits early, or the range is empty, does the UI say what happened and what to do, in the UI, without a terminal?",
+      "look_for": [
+        "Failed status with the cause in plain words next to the review, not only in a log",
+        "A concrete next action (install, pick another agent, change the range, Continue to retry)",
+        "The failure is visible from Home as well as the Task screen"
+      ],
+      "anchors": {
+        "0": "A failure is silent or only visible in a terminal.",
+        "1": "The failure is shown but the cause or next step is missing or jargon.",
+        "2": "Cause and next step are shown; one failure's wording is technical or buried.",
+        "3": "Every failure states cause and next step in the reviewer's terms, on Home and Task."
+      },
+      "evidence": [
+        "journey",
+        "screenshot",
+        "aria"
+      ],
+      "sources": [
+        "nielsen-heuristics",
+        "shneiderman-golden-rules"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "no-critical-a11y",
+      "check": "axe.critical",
+      "max": 0,
+      "effect": "fail",
+      "description": "Any axe critical violation makes the UI unshippable."
+    },
+    {
+      "id": "no-console-errors",
+      "check": "console.errors",
+      "max": 0,
+      "effect": "fail",
+      "description": "Page console errors during capture indicate broken runtime behavior."
+    },
+    {
+      "id": "hooks-present",
+      "check": "hooks.missing",
+      "max": 0,
+      "effect": "fail",
+      "description": "Missing UI test hooks means the harness cannot drive or judge the app reliably."
+    },
+    {
+      "id": "keyboard-works",
+      "check": "keyboard.failures",
+      "max": 0,
+      "effect": "fail",
+      "description": "Failed keyboard interactions break the primary review navigation model."
+    },
+    {
+      "id": "cap-serious-a11y",
+      "check": "axe.serious",
+      "max": 0,
+      "effect": "cap",
+      "cap": 60,
+      "description": "Any axe serious violation caps the aggregate score at 60."
+    },
+    {
+      "id": "cap-horizontal-overflow",
+      "check": "layout.horizontal_overflow",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "Horizontal overflow on captured pages caps the aggregate score at 70."
+    },
+    {
+      "id": "cap-clipped-text",
+      "check": "layout.clipped_text",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "Clipped text on captured pages caps the aggregate score at 70."
+    },
+    {
+      "id": "cap-overlap",
+      "check": "layout.overlap",
+      "max": 0,
+      "effect": "cap",
+      "cap": 65,
+      "description": "Overlapping interactive or text regions cap the aggregate score at 65."
+    },
+    {
+      "id": "cap-text-too-small",
+      "check": "text.too_small",
+      "max": 0,
+      "effect": "cap",
+      "cap": 75,
+      "description": "Text below the harness minimum size caps the aggregate score at 75."
+    },
+    {
+      "id": "cap-targets-too-small",
+      "check": "targets.too_small",
+      "max": 0,
+      "effect": "cap",
+      "cap": 75,
+      "description": "Pointer targets below WCAG 2.2 minimum sizing/spacing cap the aggregate score at 75."
+    },
+    {
+      "id": "cap-moderate-a11y",
+      "check": "axe.moderate",
+      "max": 0,
+      "effect": "cap",
+      "cap": 85,
+      "description": "Any axe moderate violation caps the aggregate score at 85."
+    },
+    {
+      "id": "journeys-complete",
+      "check": "journey.blocked",
+      "max": 0,
+      "effect": "fail",
+      "description": "A user story the UI cannot complete through visible controls is a release blocker."
+    },
+    {
+      "id": "cap-raw-markdown",
+      "check": "text.raw_markdown",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "Markdown syntax shown as literal text (for example backticks in a chunk title) caps the aggregate score at 70."
+    },
+    {
+      "id": "cap-misaligned",
+      "check": "layout.misaligned",
+      "max": 0,
+      "effect": "cap",
+      "cap": 80,
+      "description": "A caption or control off the center line of the controls beside it caps the aggregate score at 80."
+    },
+    {
+      "id": "cap-column-drift",
+      "check": "layout.column_drift",
+      "max": 0,
+      "effect": "cap",
+      "cap": 80,
+      "description": "Status labels in one list that start at different x positions, for example because a button beside a row pushes its status sideways, cap the aggregate score at 80."
+    },
+    {
+      "id": "cap-unhighlighted",
+      "check": "code.unhighlighted",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "A source quote shown in one color, such as a TOML lock file or .gitignore, caps the aggregate score at 70."
+    },
+    {
+      "id": "cap-ascii-diagram",
+      "check": "illustration.ascii",
+      "max": 0,
+      "effect": "cap",
+      "cap": 75,
+      "description": "An overview diagram left as ASCII art, or Mermaid that did not draw, caps the aggregate score at 75."
+    },
+    {
+      "id": "cap-tiny-diagram",
+      "check": "illustration.too_small",
+      "max": 0,
+      "effect": "cap",
+      "cap": 70,
+      "description": "An overview diagram whose labels render below body text, because the picture was scaled down, caps the aggregate score at 70."
+    },
+    {
+      "id": "cap-blank-preview",
+      "check": "preview.blank",
+      "max": 0,
+      "effect": "cap",
+      "cap": 60,
+      "description": "A rendered-output panel that draws nothing, an empty page beside code the reviewer must judge by looking, caps the aggregate score at 60."
+    },
+    {
+      "id": "cap-clipped-preview",
+      "check": "preview.clipped",
+      "max": 0,
+      "effect": "cap",
+      "cap": 60,
+      "description": "A rendered example that is cut off, so the reviewer sees only part of what the code draws, caps the aggregate score at 60."
+    },
+    {
+      "id": "cap-partial-page",
+      "check": "preview.backdrop",
+      "max": 0,
+      "effect": "cap",
+      "cap": 60,
+      "description": "A white page fill that covers only part of the rendered example, leaving the rest on the app background, caps the aggregate score at 60."
+    }
+  ],
+  "sources": [
+    {
+      "id": "nielsen-heuristics",
+      "title": "10 Usability Heuristics for User Interface Design (NN/g)",
+      "url": "https://www.nngroup.com/articles/ten-usability-heuristics/"
+    },
+    {
+      "id": "nielsen-severity",
+      "title": "Severity Ratings for Usability Problems (NN/g)",
+      "url": "https://www.nngroup.com/articles/how-to-rate-the-severity-of-usability-problems/"
+    },
+    {
+      "id": "shneiderman-golden-rules",
+      "title": "The Eight Golden Rules of Interface Design (Shneiderman)",
+      "url": "https://www.cs.umd.edu/users/ben/goldenrules.html"
+    },
+    {
+      "id": "wcag-22",
+      "title": "Web Content Accessibility Guidelines (WCAG) 2.2",
+      "url": "https://www.w3.org/TR/WCAG22/"
+    },
+    {
+      "id": "wcag-contrast",
+      "title": "Understanding SC 1.4.3 Contrast (Minimum)",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum"
+    },
+    {
+      "id": "wcag-non-text-contrast",
+      "title": "Understanding SC 1.4.11 Non-text Contrast",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast"
+    },
+    {
+      "id": "wcag-focus-visible",
+      "title": "Understanding SC 2.4.7 Focus Visible",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible"
+    },
+    {
+      "id": "wcag-focus-not-obscured",
+      "title": "What's New in WCAG 2.2 (Focus Not Obscured 2.4.11)",
+      "url": "https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/"
+    },
+    {
+      "id": "wcag-target-size",
+      "title": "Understanding SC 2.5.8 Target Size (Minimum)",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum"
+    },
+    {
+      "id": "wcag-reflow",
+      "title": "Understanding SC 1.4.10 Reflow",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/reflow"
+    },
+    {
+      "id": "apple-hig-layout",
+      "title": "Apple Human Interface Guidelines — Layout",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/layout"
+    },
+    {
+      "id": "apple-hig-sidebars",
+      "title": "Apple Human Interface Guidelines — Sidebars",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/sidebars"
+    },
+    {
+      "id": "apple-hig-dark-mode",
+      "title": "Apple Human Interface Guidelines — Dark Mode",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/dark-mode"
+    },
+    {
+      "id": "nng-visual-design",
+      "title": "5 Principles of Visual Design in UX (NN/g)",
+      "url": "https://www.nngroup.com/articles/principles-visual-design/"
+    },
+    {
+      "id": "nng-gestalt-proximity",
+      "title": "Proximity Principle in Visual Design (NN/g)",
+      "url": "https://www.nngroup.com/articles/gestalt-proximity/"
+    },
+    {
+      "id": "gewu-design",
+      "title": "Gewu design note (docs/design.md)",
+      "url": "https://github.com/Roger-luo/gewu/blob/main/docs/design.md"
+    },
+    {
+      "id": "code-review-file-position",
+      "title": "First Come First Served: The Impact of File Position on Code Review",
+      "url": "https://arxiv.org/abs/2208.04259"
+    },
+    {
+      "id": "code-review-cognitive-load",
+      "title": "Do explicit review strategies improve code review performance? (Wurzel Gonçalves, Fregnan, et al.)",
+      "url": "https://link.springer.com/article/10.1007/s10664-022-10123-8"
+    },
+    {
+      "id": "uicrit",
+      "title": "UICrit: Enhancing Automated Design Evaluation with a UI Critique Dataset",
+      "url": "https://dl.acm.org/doi/10.1145/3654777.3676381"
+    },
+    {
+      "id": "gpt4-ui-heuristics",
+      "title": "Generating Automatic Feedback on UI Mockups with Large Language Models",
+      "url": "https://arxiv.org/abs/2403.13139"
+    },
+    {
+      "id": "llm-judge-calibration",
+      "title": "Large Language Models are not Fair Evaluators (Peiyi Wang et al.; position bias; evidence calibration)",
+      "url": "https://arxiv.org/abs/2305.17926"
+    },
+    {
+      "id": "llm-judge-position-study",
+      "title": "Judging the Judges: A Systematic Study of Position Bias in LLM-as-a-Judge",
+      "url": "https://arxiv.org/html/2406.07791v7"
+    }
+  ]
+}

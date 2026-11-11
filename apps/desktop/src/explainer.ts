@@ -29,6 +29,24 @@ export interface Series {
   unit?: Unit;
 }
 
+export interface Step {
+  caption: string;
+  code?: string;
+  highlight?: string;
+  state?: { name: string; value: string }[];
+}
+
+export interface Work {
+  label: string;
+  when: "once" | "each";
+  cost?: number;
+}
+
+export interface Lane {
+  label: string;
+  work: Work[];
+}
+
 export type Explainer =
   | { kind: "claim"; claim: string; result?: string; share?: string; how: string }
   | { kind: "layout"; title: string; rows: { label: string; fields: LayoutField[] }[]; source: string }
@@ -39,7 +57,51 @@ export type Explainer =
       series: Series[];
       note?: string;
       source: string;
-    };
+    }
+  | {
+      kind: "stepper";
+      title: string;
+      language?: string;
+      source?: string;
+      start_line?: number;
+      steps: Step[];
+    }
+  | { kind: "timeline"; title: string; steps: number; step_label: string; lanes: Lane[]; unit?: string };
+
+/** "3", "3-5", or "2,6-7" as a set of 1-based line numbers. */
+export function lineSet(text: string | undefined): Set<number> {
+  const lines = new Set<number>();
+  for (const part of (text ?? "").split(",")) {
+    const [start, end] = part.split("-").map((n) => Number(n.trim()));
+    if (!Number.isInteger(start) || start < 1) continue;
+    for (let line = start; line <= (Number.isInteger(end) ? end : start); line += 1) lines.add(line);
+  }
+  return lines;
+}
+
+/** "1 allocations" reads wrong: drop a plural `s` when the count is one. */
+export function unitFor(count: number, unit: string | undefined): string {
+  if (!unit) return "";
+  return count === 1 && unit.endsWith("s") ? unit.slice(0, -1) : unit;
+}
+
+/** "38-40,42" as contiguous runs of lines: one highlight band each. */
+export function lineRuns(text: string | undefined): { start: number; length: number }[] {
+  const lines = [...lineSet(text)].sort((a, b) => a - b);
+  const runs: { start: number; length: number }[] = [];
+  for (const line of lines) {
+    const last = runs[runs.length - 1];
+    if (last && last.start + last.length === line) last.length += 1;
+    else runs.push({ start: line, length: 1 });
+  }
+  return runs;
+}
+
+/** Each step's code: a step without `code` keeps the previous step's. */
+export function stepCodes(steps: Step[]): string[] {
+  let code = "";
+  return steps.map((step) => (code = step.code ?? code));
+}
 
 type Expr = (values: number[]) => number;
 
@@ -165,4 +227,9 @@ export function paramSteps(param: Param): number[] | null {
     steps.push(value);
   }
   return steps;
+}
+
+/** A title as plain text, for accessible names: Markdown code marks removed. */
+export function plainTitle(title: string): string {
+  return title.replace(/`/g, "");
 }

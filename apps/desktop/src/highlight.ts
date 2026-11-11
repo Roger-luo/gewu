@@ -129,6 +129,18 @@ export async function highlightCode(
   return highlighter.codeToHtml(code, { lang, theme: theme(dark) });
 }
 
+/** The loaded highlighter, grammar, and theme names, for animated code. */
+export async function loadHighlighter(
+  language: string | null | undefined,
+): Promise<{ highlighter: HighlighterCore; lang: string; light: string; dark: string } | null> {
+  const lang = resolveLang(language);
+  if (!lang) {
+    return null;
+  }
+  const highlighter = await ensureLanguage(lang);
+  return { highlighter, lang, light: theme(false), dark: theme(true) };
+}
+
 /** One token list per source line, so a diff cell can keep its own background. */
 export async function highlightLines(
   code: string,

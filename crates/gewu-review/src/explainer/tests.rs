@@ -179,6 +179,91 @@ fn claims_must_quote_the_authors_description() {
         invented[0].contains("not in the author's description"),
         "{invented:?}"
     );
+    let typographic = "S = 56·B bytes: 7 MiB, −65%";
+    assert!(
+        super::unquoted_claims([&chunk("S = 56*B bytes: 7 MiB, -65%")], Some(typographic))
+            .is_empty(),
+        "dashes, minus signs, and middle dots compare equal"
+    );
     let none = super::unquoted_claims([&chunk("anything")], None);
     assert!(none[0].contains("no author description"), "{none:?}");
+}
+
+fn stepper(highlight: &str) -> Explainer {
+    serde_json::from_value(serde_json::json!({
+        "kind": "stepper",
+        "title": "Looking up a word",
+        "language": "rust",
+        "steps": [
+            { "caption": "Hash the word once.", "code": "let h = word_hash(w);\nlet i = table.find(h)?;\nbasis[i] == w", "highlight": "1",
+              "state": [ { "name": "h", "value": "0x9e37…" } ] },
+            { "caption": "Probe the table for a position.", "highlight": highlight }
+        ]
+    }))
+    .expect("stepper")
+}
+
+#[test]
+fn a_stepper_checks_its_steps_and_highlights() {
+    assert!(
+        stepper("2").problems().is_empty(),
+        "{:?}",
+        stepper("2").problems()
+    );
+    assert!(stepper("4").problems()[0].contains("highlights outside lines 1-3"));
+    assert!(stepper("2-1").problems()[0].contains("runs backwards"));
+    let text = stepper("2").markdown();
+    assert!(text.contains("**Step 2.** Probe the table"), "{text}");
+    assert!(text.contains("`h` = 0x9e37…"), "{text}");
+}
+
+#[test]
+fn a_timeline_totals_work_done_once_and_every_step() {
+    let timeline: Explainer = serde_json::from_value(serde_json::json!({
+        "kind": "timeline", "title": "Allocations per run", "steps": 6, "step_label": "pc_step",
+        "unit": "allocations",
+        "lanes": [
+            { "label": "Before", "work": [ { "label": "allocate workspace", "when": "each", "cost": 3 } ] },
+            { "label": "After", "work": [ { "label": "allocate workspace", "when": "once", "cost": 3 },
+                                          { "label": "reuse it", "when": "each" } ] }
+        ]
+    }))
+    .expect("timeline");
+    assert!(timeline.problems().is_empty(), "{:?}", timeline.problems());
+    let text = timeline.markdown();
+    assert!(
+        text.contains("Before: allocate workspace (every step) — 18 allocations"),
+        "{text}"
+    );
+    assert!(
+        text.contains("After: allocate workspace (once), reuse it (every step) — 3 allocations"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_stepper_numbers_lines_like_the_file_and_keeps_them_narrow() {
+    let numbered: Explainer = serde_json::from_value(serde_json::json!({
+        "kind": "stepper", "title": "t", "start_line": 37,
+        "steps": [ { "caption": "a", "code": "one\ntwo", "highlight": "38" },
+                   { "caption": "b", "highlight": "36" } ]
+    }))
+    .expect("stepper");
+    let problems = numbered.problems();
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(
+        problems[0].contains("step 2 highlights outside lines 37-38"),
+        "{problems:?}"
+    );
+
+    let wide: Explainer = serde_json::from_value(serde_json::json!({
+        "kind": "stepper", "title": "t",
+        "steps": [ { "caption": "a", "code": "x".repeat(81) }, { "caption": "b" } ]
+    }))
+    .expect("stepper");
+    assert!(
+        wide.problems()[0].contains("over 80 columns"),
+        "{:?}",
+        wide.problems()
+    );
 }

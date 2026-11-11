@@ -133,10 +133,12 @@ fn quoted(text: &str) -> Vec<String> {
 /// The summary and narrative sentences of a chunk, outside fenced examples.
 fn sentences(chunk: &ReviewChunk) -> Vec<String> {
     let mut parts = vec![chunk.summary.clone()];
-    parts.extend(chunk.content.iter().filter_map(|block| match block {
-        crate::ChunkBlock::Narrative { markdown } => Some(markdown.clone()),
-        crate::ChunkBlock::Changes { .. } => None,
-        crate::ChunkBlock::Explainer(explainer) => explainer.prose().map(str::to_owned),
+    parts.extend(chunk.content.iter().flat_map(|block| match block {
+        crate::ChunkBlock::Narrative { markdown } => vec![markdown.clone()],
+        crate::ChunkBlock::Changes { .. } => Vec::new(),
+        crate::ChunkBlock::Explainer(explainer) => {
+            explainer.prose().into_iter().map(str::to_owned).collect()
+        }
     }));
     let mut out = Vec::new();
     for part in parts {

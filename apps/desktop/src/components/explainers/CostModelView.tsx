@@ -1,8 +1,15 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { compileFormula, formatValue, paramSteps, type Explainer, type Param } from "../../explainer";
-import { Markdown } from "../Markdown";
+import {
+  compileFormula,
+  formatValue,
+  paramSteps,
+  plainTitle,
+  type Explainer,
+  type Param,
+} from "../../explainer";
+import { InlineMarkdown, Markdown } from "../Markdown";
 
 type CostModel = Extract<Explainer, { kind: "cost_model" }>;
 
@@ -11,6 +18,7 @@ type CostModel = Extract<Explainer, { kind: "cost_model" }>;
  * evaluated again from its formula, so the claim's arithmetic is checkable.
  */
 export function CostModelView({ explainer }: { explainer: CostModel }) {
+  const reduced = useReducedMotion() ?? false;
   const [values, setValues] = useState(() => explainer.params.map((param) => param.default));
   const compiled = useMemo(() => {
     const names = explainer.params.map((param) => param.id);
@@ -26,25 +34,40 @@ export function CostModelView({ explainer }: { explainer: CostModel }) {
   const sweep = useSweep(explainer.params[0], (value) =>
     setValues((current) => current.map((old, at) => (at === 0 ? value : old))),
   );
-  const largest = Math.max(...results.filter(Number.isFinite), 1);
+  // Bars share one scale across the sizes worth comparing — the default and
+  // the measured marks — so dragging between them grows and shrinks the
+  // bars; going past them stretches the scale with it.
+  const largest = useMemo(() => {
+    const first = explainer.params[0];
+    const sizes = [first?.default, ...(first?.marks ?? [])].filter((v): v is number => v !== undefined);
+    const points = sizes.map((size) => explainer.params.map((p, at) => (at === 0 ? size : p.default)));
+    const all = compiled.flatMap((expr) => [...points.map((point) => expr(point)), expr(values)]);
+    return Math.max(...all.filter(Number.isFinite), 1);
+  }, [compiled, explainer.params, values]);
+  const setParam = (index: number, value: number) => {
+    sweep.stop();
+    setValues((current) => current.map((old, at) => (at === index ? value : old)));
+  };
 
   return (
-    <figure className="explainer cost-model" aria-label={explainer.title}>
-      <figcaption className="explainer-label">{explainer.title}</figcaption>
+    <figure className="explainer cost-model" aria-label={plainTitle(explainer.title)}>
+      <figcaption className="explainer-label">
+        <InlineMarkdown source={explainer.title} />
+      </figcaption>
       <div className="cost-params">
         {explainer.params.map((param, index) => (
           <ParamSlider
             key={param.id}
             param={param}
             value={values[index]}
-            onChange={(value) => setValues(values.map((old, at) => (at === index ? value : old)))}
+            onChange={(value) => setParam(index, value)}
           />
         ))}
       </div>
       {sweep.available && (
         <div className="cost-sweep">
           <button type="button" className="btn small" aria-pressed={sweep.playing} onClick={sweep.toggle}>
-            {sweep.playing ? "❚❚ Pause" : `▶ Play through ${explainer.params[0].label}`}
+            {sweep.playing ? "❚❚ Pause" : "▶ Play through the sizes"}
           </button>
         </div>
       )}
@@ -56,7 +79,7 @@ export function CostModelView({ explainer }: { explainer: CostModel }) {
               <motion.div
                 className={`cost-bar series-${index}`}
                 animate={{ width: `${Math.max(0.5, (results[index] / largest) * 100)}%` }}
-                transition={{ type: "spring", stiffness: 260, damping: 30 }}
+                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 30 }}
               />
             </div>
             <output className="cost-value">{formatValue(results[index], series.unit)}</output>
@@ -94,7 +117,6 @@ export function CostModelView({ explainer }: { explainer: CostModel }) {
  * in front of the reader, pausing longer on its marks (the measured sizes).
  */
 function useSweep(param: Param | undefined, set: (value: number) => void) {
-  const reduced = useReducedMotion();
   const [playing, setPlaying] = useState(false);
   const setter = useRef(set);
   useEffect(() => {
@@ -123,16 +145,18 @@ function useSweep(param: Param | undefined, set: (value: number) => void) {
         return;
       }
       const pause = (param.marks ?? []).includes(value) ? 1400 : 550;
-      timer = setTimeout(step, reduced ? 0 : pause);
+      // Reading time, kept with reduced motion: only the bars stop gliding.
+      timer = setTimeout(step, pause);
     };
     step();
     return () => clearTimeout(timer);
-  }, [playing, param, values, reduced]);
+  }, [playing, param, values]);
 
   return {
     available: values.length > 2,
     playing,
     toggle: () => setPlaying((on) => !on),
+    stop: () => setPlaying(false),
   };
 }
 

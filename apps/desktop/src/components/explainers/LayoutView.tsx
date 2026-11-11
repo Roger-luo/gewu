@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 
-import type { Explainer } from "../../explainer";
+import { plainTitle, type Explainer } from "../../explainer";
+import { InlineMarkdown } from "../Markdown";
 import { LayoutMorph } from "./LayoutMorph";
 
 /** Records drawn to scale: each field's width is its share of the largest record. */
@@ -8,8 +9,10 @@ export function LayoutView({ explainer }: { explainer: Extract<Explainer, { kind
   const totals = explainer.rows.map((row) => row.fields.reduce((sum, field) => sum + field.bytes, 0));
   const widest = Math.max(...totals, 1);
   return (
-    <figure className="explainer layout-view" aria-label={explainer.title}>
-      <figcaption className="explainer-label">{explainer.title}</figcaption>
+    <figure className="explainer layout-view" aria-label={plainTitle(explainer.title)}>
+      <figcaption className="explainer-label">
+        <InlineMarkdown source={explainer.title} />
+      </figcaption>
       {explainer.rows.length > 1 && <LayoutMorph rows={explainer.rows} widest={widest} />}
       <div className="layout-rows">
         {explainer.rows.map((row, index) => (

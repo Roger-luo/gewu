@@ -75,6 +75,13 @@ Report anything that would confuse, slow, or mislead a reviewer:
   too, where a squeezed control whose label wraps one word per line or is
   clipped is a major issue.
 
+- An explainer (claim card, layout, cost model, stepper, timeline) that
+  misleads or breaks. Credit taken for the whole change's measured result by
+  one part, numbers that do not follow from what the block shows, a highlight
+  on the wrong line, an animation that ends in a state its labels contradict,
+  or a control that does not do what it says, is a major issue. Trigger each
+  animation and look at screenshots taken during it, not only at the end.
+
 Your scenarios say what to do, not everything to judge. Report what fails a
 user anywhere on the screens you pass through, even outside the scenario.
 

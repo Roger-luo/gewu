@@ -142,7 +142,7 @@
       "title": "Rust greet punctuation",
       "summary": "The library module documentation and greet punctuation change first.",
       "kind": "concept",
-      "section": "Rust library \u00b7 1 of 2",
+      "section": "Rust library · 1 of 2",
       "content": [
         {
           "type": "narrative",
@@ -166,11 +166,71 @@
       "title": "Rust arithmetic helpers",
       "summary": "Saturating add and a new `multiply` complete the library edits.",
       "kind": "integration",
-      "section": "Rust library \u00b7 2 of 2",
+      "section": "Rust library · 2 of 2",
       "content": [
         {
           "type": "narrative",
           "markdown": "The rest of the hunk covers add and multiply."
+        },
+        {
+          "type": "explainer",
+          "kind": "stepper",
+          "title": "add(i32::MAX, 1), before and after",
+          "language": "rust",
+          "steps": [
+            {
+              "caption": "The old body adds with `+`. At `i32::MAX` there is no larger `i32`.",
+              "code": "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}",
+              "highlight": "2",
+              "state": [
+                {
+                  "name": "a",
+                  "value": "2147483647"
+                },
+                {
+                  "name": "b",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "caption": "A debug build panics with \"attempt to add with overflow\"; a release build wraps to the most negative value.",
+              "highlight": "2",
+              "state": [
+                {
+                  "name": "a",
+                  "value": "2147483647"
+                },
+                {
+                  "name": "b",
+                  "value": "1"
+                },
+                {
+                  "name": "result",
+                  "value": "panic, or -2147483648"
+                }
+              ]
+            },
+            {
+              "caption": "The new body uses `saturating_add`, which stops at the type's limit instead.",
+              "code": "pub fn add(a: i32, b: i32) -> i32 {\n    a.saturating_add(b)\n}",
+              "highlight": "2",
+              "state": [
+                {
+                  "name": "a",
+                  "value": "2147483647"
+                },
+                {
+                  "name": "b",
+                  "value": "1"
+                },
+                {
+                  "name": "result",
+                  "value": "2147483647"
+                }
+              ]
+            }
+          ]
         },
         {
           "type": "changes",

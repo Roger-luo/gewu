@@ -201,6 +201,21 @@ A chunk's `blocks` may include `{ "type": "explainer", "kind": … }`
   from its minimum to its maximum, pausing on the marks, so the bars grow in
   front of the reader.
 
+- **Stepper** (`StepperView`): an algorithm one state at a time. The code
+  animates between steps with `@shikijs/magic-move` (tokens that stay slide,
+  the rest fade), a band marks the highlighted lines, the caption changes, and
+  values that changed are marked in the state table. The gutter uses the
+  file's numbers (`start_line`), and `source` names the file above the code.
+  Back, Next, and Play (which holds each step for reading time, even with
+  reduced motion); focus moves on when the pressed button disables. Lines are
+  at most 80 columns; a box narrower than its code scrolls and fades its
+  right edge. It stacks code above the caption by its own
+  width (a container query), so a context pane narrowing it is handled too.
+- **Timeline** (`TimelineView`): lanes over N steps, work drawn in every
+  step (`each`), once (`once`), and as a dashed "reused" chip in later steps.
+  At rest it shows the finished picture; scrolling it into view replays it
+  with a playhead and each lane's running cost.
+
 Bars animate with [Motion](https://motion.dev) under `MotionConfig
 reducedMotion="user"`, so the system's reduce-motion setting turns it off.
 `?mock=explainers` shows all three on a step modeled on a performance pull

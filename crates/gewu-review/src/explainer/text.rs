@@ -74,6 +74,74 @@ impl Explainer {
                 }
                 format!("{text}\n\n*Source: {source}*")
             }
+            Self::Stepper {
+                title,
+                language,
+                source,
+                steps,
+                ..
+            } => {
+                let mut text = format!("**{title}**");
+                if let Some(source) = source {
+                    text.push_str(&format!(" (`{source}`)"));
+                }
+                for (index, step) in steps.iter().enumerate() {
+                    text.push_str(&format!("\n\n**Step {}.** {}", index + 1, step.caption));
+                    if let Some(code) = &step.code {
+                        let lang = language.as_deref().unwrap_or("");
+                        text.push_str(&format!("\n\n```{lang}\n{code}\n```"));
+                    } else if let Some(lines) = &step.highlight {
+                        text.push_str(&format!(" *(lines {lines} of the code above)*"));
+                    }
+                    if !step.state.is_empty() {
+                        let values: Vec<String> = step
+                            .state
+                            .iter()
+                            .map(|value| format!("`{}` = {}", value.name, value.value))
+                            .collect();
+                        text.push_str(&format!("\n\n{}", values.join(", ")));
+                    }
+                }
+                text
+            }
+            Self::Timeline {
+                title,
+                steps,
+                step_label,
+                lanes,
+                unit,
+            } => {
+                let mut text = format!("**{title}**, over {steps} × `{step_label}`:\n");
+                for lane in lanes {
+                    let parts: Vec<String> = lane
+                        .work
+                        .iter()
+                        .map(|work| {
+                            let when = match work.when {
+                                super::When::Once => "once",
+                                super::When::Each => "every step",
+                            };
+                            format!("{} ({when})", work.label)
+                        })
+                        .collect();
+                    text.push_str(&format!("\n- {}: {}", lane.label, parts.join(", ")));
+                    let total: u64 = lane
+                        .work
+                        .iter()
+                        .filter_map(|work| {
+                            work.cost.map(|cost| match work.when {
+                                super::When::Once => u64::from(cost),
+                                super::When::Each => u64::from(cost) * u64::from(*steps),
+                            })
+                        })
+                        .sum();
+                    if lane.work.iter().any(|work| work.cost.is_some()) {
+                        let unit = unit.as_deref().unwrap_or("");
+                        text.push_str(&format!(" — {total} {unit} over {steps} steps"));
+                    }
+                }
+                text
+            }
         }
     }
 }

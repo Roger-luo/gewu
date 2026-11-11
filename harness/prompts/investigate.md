@@ -16,6 +16,14 @@ request's title and body. Read it first. It says what the change claims —
 are what the reviewer has to be convinced of. Treat each as something to
 check against the code, not as a fact: name in your findings which changes
 deliver each claim, and say so plainly when the code does not support one.
+The description often covers more than this diff — a whole pull request
+reviewed in parts, or claims that rest on code outside it. Name the claims
+this diff delivers, and list the rest as outside it rather than stretching
+the code to fit them.
+
+Do not build, test, or run the project: `cargo check`, `npm test`, and the
+like write build output into the repository. Judge from the source, and say
+"from the source" where running it would have settled the question.
 
 Explore relevant definitions, consumers, integration points, tests, and useful
 history. Base every claim on repository evidence. Do not edit project source.

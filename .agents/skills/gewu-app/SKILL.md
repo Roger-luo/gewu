@@ -113,7 +113,7 @@ UI gate: typecheck, lint, test, and build for `apps/desktop` and
 A published rubric file is immutable. A defect the QA loop should keep
 catching goes in the next `apps/ui-harness/rubric/vN.json`, with the version
 named in `docs/ui-rubric.md` and the QA prompts under `apps/ui-harness/prompts/`.
-The latest published UI rubric is v10.
+The latest published UI rubric is v11.
 
 ## How generation reaches the reviewer
 

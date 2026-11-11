@@ -141,9 +141,9 @@ struct ChunkProse<'a> {
 impl<'a> ChunkProse<'a> {
     fn new(chunk: &'a ReviewChunk) -> Self {
         let mut parts = vec![chunk.title.as_str(), chunk.summary.as_str()];
-        parts.extend(chunk.content.iter().filter_map(|block| match block {
-            ChunkBlock::Narrative { markdown } => Some(markdown.as_str()),
-            ChunkBlock::Changes { .. } => None,
+        parts.extend(chunk.content.iter().flat_map(|block| match block {
+            ChunkBlock::Narrative { markdown } => vec![markdown.as_str()],
+            ChunkBlock::Changes { .. } => Vec::new(),
             ChunkBlock::Explainer(explainer) => explainer.prose(),
         }));
         parts.extend(chunk.confidence.as_deref());

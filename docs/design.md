@@ -39,6 +39,11 @@ never writes markup, so they render safely and the harness can check them:
   `next_pow2` (`explainer::formula`). Each series must be finite and not
   negative across its parameters' range. The desktop app recomputes as the
   slider moves; the terminal shows the values at the defaults.
+- `stepper`: an algorithm walked one state at a time — code, highlighted
+  lines, and the values a reader would track — for a lookup or a state
+  machine a reviewer would otherwise simulate in their head.
+- `timeline`: work done once versus in every step, for caching, pooling, and
+  hoisting work out of a loop.
 
 #### Review flow
 

@@ -170,6 +170,8 @@
   /* The first row or series is "before", later ones "after". */
   --before-fill: color-mix(in srgb, var(--text-secondary) 38%, var(--bg-elevated));
   --after-fill: color-mix(in srgb, var(--accent) 55%, var(--bg-elevated));
+  --before-fill-alt: color-mix(in srgb, var(--text-secondary) 55%, var(--bg-elevated));
+  --after-fill-alt: color-mix(in srgb, var(--accent) 75%, var(--bg-elevated));
 }
 
 .cost-param,
@@ -327,6 +329,7 @@
 
 .layout-morph-track .layout-field {
   flex: none;
+  white-space: nowrap;
 }
 
 .phase-after .layout-field {
@@ -349,11 +352,334 @@
   display: none;
 }
 
-.layout-morph-track .layout-field[style*="danger"] .layout-dropped-mark {
+.layout-dropped-mark.visible {
   display: inline;
   margin-left: var(--space-1);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* Stepper */
+
+.stepper {
+  container-type: inline-size;
+}
+
+.stepper-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.stepper-code {
+  --line-height: 1.6rem;
+  --pad: 0.75rem;
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+/* A scrollbar that stays visible: overlay scrollbars hide that long lines
+   continue past the edge. */
+.stepper-code::-webkit-scrollbar {
+  height: 8px;
+}
+
+.stepper-code::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+}
+
+.stepper-code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Code continues past the right edge: fade it out so the reader scrolls. */
+.stepper-code.clipped {
+  mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent);
+}
+
+.stepper-code:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stepper-source {
+  padding: 0.35rem var(--pad);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.stepper-lines {
+  display: flex;
+  padding: var(--pad) 0;
+}
+
+.stepper-gutter {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  padding: 0 var(--space-2) 0 var(--pad);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: var(--line-height);
+  text-align: right;
+  user-select: none;
+}
+
+.stepper-text {
+  position: relative;
+  flex: 1;
+  min-width: max-content;
+}
+
+.stepper-text pre,
+.stepper-shiki {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 0 var(--pad) 0 var(--space-1);
+  background: transparent !important;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: var(--line-height);
+  white-space: pre;
+}
+
+.stepper-bands {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stepper-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.stepper-count {
+  margin: 0 0 var(--space-1);
+  font-size: 12px;
+}
+
+.stepper-caption p:last-child {
+  margin-bottom: 0;
+}
+
+.stepper-state {
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stepper-state th,
+.stepper-state td {
+  padding: 0.2rem 0.75rem 0.2rem 0;
+  text-align: left;
+  font-weight: 400;
+}
+
+.stepper-state td code {
+  display: inline-block;
+  padding: 0 0.3rem;
+  border-radius: 4px;
+}
+
+.stepper-changed {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  font-weight: 600;
+}
+
+.stepper-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.stepper-controls .btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.stepper-dots {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: var(--space-2);
+}
+
+.stepper-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+}
+
+.stepper-dot.seen {
+  background: color-mix(in srgb, var(--accent) 40%, var(--bg-elevated));
+}
+
+.stepper-dot.current {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Stack by the explainer's own width: a context pane narrows it too. The
+   controls sit under the code, so a caption's length never moves them. */
+@container (max-width: 860px) {
+  .stepper-body {
+    /* minmax(0, …): the code box scrolls inside the card instead of
+       stretching the column to its longest line. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stepper-main,
+.stepper-side {
+  min-width: 0;
+}
+
+.stepper-controls .btn:nth-child(2) {
+  min-width: 8rem;
+}
+
+@container (max-width: 680px) {
+  .stepper-text pre,
+  .stepper-shiki {
+    font-size: 12px;
+  }
+
+  .stepper-gutter {
+    font-size: 11px;
+  }
+}
+
+/* Timeline */
+
+.timeline-grid {
+  display: grid;
+  grid-template-columns: minmax(9rem, 13rem) repeat(var(--steps), minmax(1.5rem, 1fr)) 6rem;
+  gap: var(--space-1);
+  align-items: stretch;
+  overflow-x: auto;
+}
+
+.timeline-step {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-step-head {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.timeline-step.reached {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.timeline-lane-label {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.timeline-lane-work {
+  display: grid;
+  gap: 2px;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.timeline-lane-work .timeline-chip {
+  margin: 0 4px 0 0;
+}
+
+.timeline-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 2.2rem;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-muted);
+}
+
+.timeline-work {
+  display: block;
+  height: 0.8rem;
+  border-radius: 3px;
+}
+
+/* Strong fills: the contrast between the two lanes is the whole point, in
+   light and dark alike. */
+.timeline-work.each,
+.timeline-chip.each {
+  background: color-mix(in srgb, var(--danger) 70%, var(--bg-elevated));
+}
+
+.timeline-work.once,
+.timeline-chip.once {
+  background: color-mix(in srgb, var(--accent) 80%, var(--bg-elevated));
+}
+
+.timeline-cell {
+  border: 1px solid var(--border);
+}
+
+.timeline-work.reused,
+.timeline-chip.reused {
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 80%, var(--bg-elevated));
+  background: transparent;
+}
+
+.timeline-total-head,
+.timeline-total {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+.timeline-total {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.timeline-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 13px;
+}
+
+.timeline-chip {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: var(--space-2);
+  border-radius: 3px;
 }

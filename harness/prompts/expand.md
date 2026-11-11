@@ -172,6 +172,16 @@ Rules:
                 { "label": "After", "formula": "next_pow2(b * 8 / 7) * 5", "unit": "bytes" } ],
     "note": "optional: what the model leaves out",
     "source": "where the numbers come from" }
+  { "type": "explainer", "kind": "stepper", "title": "One lookup, step by step",
+    "language": "rust", "source": "src/index.rs:37-41", "start_line": 37,
+    "steps": [ { "caption": "Markdown: what happens now", "code": "the code at this step",
+                 "highlight": "38-39", "state": [ { "name": "i", "value": "41_027" } ] },
+               { "caption": "the next state; omit code to keep the previous step's",
+                 "highlight": "40" } ] }
+  { "type": "explainer", "kind": "timeline", "title": "Allocations across six steps",
+    "steps": 6, "step_label": "step", "unit": "allocations",
+    "lanes": [ { "label": "Before", "work": [ { "label": "workspace", "when": "each", "cost": 3 } ] },
+               { "label": "After", "work": [ { "label": "workspace (pooled)", "when": "once", "cost": 3 } ] } ] }
   ```
 
   - `claim`: only for a claim in `description.md`, copied exactly (a phrase
@@ -179,6 +189,11 @@ Rules:
     things this chunk does not explain); Gewu rejects a claim it cannot find
     there, and any claim when there is no description. Put it on the first
     chunk of the section that delivers it, not on every chunk.
+  - When the description makes a claim this chunk relates to but does not
+    credit it with a measured saving — or the new code is not called yet —
+    quote the claim with `how` alone, and say in `how` what is and is not
+    established. Never supply a `share` the description and the code do not
+    support.
   - A measured `result` belongs to the whole change. Never set a part's
     ratio ("8× smaller") beside the whole's number ("−61%") as if one explains
     the other: `share` says how much of the result this chunk accounts for,
@@ -187,9 +202,10 @@ Rules:
     and `how` names what else contributes. A small honest share convinces; an implied large one is
     found out.
   - `layout`: when the point is what a record holds — fields dropped, packed,
-    or shrunk. Sizes come from the code: a type's definition, a `size_of`
-    assertion, a documented layout. Never guess a size; if you cannot find
-    it, do not draw it.
+    or shrunk. Sizes come from the code: a `size_of` assertion when there is
+    one, otherwise the field types, with padding drawn as its own `pad`
+    field and the alignment rule named in `source`. Never guess a size; if
+    you cannot derive it, do not draw it.
   - `cost_model`: when the claim is about scale — memory or work that grows
     with a size the reviewer can picture. Parameters are whole numbers the
     reviewer drags (1 to 3 of them; `log2` steps through powers of two);
@@ -198,7 +214,29 @@ Rules:
     factor in the formula. Every series must be finite and not negative at
     each parameter's min, default, and max. Use the benchmark's own sizes for
     the default and as `marks`, and say in `note` what the model does not
-    count.
+    count. A fact from an outside library, such as a hash table's load
+    factor, may be used when `source` names the library it comes from.
+  - `stepper`: when the point is how an algorithm proceeds — a lookup, a
+    probe sequence, a state machine — and a reader would otherwise simulate
+    it in their head. Two to twelve steps; each caption says what happens and
+    why it matters. `code` is the quoted code or a faithful excerpt of it
+    (at most 30 lines), copied from the quoted lines — drop lines with a
+    `// …` comment rather than rewriting them, and say in `source` which
+    file and lines it shows; a later step changes `code` only when the point is
+    that the code changes, and otherwise moves `highlight`. Set `start_line`
+    to the file line the code starts at, and number `highlight` the same way,
+    so the reader sees the diff's numbers. Keep lines within 80 columns. `state` shows the values a reader would track; use
+    real or clearly illustrative values, never invented results.
+  - `timeline`: when the point is work moved out of a loop — built once
+    instead of every step, pooled instead of reallocated. One lane per
+    version, `when` is `once` or `each`, and `cost` (optional) is per run in
+    `unit`. Give costs only when the code or a measurement supports them;
+    otherwise leave them out and let the lanes show the shape.
+  - An explainer is charged to the chunk's row budget (the measurement
+    guidance above gives its cost). Put it in the chunk whose code it
+    explains; when that does not fit, split the chunk where the story
+    allows, and let the explainer's chunk still quote the lines it is about
+    when it can.
   - An explainer supports the narrative and does not replace it: the prose
     still says what to look for in the code. One or two per chunk at most;
     a chunk that only moves code around needs none.

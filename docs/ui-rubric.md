@@ -5,7 +5,7 @@ Judges see screenshots (1440×900 and 1024×700, light and possibly dark), aria
 snapshots, mechanical `checks.json`, and interaction screenshots. They do not
 read application source. This note explains what v1 measures, why, and how to
 revise it. The machine-readable rubric is the highest `apps/ui-harness/rubric/vN.json`
-(currently v10).
+(currently v11).
 
 The product criteria come from `docs/design.md` and `docs/desktop.md`: guided
 review is orientation, intent before mechanics, prose with quoted code, a
@@ -184,6 +184,15 @@ sharper anchors over more dimensions. Product-rule changes belong in
 
 ## Changelog
 
+- **v11** — A chunk that argues an improvement lets the reviewer check it.
+  `teaching_explainers` (weight 3) scores 0 when an explainer contradicts the
+  prose or another explainer, or sets a part's ratio beside the whole
+  change's measured result without a share; 1 when the improvement is only
+  asserted, by names and line numbers; 3 when the mechanism, the numbers and
+  their source, and this chunk's share are on the page and every explainer
+  agrees. The showcase fixture now carries a stepper, so routine captures
+  exercise one. v10 judged where controls live but not whether a page that
+  claims "8× smaller" shows why, or overclaims.
 - **v10** — Controls are grouped by purpose and placed where a user looks.
   `navigation_structure` (weight 2) scores 1 when related actions are split
   (New review at the top, Add repository below the list) or an app-wide
