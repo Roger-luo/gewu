@@ -102,3 +102,12 @@ The data suggests a different use, not tested here: Jev as a cheap check on
 the *writer's* draft for `rationale` and `change_framing`, before
 proofreading, so that fewer chunks fail and fewer rewrite rounds run.
 Testing that would need its own pre-registration.
+
+## Since
+
+The expand prompt now ends with three questions (what came before, why, why
+now) asked of every chunk before submitting, and `gewu harness status` lists
+chunks whose first sentence only points at lines. On these 120 chunks that
+check flags 36, of which 29 scored below 2 on `connection`, against 32 of the
+other 84. Whether either change lowers the fail rate is for the next app
+runs to show: `.gewu/harness/proofreads.jsonl` now keeps every verdict.

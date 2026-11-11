@@ -316,7 +316,20 @@ Rules:
   every field of its selected shape is required: a concept has `definition`,
   `example`, and `relation`; a refactor has `before`, `after`, and `reason`.
 
-Before you submit, make one deletion pass over every sentence: delete it if
+Before you submit, answer three questions for every chunk, from its prose
+alone. A proofreader asks exactly these, and most rewrites are for one of them:
+
+1. **What came before?** Name what the base did here — the function, map,
+   call, or loop these lines replace — or say plainly that nothing preceded
+   them. A chunk about a new file still replaces something.
+2. **Why?** Point at the sentence that says why the change was made and what
+   it buys. A chunk that relies on an earlier chunk's reason restates it in a
+   clause and names that chunk by its title.
+3. **Why now?** The first sentence says how this chunk follows the one
+   before it. One that opens with "Lines 85–92 …" or "In `file.rs`, …" has
+   said where, not why now; `gewu harness status` lists those.
+
+Then make one deletion pass over every sentence: delete it if
 the reviewer would lose nothing — if it restates the quoted lines, their doc
 comment, the title, the summary, the overview, or a sentence before it. Keep
 sentences that add a fact, ask a question, or say where the chunk fits. A

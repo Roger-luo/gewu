@@ -406,7 +406,27 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("Measured heights:\n\n{rows}\n")
+    format!("Measured heights:\n\n{rows}\n{}", openings(chunks))
+}
+
+/// Chunks whose prose opens by pointing at lines, which proofreaders mark
+/// down on `connection` far more often than other openings.
+fn openings(chunks: &[gewu_review::ReviewChunk]) -> String {
+    let notes: Vec<String> = chunks
+        .iter()
+        .filter_map(|chunk| {
+            let opening = chunk.locator_opening()?;
+            Some(format!("- `{}`: \"{opening}\"", chunk.id))
+        })
+        .collect();
+    if notes.is_empty() {
+        return String::new();
+    }
+    format!(
+        "\nThese chunks open by pointing at lines. Say first what part of the change the chunk \
+         is and how it follows the chunk before it, and cite the lines after:\n\n{}\n",
+        notes.join("\n")
+    )
 }
 
 pub fn complete(review_id: &str) -> String {
@@ -724,5 +744,34 @@ mod tests {
             assert!(!by_time.contains("40 rendered rows"));
         }
         assert!(budgeted(EXPAND, &seconds).contains("words a minute"));
+    }
+
+    /// Found by proofreading 120 chunks: openings that only point at lines
+    /// lose `connection` four times in five, so the status names them.
+    #[test]
+    fn status_names_chunks_that_open_by_pointing_at_lines() {
+        let input = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            Vec::new(),
+        );
+        let chunk = |id: &str, markdown: &str| -> gewu_review::ReviewChunk {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "title": "t", "summary": "s", "kind": "concept",
+                "content": [{ "type": "narrative", "markdown": markdown }]
+            }))
+            .expect("chunk")
+        };
+        let status = super::measured(
+            &[
+                chunk("located", "Lines 85–92 split the buffer. More."),
+                chunk("placed", "With the heap built, `update` keeps it ordered."),
+            ],
+            &input,
+        );
+        assert!(status.contains("open by pointing at lines"), "{status}");
+        assert!(status.contains("- `located`: \"Lines 85–92 split the buffer.\""));
+        assert!(!status.contains("- `placed`:"), "{status}");
+        let clean = super::measured(&[chunk("placed", "With the heap built, it holds.")], &input);
+        assert!(!clean.contains("pointing at lines"), "{clean}");
     }
 }
