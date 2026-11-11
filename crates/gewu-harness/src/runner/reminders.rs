@@ -17,28 +17,52 @@ fn explainers<'a>(chunks: impl IntoIterator<Item = &'a ReviewChunk>) -> Vec<&'a 
         .collect()
 }
 
+/// Numbers in `text` with the unit written after each: "24 MiB of the
+/// 32-byte word" gives ("24", "MiB") and ("32", "-byte").
+fn amounts(text: &str) -> Vec<(String, String)> {
+    let mut found = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find(|c: char| c.is_ascii_digit()) {
+        let tail = &rest[start..];
+        let end = tail
+            .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
+            .unwrap_or(tail.len());
+        let number = tail[..end].trim_end_matches(['.', ',']).replace(',', "");
+        let after = tail[end..].trim_start();
+        let unit: String = after
+            .chars()
+            .take_while(|c| !c.is_whitespace() && !matches!(c, ')' | ';' | '/'))
+            .collect();
+        found.push((number, unit.trim_end_matches(['.', ',']).to_owned()));
+        rest = &tail[end..];
+    }
+    found
+}
+
 /// The amount a claim's share credits to its step: the first number in
-/// `share` that is not the measured result's own, so "about 24 MiB of the
-/// 573 MiB drop" gives "24" and not the total it is a part of.
+/// `share` written in one of the result's units and not one of the result's
+/// own numbers, so "enables the 32-byte layout (24 MiB saved …)" gives "24"
+/// for a result in MiB.
+///
+/// Found by QA of Cursor's run E of #276: taking the first number read "32"
+/// there, and missed that the share repeated an earlier section's 24 MiB.
 fn credited(explainer: &Explainer) -> Option<String> {
     let Explainer::Claim {
-        result,
+        result: Some(result),
         share: Some(share),
         ..
     } = explainer
     else {
         return None;
     };
-    let numbers = |text: &str| -> Vec<String> {
-        text.split(|c: char| !(c.is_ascii_digit() || c == '.'))
-            .map(|part| part.trim_matches('.').to_owned())
-            .filter(|part| !part.is_empty())
-            .collect()
-    };
-    let whole = result.as_deref().map(numbers).unwrap_or_default();
-    numbers(share)
+    let whole = amounts(result);
+    amounts(share)
         .into_iter()
-        .find(|amount| !whole.contains(amount))
+        .find(|(number, unit)| {
+            whole.iter().any(|(_, whole_unit)| whole_unit == unit)
+                && !whole.iter().any(|(whole_number, _)| whole_number == number)
+        })
+        .map(|(number, unit)| format!("{number} {unit}"))
 }
 
 /// Explainers a walkthrough should use somewhere, with when they fit. Each is
@@ -148,5 +172,32 @@ impl HarnessRunner {
         } else {
             format!("\n{}\n", notes.join("\n\n"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gewu_review::Explainer;
+
+    use super::credited;
+
+    fn claim(share: &str) -> Explainer {
+        Explainer::Claim {
+            claim: "Peak memory falls".into(),
+            result: Some("940 → 367 MiB (−61%)".into()),
+            share: Some(share.into()),
+            how: "How.".into(),
+        }
+    }
+
+    /// Found by QA of Cursor's run E of #276.
+    #[test]
+    fn a_share_credits_its_first_amount_in_the_results_unit() {
+        let enables = claim("enables the 32-byte `Word` layout (24 MiB saved across 3·B words)");
+        assert_eq!(credited(&enables).as_deref(), Some("24 MiB"));
+        let part = claim("estimated 104 MiB saved (a 2^21-bucket table shrinks from 114 MiB)");
+        assert_eq!(credited(&part).as_deref(), Some("104 MiB"));
+        let whole = claim("all 940 MiB");
+        assert_eq!(credited(&whole), None);
     }
 }

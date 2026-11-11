@@ -33,10 +33,22 @@ fn a_share_must_give_this_items_part() {
         &fixture,
         CLAIM,
         Some(RESULT),
-        Some("Enables the smaller index"),
+        Some("Only the smaller index"),
     );
     let measured = fixture.runner.status().expect("measure");
     assert!(measured.contains("a share with no amount"), "{measured}");
+
+    stage_claim_with(
+        &fixture,
+        CLAIM,
+        Some(RESULT),
+        Some("enables the 32-byte layout (24 MiB)"),
+    );
+    let measured = fixture.runner.status().expect("measure");
+    assert!(
+        measured.contains("says what the chunk enables"),
+        "{measured}"
+    );
 
     stage_claim_with(
         &fixture,
@@ -80,7 +92,7 @@ fn measuring_notes_a_saving_an_earlier_section_already_credited() {
     stage_claim_with(&fixture, CLAIM, Some(RESULT), Some("about 24 MiB of it"));
     let measured = fixture.runner.status().expect("measure");
     assert!(
-        measured.contains("an earlier section's share (24)"),
+        measured.contains("an earlier section's share (24 MiB)"),
         "{measured}"
     );
 

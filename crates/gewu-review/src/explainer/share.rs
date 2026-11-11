@@ -33,7 +33,18 @@ pub fn vague_shares<'a>(chunks: impl IntoIterator<Item = &'a crate::ReviewChunk>
                 continue;
             }
             let amounts = numbers(share);
-            if amounts.is_empty() {
+            let lower = share.trim_start().to_lowercase();
+            // Found by QA of Cursor's run E of #276: "enables the 32-byte
+            // `Word` layout (24 MiB saved …)" credited a step with what it
+            // made possible and another section delivered.
+            if lower.starts_with("enables") || lower.starts_with("enabling") {
+                errors.push(format!(
+                    "chunk `{}` has a share that says what the chunk enables: \"{share}\"; a \
+                     share is the part of the result this chunk delivers itself, so leave \
+                     `share` and `result` out and say what it enables in `how`",
+                    chunk.id
+                ));
+            } else if amounts.is_empty() {
                 errors.push(format!(
                     "chunk `{}` has a share with no amount: \"{share}\"; say how much of the \
                      result this chunk accounts for (an estimate is fine), or leave `share` and \

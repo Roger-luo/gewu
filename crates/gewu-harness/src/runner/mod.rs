@@ -252,8 +252,9 @@ impl HarnessRunner {
                             )
                         };
                         let teach = self.explainer_reminder(&expansion.chunks);
+                        let names = self.name_reminder(&run, &expansion.chunks);
                         Ok(format!(
-                            "{}\n{verdict}{cited}{teach}\nRevise `.gewu/harness/expansion.json` if \
+                            "{}\n{verdict}{cited}{names}{teach}\nRevise `.gewu/harness/expansion.json` if \
                              needed, measure again, then run `gewu harness next`.\n",
                             prompts::measured(&expansion.chunks, &run.input)
                         ))
@@ -764,6 +765,7 @@ fn accepted(prompt: String, what: &str) -> String {
 
 #[cfg(test)]
 mod claims_tests;
+mod names;
 mod proofread;
 mod reminders;
 #[cfg(test)]
