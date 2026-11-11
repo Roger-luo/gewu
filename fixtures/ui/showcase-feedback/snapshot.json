@@ -486,7 +486,7 @@
       "blocks": [
         {
           "type": "narrative",
-          "markdown": "The rest of the hunk covers add and multiply."
+          "markdown": "`add` used plain `+`, which overflows at `i32::MAX`: a debug build panics and a release build wraps to a negative number. The new body saturates instead; step through it below. The new `multiply` still uses plain `*`, so it overflows the same way — worth asking whether it should saturate too."
         },
         {
           "type": "explainer",

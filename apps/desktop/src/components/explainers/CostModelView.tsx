@@ -208,7 +208,7 @@ function ParamSlider({
       </output>
       {marks.length > 0 && (
         <div className="cost-marks">
-          <span className="muted">Measured at</span>
+          <span className="muted">Jump to</span>
           {marks.map((mark) => (
             <button
               type="button"

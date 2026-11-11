@@ -8,6 +8,12 @@
   background: var(--bg-elevated);
 }
 
+/* Code keeps its case: an uppercased `i32::MAX` misquotes it. */
+.explainer-label code {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .explainer-label {
   margin-bottom: var(--space-2);
   color: var(--text-secondary);

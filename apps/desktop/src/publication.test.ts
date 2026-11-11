@@ -68,9 +68,16 @@ describe("publication drafts", () => {
     expect(plan.pull_request).toBeUndefined();
     expect(plan.gewu_issues?.repository).toBe("Roger-luo/gewu");
     expect(plan.gewu_issues?.issues).toHaveLength(2);
-    expect(plan.gewu_issues?.issues[0]?.body).toContain("This is about the walkthrough Gewu wrote.");
+    expect(plan.gewu_issues?.issues[0]?.body).toContain("This is about a walkthrough Gewu wrote.");
     expect(plan.gewu_issues?.tracking?.body).toContain("2 separate notes");
     expect(plan.gewu_issues?.tracking?.body).toContain("The example never runs");
+    // Public repository: nothing names the code under review. Found by QA.
+    const texts = [...(plan.gewu_issues?.issues ?? []), plan.gewu_issues?.tracking]
+      .flatMap((issue) => [issue?.title ?? "", issue?.body ?? ""]);
+    for (const text of texts) {
+      expect(text).not.toContain("Session keys");
+      expect(text).not.toContain(pull.repository);
+    }
   });
 
   it("turns notes on commits into separate repository issues", () => {

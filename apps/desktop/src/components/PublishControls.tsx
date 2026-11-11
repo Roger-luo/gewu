@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { GitHubAccount } from "../backend/types";
 import type { Receipt } from "../publication";
 import { Dialog } from "../workbench/Dialog";
+import { InlineMarkdown } from "./Markdown";
 
 /** Publish, its confirmation, and what a run sent. Nothing here sends until confirmed. */
 
@@ -23,7 +24,11 @@ export function PublishBar({
   const reason = blocked ?? (account ? null : "Sign in to GitHub at the bottom of the sidebar to publish.");
   return (
     <div className="publication-actions">
-      {reason && <p className="muted">{reason}</p>}
+      {reason && (
+        <p className="muted">
+          <InlineMarkdown source={reason} />
+        </p>
+      )}
       {!reason && rehearsing && (
         <p className="muted">Rehearsing: Publish shows what it would post and sends nothing.</p>
       )}

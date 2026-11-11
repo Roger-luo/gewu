@@ -57,6 +57,20 @@ describe("comments on blocks and explanations", () => {
     expect(item).toHaveTextContent(/\S+:\d+/);
   });
 
+  it("narrows a block comment to the lines the reader selected in it", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk();
+    const [codeGroup] = within(main).getAllByRole("group", { name: /feedback on this code/i });
+    const block = codeGroup.closest(".block") ?? main;
+    const [line] = within(block as HTMLElement).getAllByRole("button", { name: /^select line \d+$/i });
+    const number = line.getAttribute("aria-label")?.match(/\d+/)?.[0];
+    await user.click(line);
+    await user.click(within(codeGroup).getByRole("button", { name: /comment on code/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /add comment/i });
+    expect(dialog.textContent).toMatch(new RegExp(`Anchored to \\S+:${number}(?!\\d|-)`));
+  });
+
   it("forgets a block anchor when the dialog is cancelled", async () => {
     const user = userEvent.setup();
     const main = await openFirstChunk();

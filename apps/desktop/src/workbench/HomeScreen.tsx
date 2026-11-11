@@ -3,6 +3,7 @@ import { progressLabel, relativeTime, sourceSummary, statusLabel } from "./forma
 import type { TaskView, WorkbenchRoute, WorkbenchSnapshot } from "./protocol";
 import { RemoveRepository } from "./RemoveRepository";
 import { StatusBadge } from "./StatusBadge";
+import { InlineMarkdown } from "../components/Markdown";
 
 /** Every review, newest first, with its state at a glance. */
 export function HomeScreen({
@@ -132,7 +133,7 @@ function TaskRow({
         {progress && <span>{progress}</span>}
         {(task.status === "failed" || task.status === "generating") && task.message && (
           <span className={task.status === "failed" ? "task-row-message error" : "task-row-message"}>
-            {task.message}
+            <InlineMarkdown source={task.message} />
           </span>
         )}
         <span className="task-row-time">Updated {relativeTime(task.updated_at)}</span>

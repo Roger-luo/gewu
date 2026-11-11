@@ -11,6 +11,15 @@ import { ExplainerView } from "./explainers/ExplainerView";
 import { ContextPane } from "./ContextPane";
 import { FeedbackPanel } from "./FeedbackPanel";
 
+/** Chunk kinds in the reader's words; "other" says nothing, so it is left out. */
+const KIND_LABELS: Record<string, string | undefined> = {
+  concept: "New idea",
+  refactor: "Refactor",
+  integration: "Wiring",
+  test: "Tests",
+  other: undefined,
+};
+
 export function ChunkScreen({
   snapshot,
   chunkIndex,
@@ -77,10 +86,9 @@ export function ChunkScreen({
             <div className="eyebrow stage">
               <InlineMarkdown
                 source={[
-                  "Stage",
-                  `Chunk ${chunkIndex + 1} of ${snapshot.chunks.length}`,
+                  `Step ${chunkIndex + 1} of ${snapshot.chunks.length}`,
                   section,
-                  chunk.kind,
+                  KIND_LABELS[chunk.kind],
                 ]
                   .filter(Boolean)
                   .join(" · ")}

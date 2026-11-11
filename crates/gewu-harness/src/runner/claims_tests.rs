@@ -90,3 +90,29 @@ fn a_claim_needs_the_authors_description_to_quote() {
         "the agent is told its checkpoint went through: {accepted}"
     );
 }
+
+/// Found by running Cursor on #276: with every section's purpose naming the
+/// claim it delivered, the draft still had no explainer, so measuring a draft
+/// reminds the agent when the description makes claims.
+#[test]
+fn measuring_a_draft_without_explainers_reminds_when_claims_exist() {
+    let fixture = fixture();
+    let list = fixture.reach_expand();
+    fixture.stage_expansion(&list.items[0]);
+    let quiet = fixture.runner.status().expect("measure");
+    assert!(
+        !quiet.contains("No chunk has an explainer"),
+        "no description, no reminder"
+    );
+
+    std::fs::write(
+        fixture
+            .runner
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        "Twice as fast.\n",
+    )
+    .expect("description");
+    let reminded = fixture.runner.status().expect("measure");
+    assert!(reminded.contains("No chunk has an explainer"), "{reminded}");
+}

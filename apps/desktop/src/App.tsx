@@ -92,9 +92,26 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     [app],
   );
 
-  const dialogAnchor = commentOn ? anchorInput(commentOn.span) : anchor;
+  // Lines the reader selected inside the block they comment on narrow the
+  // block's span. Found by QA: "Comment on code" with line 9 selected used to
+  // anchor to the whole block.
+  const narrowed = useMemo(
+    () =>
+      commentOn?.target === "code" && anchor && anchor.change_id === commentOn.span.change_id
+        ? { ...commentOn.span, start_line: anchor.start_line, end_line: anchor.end_line }
+        : null,
+    [anchor, commentOn],
+  );
+  const dialogAnchor = narrowed
+    ? anchorInput(narrowed)
+    : commentOn
+      ? anchorInput(commentOn.span)
+      : anchor;
 
   const anchorSummary = useMemo(() => {
+    if (narrowed) {
+      return anchorLabel(narrowed);
+    }
     if (commentOn) {
       return anchorLabel(commentOn.span);
     }
@@ -117,7 +134,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
       }
     }
     return `${anchor.change_id}:${anchor.start_line}-${anchor.end_line}`;
-  }, [anchor, app.chunkIndex, app.snapshot, commentOn]);
+  }, [anchor, app.chunkIndex, app.snapshot, commentOn, narrowed]);
 
   // Inside the workbench, share its account state so a sign-in made here
   // shows in its sidebar and Settings too.

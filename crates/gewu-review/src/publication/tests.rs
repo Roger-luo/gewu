@@ -147,9 +147,21 @@ fn walkthrough_notes_become_gewu_issues_with_a_tracking_issue() {
     assert!(
         issues.issues[0]
             .body
-            .contains("This is about the walkthrough Gewu wrote.")
+            .contains("This is about a walkthrough Gewu wrote.")
     );
     let tracking = issues.tracking.expect("tracking");
+    // Found by QA: these go to Gewu's public repository, so nothing names the
+    // code under review — not the review title, its repository, or the step.
+    for text in issues
+        .issues
+        .iter()
+        .chain([&tracking])
+        .flat_map(|issue| [&issue.title, &issue.body])
+    {
+        for private in ["Session keys", "acme", "Intro", "Terms"] {
+            assert!(!text.contains(private), "{private:?} leaked into {text:?}");
+        }
+    }
     assert!(tracking.feedback_id.is_none());
     assert!(tracking.body.contains("2 separate notes"));
     assert!(tracking.body.contains(&issues.issues[0].title));

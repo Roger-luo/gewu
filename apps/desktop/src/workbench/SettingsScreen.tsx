@@ -15,7 +15,12 @@ export function SettingsScreen({
   agents,
   github,
   onSave,
+  onBack,
+  backLabel = "Back",
 }: {
+  /** Returns to the screen Settings was opened from. */
+  onBack?: () => void;
+  backLabel?: string;
   settings: SettingsView;
   agents: AgentPreset[];
   github: GitHubState;
@@ -57,6 +62,12 @@ export function SettingsScreen({
     <main data-gewu-screen="settings" aria-labelledby="settings-title">
       <header className="screen-header new-review-header settings-header">
         <div>
+          {onBack && (
+            <button type="button" className="btn ghost screen-back" onClick={onBack}>
+              <span aria-hidden>‹ </span>
+              {backLabel}
+            </button>
+          )}
           <h2 id="settings-title" className="screen-title settings-title" tabIndex={-1}>
             <GearIcon size={22} />
             Settings

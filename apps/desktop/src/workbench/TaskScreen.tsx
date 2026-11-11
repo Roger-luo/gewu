@@ -13,6 +13,7 @@ import {
 } from "./format";
 import type { AgentPreset, TaskView, WorkbenchRoute } from "./protocol";
 import { StatusBadge } from "./StatusBadge";
+import { InlineMarkdown } from "../components/Markdown";
 
 /** One review task: what it covers, how far the agent got, and what to do next. */
 export function TaskScreen({
@@ -64,7 +65,7 @@ export function TaskScreen({
 
       {task.message && (
         <p className={failed ? "notice failure" : "notice"} role={failed ? "alert" : undefined}>
-          {task.message}
+          <InlineMarkdown source={task.message} />
         </p>
       )}
 

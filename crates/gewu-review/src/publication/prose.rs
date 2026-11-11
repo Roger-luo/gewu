@@ -46,6 +46,17 @@ pub(super) fn issue(
     walkthrough: bool,
 ) -> IssueDraft {
     let body_text = note.feedback.body.trim();
+    if walkthrough {
+        // Filed on Gewu's public repository: carry the reviewer's words only.
+        // The review title, the repository, the step title, and file paths
+        // all describe the code under review, which may be private. Found
+        // by QA.
+        return IssueDraft {
+            feedback_id: Some(note.feedback.id.clone()),
+            title: title_from(body_text),
+            body: format!("{body_text}\n\nThis is about a walkthrough Gewu wrote."),
+        };
+    }
     let mut body = format!(
         "{body_text}\n\nNoted on \"{}\" during \"{review_title}\" ({scope}).",
         step(note)
@@ -62,9 +73,6 @@ pub(super) fn issue(
             anchor.path
         ));
     }
-    if walkthrough {
-        body.push_str("\nThis is about the walkthrough Gewu wrote.");
-    }
     IssueDraft {
         feedback_id: Some(note.feedback.id.clone()),
         title: title_from(body_text),
@@ -78,8 +86,14 @@ pub(super) fn tracking(review_title: &str, walkthrough: bool, issues: &[IssueDra
     } else {
         "Review notes"
     };
+    // Walkthrough notes are public; the review's title would name its code.
+    let source = if walkthrough {
+        "one Gewu review".to_string()
+    } else {
+        format!("\"{review_title}\"")
+    };
     let mut body = format!(
-        "{} separate notes from \"{review_title}\". Each has its own issue.\n",
+        "{} separate notes from {source}. Each has its own issue.\n",
         issues.len()
     );
     for issue in issues {
@@ -87,7 +101,11 @@ pub(super) fn tracking(review_title: &str, walkthrough: bool, issues: &[IssueDra
     }
     IssueDraft {
         feedback_id: None,
-        title: format!("{heading}: {review_title}"),
+        title: if walkthrough {
+            format!("{heading} from one Gewu review")
+        } else {
+            format!("{heading}: {review_title}")
+        },
         body,
     }
 }

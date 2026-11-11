@@ -148,4 +148,20 @@ describe("sidebar", () => {
     await user.click(screen.getByRole("button", { name: "Stop using the GitHub CLI" }));
     await vi.waitFor(() => expect(foot).toHaveTextContent("Not signed in to GitHub"));
   });
+
+  it("goes back to the review Settings was opened from", async () => {
+    const user = userEvent.setup();
+    render(<WorkbenchApp backend={MockWorkbench.seeded(0)} />);
+    await waitForReady();
+    const [open] = await screen.findAllByRole("button", { name: /^Open review/ });
+    await user.click(open);
+    await waitForReady();
+    const foot = screen.getByRole("region", { name: "Account and settings" });
+    await user.click(within(foot).getByRole("button", { name: "Settings" }));
+    expect(main()).toHaveAttribute("data-gewu-screen", "settings");
+    await user.click(screen.getByRole("button", { name: /back to the review/i }));
+    await waitForReady();
+    expect(main()).not.toHaveAttribute("data-gewu-screen", "settings");
+    expect(screen.getByRole("region", { name: "Review task" })).toBeInTheDocument();
+  });
 });

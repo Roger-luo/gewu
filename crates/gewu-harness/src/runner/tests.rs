@@ -125,7 +125,34 @@ impl Fixture {
         }
     }
 
-    fn stage_expansion(&self, item: &WorkItem) {
+    /// Starts a run and walks it to the expand stage, as an agent would.
+    pub(in crate::runner) fn reach_expand(&self) -> WorkList {
+        self.runner
+            .start(
+                "review-test".into(),
+                self.input.clone(),
+                ReviewOrigin {
+                    base: "HEAD".into(),
+                    head: Some("HEAD".into()),
+                    working_tree: false,
+                },
+            )
+            .expect("start");
+        self.runner
+            .store
+            .save_investigation(&self.investigation())
+            .expect("save investigation");
+        self.runner.next().expect("advance to plan");
+        let list = self.work_list();
+        self.runner
+            .store
+            .save_work_list(&list)
+            .expect("save work list");
+        self.runner.next().expect("advance to expand");
+        list
+    }
+
+    pub(in crate::runner) fn stage_expansion(&self, item: &WorkItem) {
         let expansion = Expansion {
             schema_version: HARNESS_SCHEMA_VERSION,
             source: self.input.source.clone(),

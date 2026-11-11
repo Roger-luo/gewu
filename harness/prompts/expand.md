@@ -154,8 +154,13 @@ Rules:
   chunk that only lists functions, call sites, and line ranges has told the
   reviewer where things are, not why the change is better.
 - Explainers make that argument checkable. Gewu draws them from data you
-  give; you never write HTML. Add one as a `content` block where it teaches
-  more than a sentence would:
+  give; you never write HTML. They are expected, not decoration: when this
+  item delivers a claim from `description.md`, its first chunk quotes the
+  claim in a `claim` block; when the point is that a record shrinks, a cost
+  scales with a size, an algorithm proceeds in steps, or work moves out of a
+  loop, the chunk that shows it carries a `layout`, `cost_model`, `stepper`,
+  or `timeline`. Prose that says "32 bytes instead of 48" without a layout
+  has left the reviewer to picture it. Add them as `content` blocks:
 
   ```json
   { "type": "explainer", "kind": "claim",

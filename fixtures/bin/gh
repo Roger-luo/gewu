@@ -5,7 +5,8 @@ Answers `gh pr list` and `gh pr view` from the JSON file named by
 `GEWU_FAKE_GH`, keyed by the repository's directory name:
 
     {"shop": [{"number": 7, "title": "...", "author": {"login": "ada"},
-               "headRefName": "feature/x", "baseRefName": "main"}]}
+               "headRefName": "feature/x", "baseRefName": "main",
+               "body": "optional description"}]}
 
 Any other repository, or any other command, fails as `gh` does when a
 repository has no GitHub remote.
@@ -41,7 +42,11 @@ def main(args):
     if args[1:2] == ["view"] and len(args) > 2:
         for pull in known:
             if str(pull["number"]) == args[2]:
-                print(json.dumps({"baseRefName": pull["baseRefName"], "title": pull["title"]}))
+                print(json.dumps({
+                    "baseRefName": pull["baseRefName"],
+                    "title": pull["title"],
+                    "body": pull.get("body", ""),
+                }))
                 return 0
         print(f"no pull requests found for {args[2]}", file=sys.stderr)
         return 1

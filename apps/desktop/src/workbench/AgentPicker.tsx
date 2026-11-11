@@ -1,6 +1,7 @@
 import { useId } from "react";
 
 import type { AgentPreset } from "./protocol";
+import { InlineMarkdown } from "../components/Markdown";
 
 function agentBlurb(id: string): string {
   switch (id) {
@@ -61,7 +62,8 @@ export function AgentPicker({
                 <span id={detail} className="agent-detail">
                   {!agent.available ? (
                     <span className="unavailable-reason">
-                      {agent.detail ?? "Not installed"}. Install it to choose it here.
+                      <InlineMarkdown source={agent.detail ?? "Not installed"} />. Install it to choose
+                      it here.
                     </span>
                   ) : agent.kind === "none" ? (
                     "Shows the raw diff file by file. Nothing runs."

@@ -1144,21 +1144,36 @@ main[data-gewu-screen] {
   min-width: 0;
 }
 
+/* A 24px grab area (WCAG target size) drawn as a thin line in its middle. */
 .context-resize {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  width: 8px;
-  margin-left: -4px;
+  width: 24px;
+  margin-left: -12px;
   cursor: col-resize;
   touch-action: none;
   z-index: 2;
 }
 
-.context-resize:hover,
-.context-resize:focus-visible {
+.context-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 10px;
+  width: 4px;
+  border-radius: 2px;
+}
+
+.context-resize:hover::after,
+.context-resize:focus-visible::after {
   background: var(--accent);
+}
+
+.context-resize:focus-visible {
+  outline: none;
 }
 
 .dropped-hint {
@@ -1514,7 +1529,7 @@ main[data-gewu-screen] {
 .github-via {
   display: block;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .sign-in-methods {

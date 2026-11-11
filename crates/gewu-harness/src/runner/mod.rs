@@ -125,6 +125,31 @@ impl HarnessRunner {
         }
     }
 
+    /// A reminder, not a rejection: the author's description makes claims and
+    /// this draft has no explainer at all. Found by running Cursor on #276:
+    /// every section's purpose named the claim it delivered, and the draft
+    /// still told "32 bytes instead of 48" in prose alone.
+    fn explainer_reminder(&self, chunks: &[ReviewChunk]) -> String {
+        let described = self
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE)
+            .exists();
+        let explained = chunks.iter().any(|chunk| {
+            chunk
+                .content
+                .iter()
+                .any(|block| matches!(block, gewu_review::ChunkBlock::Explainer(_)))
+        });
+        if !described || explained {
+            return String::new();
+        }
+        "\nNo chunk has an explainer. `description.md` makes claims: if this item \
+         delivers one, quote it in a `claim` block on its first chunk, and show a size or \
+         per-step change with a `layout`, `cost_model`, or `timeline` (see the expand \
+         prompt). If it delivers none, say what it enables instead.\n"
+            .to_owned()
+    }
+
     /// An expansion's own checks, plus claims checked against the author's
     /// description beside the review input.
     fn check_expansion(
@@ -250,8 +275,9 @@ impl HarnessRunner {
                                 cited.join("\n")
                             )
                         };
+                        let teach = self.explainer_reminder(&expansion.chunks);
                         Ok(format!(
-                            "{}\n{verdict}{cited}\nRevise `.gewu/harness/expansion.json` if \
+                            "{}\n{verdict}{cited}{teach}\nRevise `.gewu/harness/expansion.json` if \
                              needed, measure again, then run `gewu harness next`.\n",
                             prompts::measured(&expansion.chunks, &run.input)
                         ))

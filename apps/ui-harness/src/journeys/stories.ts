@@ -135,7 +135,7 @@ export const STORIES: Story[] = [
         if ((await markReviewedAndAdvance(j)) !== "chunk") {
           throw new Error("marking the first of two steps reviewed did not open the second");
         }
-        await j.see(/Chunk 2 of 2/);
+        await j.see(/Step 2 of 2/);
       });
       await j.step("Mark the last step reviewed and land on the summary", async () => {
         if ((await markReviewedAndAdvance(j)) !== "summary") {

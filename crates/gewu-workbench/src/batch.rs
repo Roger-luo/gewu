@@ -63,7 +63,9 @@ impl Ended {
                 TaskStatus::AwaitingReviewer,
                 Some("await".into()),
                 unreviewed.unwrap_or_else(|| {
-                    "A batch is ready to review. Continue when you have read it.".to_owned()
+                    "A batch is ready. Read it and mark each step reviewed; then Continue asks \
+                     for the next one."
+                        .to_owned()
                 }),
             ))
         } else {
@@ -135,7 +137,17 @@ impl Workbench {
             TaskStatus::Failed => EventKind::Error,
             _ => EventKind::Status,
         };
-        let _ = task.log.record(AgentEvent::new(kind, &ended.message));
+        // The agent often logged this failure already, in lower case; once is
+        // enough. Found by QA: the log showed the same error twice.
+        let repeated = task
+            .log
+            .since(0)
+            .events
+            .last()
+            .is_some_and(|last| last.text.eq_ignore_ascii_case(&ended.message));
+        if !repeated {
+            let _ = task.log.record(AgentEvent::new(kind, &ended.message));
+        }
         let _ = task.log.flush();
         task.record.set(ended.status, stage, Some(ended.message));
         task.cancel = None;

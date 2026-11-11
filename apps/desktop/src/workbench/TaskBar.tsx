@@ -1,6 +1,7 @@
 import { canContinue, continueHeld } from "./format";
 import type { TaskView } from "./protocol";
 import { StatusBadge } from "./StatusBadge";
+import { InlineMarkdown } from "../components/Markdown";
 
 /** The task strip above a review: where it came from and what runs next. */
 export function TaskBar({
@@ -34,8 +35,8 @@ export function TaskBar({
       <div className="task-bar-status" aria-live="polite">
         <StatusBadge task={task} />
         {message && (
-          <span className="muted task-bar-message" title={message}>
-            {message}
+          <span className="muted task-bar-message" title={message.replace(/`/g, "")}>
+            <InlineMarkdown source={message} />
           </span>
         )}
       </div>

@@ -155,7 +155,14 @@ export async function createFixture(repoRoot: string): Promise<Fixture> {
     pulls,
     JSON.stringify({
       shop: [
-        { number: 7, title: "Print receipts", author: { login: "ada" }, headRefName: "feature/receipts", baseRefName: "main" },
+        {
+          number: 7,
+          title: "Print receipts",
+          author: { login: "ada" },
+          headRefName: "feature/receipts",
+          baseRefName: "main",
+          body: "Adds a receipt printer for orders. Receipts list each line item and the total.",
+        },
       ],
     }),
     "utf8",

@@ -109,7 +109,10 @@ describe("workbench", () => {
     renderWorkbench(MockWorkbench.seeded(0));
     await waitForReady();
     await user.click(screen.getByRole("button", { name: "Uncommitted changes against HEAD" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/It was refused: `git stash`/);
+    // Backticks render as code, not as literal marks.
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/It was refused: git stash/);
+    expect(within(alert).getByText("git stash").tagName).toBe("CODE");
     expect(screen.getByRole("log", { name: "Agent log" })).toHaveTextContent(/Refused/);
 
     await user.click(screen.getByRole("button", { name: "New review" }));

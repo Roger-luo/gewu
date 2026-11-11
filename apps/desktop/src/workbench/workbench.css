@@ -219,6 +219,7 @@
 
 .task-row-main {
   grid-area: title;
+  min-width: 0;
   border: none;
   background: transparent;
   padding: 0;
@@ -234,6 +235,9 @@
 .task-row-title {
   font-size: 15px;
   font-weight: 600;
+  /* A title that is one long ref ("62663c016a25~1..62663c016a25") wraps
+     inside its column instead of running under the status. Found by QA. */
+  overflow-wrap: anywhere;
 }
 
 .task-row .status-text {
@@ -790,9 +794,20 @@
   line-height: 1.45;
 }
 
+/* 24px controls: the WCAG 2.5.8 minimum target. */
 .settings-choice input,
 .settings-check input {
   flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  align-self: center;
+}
+
+.settings-choice label,
+.settings-check {
+  min-height: 24px;
+  align-items: center;
 }
 
 .settings-paths {

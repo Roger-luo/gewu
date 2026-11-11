@@ -258,7 +258,7 @@ export class MockWorkbench implements WorkbenchBackend {
     if (task.pending.length === 0) {
       this.finish(task, "complete", "The walkthrough is complete.");
     } else {
-      this.finish(task, "awaiting_reviewer", "A batch is ready to review. Continue when you have read it.");
+      this.finish(task, "awaiting_reviewer", "A batch is ready. Read it and mark each step reviewed; then Continue asks for the next one.");
     }
   }
 
@@ -290,7 +290,7 @@ export class MockWorkbench implements WorkbenchBackend {
     this.finish(
       task,
       status,
-      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready to review. Continue when you have read it.",
+      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready. Read it and mark each step reviewed; then Continue asks for the next one.",
     );
   }
 

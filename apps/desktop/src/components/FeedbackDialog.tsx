@@ -53,6 +53,12 @@ export function FeedbackDialog({
             <option value="explanation">The walkthrough explanation</option>
           </select>
         </label>
+        {target === "explanation" && (
+          <p className="muted publish-note">
+            A note on the walkthrough is published as a public issue on Gewu&apos;s own repository,
+            with only what you write here. Describe the walkthrough, not private code.
+          </p>
+        )}
         <p className="anchor-status" role="status">
           {anchorSummary
             ? `Anchored to ${anchorSummary}`

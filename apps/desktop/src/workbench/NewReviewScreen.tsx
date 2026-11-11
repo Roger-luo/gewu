@@ -10,6 +10,8 @@ import { draftSource, EMPTY_DRAFT, type SourceDraft } from "./sourceDraft";
 
 const TABS: SourceType[] = ["commit_range", "working_tree", "pull_request", "directory"];
 const AGENT_KEY = "gewu.agent";
+/** The custom command used last, so "Custom ACP command" comes back filled in. */
+const COMMAND_KEY = "gewu.agent-command";
 
 type CreateTask = Extract<WorkbenchAction, { type: "create_task" }>;
 
@@ -62,7 +64,12 @@ export function NewReviewScreen({
   const [type, setType] = useState<SourceType>("commit_range");
   const [draft, setDraft] = useState<SourceDraft>(EMPTY_DRAFT);
   const [agent, setAgent] = useState(() => defaultAgent(snapshot));
-  const [command, setCommand] = useState(() => snapshot.settings.default_agent?.command ?? "");
+  const [command, setCommand] = useState(
+    () =>
+      snapshot.settings.default_agent?.command ??
+      globalThis.localStorage?.getItem(COMMAND_KEY) ??
+      "",
+  );
   const [title, setTitle] = useState("");
   const [refs, setRefs] = useState<{ id: string; refs: RepositoryRefs | null; error: string | null } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -100,6 +107,7 @@ export function NewReviewScreen({
     setProblem(null);
     setStarting(true);
     globalThis.localStorage?.setItem(AGENT_KEY, agent);
+    if (agent === "custom") globalThis.localStorage?.setItem(COMMAND_KEY, command.trim());
     await onCreate({
       type: "create_task",
       repository_id: repositoryId,

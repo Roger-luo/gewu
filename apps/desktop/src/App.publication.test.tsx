@@ -45,7 +45,8 @@ describe("publication preview", () => {
     expect(preview).toHaveTextContent("Not sent · POST /repos/Roger-luo/gewu/issues");
     expect(preview).toHaveTextContent("Not sent · POST /repos/acme/demo/issues");
     expect(preview).toHaveTextContent("The before/after illustration makes the orphaning failure mode clear.");
-    expect(preview).toHaveTextContent("This is about the walkthrough Gewu wrote.");
+    expect(preview).toHaveTextContent("This is about a walkthrough Gewu wrote.");
+    expect(preview).toHaveTextContent("(public; only what you wrote about the walkthrough)");
     expect(preview).toHaveTextContent("Confirm the Windows path join");
     expect(preview).not.toHaveTextContent("Link to the generation section");
     expect(fetchSpy).not.toHaveBeenCalled();

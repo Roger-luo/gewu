@@ -45,6 +45,15 @@ export function issue(
   walkthrough: boolean,
 ): IssueDraft {
   const bodyText = note.feedback.body.trim();
+  if (walkthrough) {
+    // Filed on Gewu's public repository: the reviewer's words only, nothing
+    // that names the code under review. Mirrors `prose::issue` in Rust.
+    return {
+      feedback_id: note.feedback.id,
+      title: titleFrom(bodyText),
+      body: `${bodyText}\n\nThis is about a walkthrough Gewu wrote.`,
+    };
+  }
   const parts = [`${bodyText}\n\nNoted on "${step(note)}" during "${reviewTitle}" (${scopeText}).`];
   const anchor = note.feedback.anchor;
   if (anchor) {
@@ -54,9 +63,6 @@ export function issue(
         : `lines ${anchor.start_line}-${anchor.end_line}`;
     const version = anchor.side === "old" ? "previous version" : "new version";
     parts.push(`It refers to \`${anchor.path}\` ${span} of the ${version}.`);
-  }
-  if (walkthrough) {
-    parts.push("This is about the walkthrough Gewu wrote.");
   }
   return { feedback_id: note.feedback.id, title: titleFrom(bodyText), body: parts.join("\n") };
 }
@@ -78,8 +84,8 @@ export function bundle(
     repository,
     issues,
     tracking: {
-      title: `${heading}: ${reviewTitle}`,
-      body: `${issues.length} separate notes from "${reviewTitle}". Each has its own issue.\n\n${issues
+      title: walkthrough ? `${heading} from one Gewu review` : `${heading}: ${reviewTitle}`,
+      body: `${issues.length} separate notes from ${walkthrough ? "one Gewu review" : `"${reviewTitle}"`}. Each has its own issue.\n\n${issues
         .map((item) => `- ${item.title}`)
         .join("\n")}`,
     },
