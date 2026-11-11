@@ -5,7 +5,7 @@ mod support;
 
 use std::{path::Path, time::Duration};
 
-use gewu::workbench::{Home, Source, TaskStatus, Workbench, WorkbenchAction};
+use gewu::workbench::{Home, Settings, Source, TaskStatus, Workbench, WorkbenchAction};
 use gewu_app::Action;
 use gewu_review::{FeedbackKind, FeedbackTarget};
 use support::{Fixture, fake, none, range, slow_fake};
@@ -103,6 +103,68 @@ fn an_acp_agent_writes_one_batch_ahead_of_the_reviewer() {
     assert_eq!(last.status, TaskStatus::Complete, "{last:?}");
     let progress = last.review.expect("progress");
     assert_eq!((progress.reviewed, progress.total), (3, 3));
+}
+
+/// A run writing ahead accepts a batch and goes on to the next; the reviewer
+/// sees the accepted one while the run is still going, not when it ends.
+#[test]
+fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
+    let fixture = Fixture::new();
+    fixture.write("src/a.rs", "pub const A: u32 = 3;\n");
+    fixture.write("src/b.rs", "pub const B: u32 = 3;\n");
+    fixture.write("src/c.rs", "pub const C: u32 = 3;\n");
+    fixture.git(&["add", "-A"]);
+    fixture.git(&["commit", "-qm", "test: three files"]);
+    // Without proofreading, `follow` keeps writing in one session, as a real
+    // agent does, so no new author start reloads the review in between.
+    fixture
+        .workbench
+        .dispatch(WorkbenchAction::UpdateSettings {
+            settings: Settings {
+                proofread_rounds: 0,
+                default_agent: None,
+            },
+        })
+        .expect("settings");
+    let id = fixture.start(range(), slow_fake("follow", 1.0));
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
+    let wait_for = |count: usize| loop {
+        if let Ok(review) = fixture.workbench.task_snapshot(&id)
+            && review.chunks.len() >= count
+        {
+            return review;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "fewer than {count} chunks"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    let first = wait_for(1);
+    fixture
+        .workbench
+        .task_dispatch(
+            &id,
+            Action::SetReviewed {
+                chunk_id: first.chunks[0].id.clone(),
+                reviewed: true,
+            },
+        )
+        .expect("mark reviewed");
+
+    // Batch two is accepted while the run goes on to write batch three.
+    wait_for(2);
+    assert_eq!(fixture.task(&id).status, TaskStatus::Generating);
+    let task = fixture.settled(&id);
+    assert_eq!(task.status, TaskStatus::AwaitingReviewer, "{task:?}");
+    assert_eq!(fixture.chunks(&id), 3);
+    let log = fixture.workbench.log(&id, 0).expect("log");
+    let starts = log
+        .events
+        .iter()
+        .filter(|event| event.text.starts_with("Starting the agent"))
+        .count();
+    assert_eq!(starts, 1, "one session wrote all three: {log:?}");
 }
 
 /// Found by reviewing the write-ahead change: feedback left on a batch while

@@ -8,6 +8,8 @@ changed files needs several batches.
 
 FAKE_AGENT_MODE selects other behavior:
   harness (default)  write a valid walkthrough, one work item per batch
+  follow             the same, but keep writing items for as long as the
+                     harness asks for the next, as a real agent does
   probe              exercise the policy: one allowed write, one refused
                      write, one refused command, then end the turn
   meddle             edit a project file directly, then end the turn
@@ -160,7 +162,9 @@ class Agent:
             self.pause()
             code, status = self.run([gewu, "harness", "next"])
             self.pause()
-        if status.startswith("# Gewu harness: expand"):
+        wrote = False
+        while status.startswith("# Gewu harness: expand"):
+            wrote = True
             worklist = json.loads(self.read_file(".gewu/harness/worklist.json"))
             item = next(item for item in worklist["items"] if not item["expanded"])
             self.say(f"Writing the step for {item['title']}.\n")
@@ -173,7 +177,9 @@ class Agent:
                              "item_id": item["id"], "chunks": [chunk]})
             self.pause()
             code, status = self.run([gewu, "harness", "next"])
-        elif status.startswith("# Gewu harness: proofread"):
+            if MODE != "follow":
+                break
+        if not wrote and status.startswith("# Gewu harness: proofread"):
             # Started fresh at a proofread: the batch is someone else's, so
             # score it. An agent that just wrote a batch stops instead.
             listed = status.split("Check every claim", 1)[0]

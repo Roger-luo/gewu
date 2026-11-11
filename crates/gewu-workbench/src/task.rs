@@ -61,6 +61,8 @@ pub(crate) struct Task {
     pub(crate) log: TaskLogFile,
     pub(crate) cancel: Option<Cancel>,
     pub(crate) review: Option<ReviewWorkspace>,
+    /// When the walkthrough the cached review was opened from was written.
+    written: Option<std::time::SystemTime>,
     pub(crate) progress: Option<ReviewProgress>,
 }
 
@@ -71,21 +73,33 @@ impl Task {
             log,
             cancel: None,
             review: None,
+            written: None,
             progress: None,
         }
     }
 
     /// The open review, loaded on first use. `Ok(None)` while no walkthrough
     /// has been written yet.
+    ///
+    /// Reopened when the walkthrough file changes: an agent writing ahead
+    /// accepts a batch and goes on to the next in one run, and the reviewer
+    /// must see the accepted batch without waiting for the run to end.
+    /// Reopening loses nothing, since every action is already in the log.
     pub(crate) fn review(&mut self) -> Result<Option<&mut ReviewWorkspace>, WorkbenchError> {
-        if self.review.is_none() {
-            let Some(root) = &self.record.root else {
-                return Ok(None);
-            };
-            if !root.join(".gewu/review-spec.json").exists() {
-                return Ok(None);
-            }
+        let Some(root) = &self.record.root else {
+            return Ok(None);
+        };
+        let spec = root.join(".gewu/review-spec.json");
+        let written = std::fs::metadata(&spec)
+            .and_then(|meta| meta.modified())
+            .ok();
+        if written.is_none() {
+            return Ok(None);
+        }
+        if self.review.is_none() || written != self.written {
             self.review = Some(ReviewWorkspace::open(root)?);
+            self.written = written;
+            self.progress = None;
         }
         Ok(self.review.as_mut())
     }
