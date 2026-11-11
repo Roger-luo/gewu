@@ -161,6 +161,21 @@ impl HarnessRunner {
                 repeated.join(", ")
             ));
         }
+        // Found by QA of Cursor's runs E and F of #276: a 104 MiB saving in
+        // the exponential and a 56 MiB one at admission were offered toward
+        // one peak, and neither said which phase it fell in.
+        let unplaced = drafted.iter().any(|explainer| {
+            matches!(explainer, Explainer::Claim { share: Some(share), how, .. }
+                if !format!("{share} {how}").to_lowercase().contains("peak"))
+        });
+        if unplaced {
+            notes.push(
+                "A share here does not say whether its saving falls at the peak. Say in `how` \
+                 which phase the structure lives in and whether that is where the result was \
+                 measured; savings in different phases do not add up toward one peak."
+                    .to_owned(),
+            );
+        }
         for (kind, note) in UNTIL_DRAWN {
             let drawn = |explainer: &&Explainer| explainer.kind() == kind;
             if !before.iter().any(drawn) && !drafted.iter().any(drawn) {

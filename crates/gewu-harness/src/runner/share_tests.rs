@@ -109,4 +109,16 @@ fn measuring_notes_a_saving_an_earlier_section_already_credited() {
     );
     // Found by the same QA: no run drew a timeline.
     assert!(measured.contains("draws a `timeline`"), "{measured}");
+    // Found by QA of runs E and F: savings in different phases offered
+    // toward one peak.
+    assert!(measured.contains("falls at the peak"), "{measured}");
+
+    stage_claim_with(
+        &fixture,
+        CLAIM,
+        Some(RESULT),
+        Some("about 10 MiB of the 573 MiB drop, alive at the peak"),
+    );
+    let measured = fixture.runner.status().expect("measure");
+    assert!(!measured.contains("falls at the peak"), "{measured}");
 }

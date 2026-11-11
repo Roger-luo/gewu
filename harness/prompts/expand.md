@@ -231,7 +231,10 @@ Rules:
     the other: `share` says how much of the result this chunk accounts for,
     from your cost model or your reasoning, and says whether that share is
     estimated or measured — an estimate set beside a measurement must say so —
-    and `how` names what else contributes. A small honest share convinces; an implied large one is
+    and `how` names what else contributes, and says in which phase the
+    saving falls and whether that phase is where the result was measured (a
+    peak): savings in different phases do not add up toward one peak. A
+    small honest share convinces; an implied large one is
     found out. A share is this chunk's part of the described result, never
     what the new code itself costs (say that in `how` or the narrative); a
     chunk that only enables a result states none. When a structure is counted
@@ -268,7 +271,9 @@ Rules:
     instead of every step, pooled instead of reallocated. One lane per
     version, `when` is `once` or `each`, and `cost` (optional) is per run in
     `unit`. Give costs only when the code or a measurement supports them;
-    otherwise leave them out and let the lanes show the shape.
+    otherwise leave them out and let the lanes show the shape. `once` means
+    the work itself happens once: a buffer allocated once but refilled every
+    step is two items, the allocation `once` and the refill `each`.
   - Like a context pane, an explainer is measured beside the chunk, not
     charged to its row budget, so put it in the chunk whose code it
     explains, next to the quote. Keep each one smaller than the budget;
