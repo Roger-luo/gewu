@@ -64,6 +64,9 @@ pub(crate) struct Task {
     /// When the walkthrough the cached review was opened from was written.
     written: Option<std::time::SystemTime>,
     pub(crate) progress: Option<ReviewProgress>,
+    /// The reviewer marked a step read while a batch ran; the end of that run
+    /// starts the next if the gate is open.
+    pub(crate) wants_next: bool,
 }
 
 impl Task {
@@ -75,6 +78,7 @@ impl Task {
             review: None,
             written: None,
             progress: None,
+            wants_next: false,
         }
     }
 

@@ -163,10 +163,35 @@ impl Workbench {
             let _ = task.log.record(AgentEvent::new(kind, &ended.message));
         }
         let _ = task.log.flush();
+        let awaiting = ended.status == TaskStatus::AwaitingReviewer;
         task.record.set(ended.status, stage, Some(ended.message));
         task.cancel = None;
         task.reload();
         let _ = self.save_task(&task.record);
+        // The reviewer finished a batch while this run was ending; act on it
+        // now rather than leave them at an open gate. Found by a live run of
+        // #276: marks made during a run's wind-down started nothing.
+        let wants_next = std::mem::take(&mut task.wants_next);
+        let root = task.record.root.clone();
+        drop(state);
+        if !(awaiting && wants_next) {
+            return;
+        }
+        let open = root.is_some_and(|root| {
+            HarnessRunner::in_project(&root, DEFAULT_MAX_CHUNKS, false)
+                .would_expand()
+                .unwrap_or(false)
+        });
+        if open {
+            let _ = self.start_batch(task_id);
+        } else if let Ok(mut state) = self.state()
+            && let Ok(task) = state.task(task_id)
+            && let Ok(Some(review)) = task.review()
+        {
+            // Or they read the last step of a finished walkthrough.
+            let snapshot = review.snapshot();
+            let _ = self.finish_if_written(task, &snapshot);
+        }
     }
 
     /// Close a task once the reviewer has read every step of a walkthrough
@@ -330,7 +355,13 @@ impl Workbench {
         // Times an author that stopped between items, having written one, is
         // started again: the gate lets it write one batch ahead, and an agent
         // may take one accepted batch for the end of its task.
+        //
+        // Counted only while no progress is made: one run writes many batches
+        // when the reviewer keeps up, each ending in a hand-off. Found by a
+        // live run of #276 with proofreading on: a run gave up at an open
+        // gate after two sections.
         let mut resumed = 0;
+        let mut furthest = written(root);
         let outcome = loop {
             let written_before = written(root);
             let (message, start) = if fresh == 0 {
@@ -362,6 +393,10 @@ impl Workbench {
                 ));
             }
             let outcome = outcome?;
+            if written(root) > furthest {
+                furthest = written(root);
+                resumed = 0;
+            }
             let cancelled = cancel.is_cancelled() || outcome.stop_reason == "cancelled";
             let mut prompt = runner.status()?;
             // An agent may stop where an item of tests begins; Gewu writes it.

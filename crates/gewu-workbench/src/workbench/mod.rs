@@ -244,6 +244,9 @@ impl Workbench {
         // the batch before the one ready for them, the next is started at
         // once, so it is written while they read rather than after. The gate
         // is read outside the lock: for a working tree it runs `git diff`.
+        if read && task.record.status == TaskStatus::Generating {
+            task.wants_next = true;
+        }
         let root = (read && task.record.status == TaskStatus::AwaitingReviewer)
             .then(|| task.record.root.clone())
             .flatten();

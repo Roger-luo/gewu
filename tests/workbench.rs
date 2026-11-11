@@ -168,6 +168,51 @@ fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
     assert_eq!(starts, 1, "one session wrote all three: {log:?}");
 }
 
+/// Found by a live run of #276 with proofreading on: each section ended in
+/// a hand-off between author and proofreader, a run gave up after two of
+/// them, and a reviewer keeping up was left at an open gate.
+#[test]
+fn a_reviewer_who_keeps_up_reaches_the_end_with_proofreading_on() {
+    let fixture = Fixture::new();
+    for name in ["a", "b", "c", "d"] {
+        fixture.write(&format!("src/{name}.rs"), "pub const X: u32 = 3;\n");
+    }
+    fixture.git(&["add", "-A"]);
+    fixture.git(&["commit", "-qm", "test: four files"]);
+    let id = fixture.start(range(), fake("harness"));
+    let deadline = std::time::Instant::now() + Duration::from_secs(90);
+    loop {
+        if let Ok(review) = fixture.workbench.task_snapshot(&id) {
+            for chunk in review
+                .chunks
+                .into_iter()
+                .filter(|chunk| !chunk.status.reviewed)
+            {
+                fixture
+                    .workbench
+                    .task_dispatch(
+                        &id,
+                        Action::SetReviewed {
+                            chunk_id: chunk.id,
+                            reviewed: true,
+                        },
+                    )
+                    .expect("mark reviewed");
+            }
+        }
+        let task = fixture.task(&id);
+        if task.status == TaskStatus::Complete {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "stalled before the end: {task:?}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    assert_eq!(fixture.chunks(&id), 4);
+}
+
 /// Found by reviewing the write-ahead change: feedback left on a batch while
 /// the agent writes the next one ahead used to fail the task when that run
 /// ended, with a garbled message. It waits for the reviewer instead.
