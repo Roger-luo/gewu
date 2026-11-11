@@ -191,6 +191,24 @@ impl HarnessRunner {
                  none, leave `share` out.",
             );
         }
+        // Found by QA of two Cursor reruns of #276: once a draft had layouts,
+        // nothing named steppers, and none was drawn in sixteen sections.
+        let is_stepper = |explainer: &gewu_review::Explainer| {
+            matches!(explainer, gewu_review::Explainer::Stepper { .. })
+        };
+        let stepped_before = self.spec_path.exists()
+            && self.spec().is_ok_and(|spec| {
+                spec.chunks.iter().flat_map(|chunk| &chunk.content).any(
+                    |block| matches!(block, gewu_review::ChunkBlock::Explainer(explainer) if is_stepper(explainer)),
+                )
+            });
+        if !stepped_before && !explainers.iter().any(|explainer| is_stepper(explainer)) {
+            notes.push(
+                "No section so far steps through an algorithm. If this item has code a reader \
+                 would simulate in their head — a compaction, a heap sift, a probe or a \
+                 bound-and-prune loop — show it with a `stepper`.",
+            );
+        }
         if notes.is_empty() {
             String::new()
         } else {

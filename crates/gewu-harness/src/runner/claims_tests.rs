@@ -177,3 +177,43 @@ fn measuring_a_test_only_draft_does_not_remind() {
         "{measured}"
     );
 }
+
+/// Found by QA of two Cursor reruns of #276: once drafts had layouts, no
+/// reminder named steppers, and none was drawn in sixteen sections.
+#[test]
+fn measuring_reminds_until_some_section_steps_through_code() {
+    let fixture = fixture();
+    let list = fixture.reach_expand();
+    std::fs::write(
+        fixture
+            .runner
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        "Twice as fast.\n",
+    )
+    .expect("description");
+    let _ = list;
+    stage_claim(&fixture, "Twice as fast");
+    let path = fixture.runner.store.expansion_path();
+    let mut expansion: Expansion = artifacts::read(&path).expect("read expansion");
+    let stepper = ChunkBlock::Explainer(Explainer::Stepper {
+        title: "One probe".into(),
+        language: None,
+        source: None,
+        start_line: None,
+        steps: vec![gewu_review::explainer::Step {
+            caption: "Hash the key.".into(),
+            code: Some("let slot = hash(key);".into()),
+            highlight: None,
+            state: Vec::new(),
+        }],
+    });
+    artifacts::write(&path, &expansion).expect("write expansion");
+    let reminded = fixture.runner.status().expect("measure");
+    assert!(reminded.contains("show it with a `stepper`"), "{reminded}");
+
+    expansion.chunks[0].content.push(stepper);
+    artifacts::write(&path, &expansion).expect("write expansion");
+    let quiet = fixture.runner.status().expect("measure");
+    assert!(!quiet.contains("show it with a `stepper`"), "{quiet}");
+}
