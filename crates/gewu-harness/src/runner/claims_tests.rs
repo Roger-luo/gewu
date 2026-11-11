@@ -140,3 +140,31 @@ fn measuring_reminds_when_explainers_only_quote_or_no_share_is_stated() {
     );
     assert!(reminded.contains("no chunk states its share"), "{reminded}");
 }
+
+/// Found by QA of Cursor's #276 run: the reminder fired on test-only items,
+/// inviting filler claims where nothing in the description is delivered.
+#[test]
+fn measuring_a_test_only_draft_does_not_remind() {
+    let fixture = fixture();
+    let list = fixture.reach_expand();
+    std::fs::write(
+        fixture
+            .runner
+            .input_path
+            .with_file_name(gewu_review::harness::DESCRIPTION_FILE),
+        "Peak memory falls by 61% (940 → 367 MiB).\n",
+    )
+    .expect("description");
+    fixture.stage_expansion(&list.items[0]);
+    let path = fixture.runner.store.expansion_path();
+    let mut expansion: Expansion = artifacts::read(&path).expect("read expansion");
+    for chunk in &mut expansion.chunks {
+        chunk.kind = ChunkKind::Test;
+    }
+    artifacts::write(&path, &expansion).expect("write expansion");
+    let measured = fixture.runner.status().expect("measure");
+    assert!(
+        !measured.contains("No chunk has an explainer"),
+        "{measured}"
+    );
+}

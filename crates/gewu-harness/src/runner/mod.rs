@@ -136,6 +136,14 @@ impl HarnessRunner {
         ) else {
             return String::new();
         };
+        // Found by QA of Cursor's #276 run: the reminder asked for claims and
+        // layouts on all thirteen test sections, where neither fits.
+        if chunks
+            .iter()
+            .all(|chunk| chunk.kind == gewu_review::ChunkKind::Test)
+        {
+            return String::new();
+        }
         let explainers: Vec<&gewu_review::Explainer> = chunks
             .iter()
             .flat_map(|chunk| &chunk.content)
