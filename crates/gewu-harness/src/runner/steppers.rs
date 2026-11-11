@@ -40,6 +40,10 @@ impl HarnessRunner {
                     .split(|c: char| c == ':' || c.is_whitespace())
                     .next()
                     .unwrap_or_default();
+                // A directory or an empty path names no file to compare with.
+                if path.is_empty() || path.ends_with('/') || !path.contains('.') {
+                    continue;
+                }
                 let file = if run.state.origin.working_tree {
                     std::fs::read_to_string(self.project.join(path)).ok()
                 } else {

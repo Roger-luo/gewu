@@ -163,6 +163,11 @@ pub fn test_expansion(
     for quote in &item.covers {
         all.extend(pieces(changes.get(&quote.change_id)?, quote));
     }
+    // The plan's `tests` mark is the agent's word; an item that adds no test
+    // is not one Gewu writes. Found by reviewing the test-section change.
+    if !all.iter().any(|piece| piece.role == Role::Test) {
+        return None;
+    }
     let fitting = whole(&all, &fits);
     let groups = match fitting {
         groups if groups.len() <= max_chunks => groups,

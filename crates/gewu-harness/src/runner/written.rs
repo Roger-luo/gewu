@@ -26,7 +26,20 @@ impl HarnessRunner {
         if !item.tests || run.state.explain_tests {
             return None;
         }
-        test_expansion(&run.input, item, self.max_chunks)
+        let expansion = test_expansion(&run.input, item, self.max_chunks)?;
+        // Every check the agent's draft would face is made here, so a
+        // generated item that would fail goes to the agent as an ordinary
+        // item rather than to a repair of a draft it never wrote. Found by
+        // reviewing the test-section change.
+        let taken = self.spec().map(|spec| spec.chunks).unwrap_or_default();
+        let collides = expansion
+            .chunks
+            .iter()
+            .any(|chunk| taken.iter().any(|old| old.id == chunk.id));
+        if collides || self.check_expansion(run, &expansion, item).is_err() {
+            return None;
+        }
+        Some(expansion)
     }
 }
 
@@ -80,8 +93,26 @@ mod tests {
     /// went to walking through tests.
     #[test]
     fn an_item_of_tests_is_written_without_the_agent_unless_tests_are_explained() {
+        let with_tests = |fixture: &mut Fixture| {
+            let source = fixture.input.source.clone();
+            fixture.input = gewu_review::ReviewInput::new(
+                source,
+                vec![
+                    gewu_review::Change::new(
+                        "src/tests.rs",
+                        (0, 0, 1, 3),
+                        "@@ -0,0 +1,3 @@\n+#[test]\n+fn works() {\n+}\n",
+                    ),
+                    fixture.input.changes[1].clone(),
+                ],
+            );
+        };
         let mut quiet = fixture();
+        with_tests(&mut quiet);
         quiet.runner.explain_tests = false;
+        // Found by reviewing the test-section change: with proofreading on,
+        // a written batch was sent to agents to score and rewrite.
+        quiet.runner.proofread_rounds = 2;
         let after = plan_tests_first(&quiet);
         assert!(
             after.starts_with("# Gewu harness: waiting for the reviewer"),
@@ -92,7 +123,8 @@ mod tests {
         assert_eq!(spec.chunks[0].kind, ChunkKind::Test);
         assert_eq!(spec.chunks[0].id, "item-0-tests-1");
 
-        let explained = fixture();
+        let mut explained = fixture();
+        with_tests(&mut explained);
         let after = plan_tests_first(&explained);
         assert!(
             after.starts_with("# Gewu harness: expand `item-0`"),

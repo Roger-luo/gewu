@@ -99,31 +99,33 @@ fn a_test_too_long_for_one_chunk_is_shown_whole() {
 /// Found by QA of the #276 walkthrough: helpers were titled as tests, and
 /// edits inside existing tests were counted as tests "shown as written".
 #[test]
-fn helpers_and_edits_are_not_called_tests() {
-    let code = vec![
+fn helpers_are_not_called_tests_and_edits_alone_go_to_the_agent() {
+    let mut code = vec![
         "fn propose(width: usize) -> Vec<u8> {".to_owned(),
         "    vec![0; width]".to_owned(),
         "}".to_owned(),
     ];
+    code.extend(test("uses_propose", "Proposes one word.", 1));
     let helper = input(&code);
     let expansion = test_expansion(&helper, &item(&helper), 6).expect("written");
-    assert_eq!(expansion.chunks[0].title, "Test helpers `propose`");
+    let chunk = &expansion.chunks[0];
+    assert_eq!(chunk.title, "Test `uses_propose`");
+    let ChunkBlock::Narrative { markdown } = &chunk.content[0] else {
+        panic!("prose first");
+    };
+    assert!(
+        markdown.contains("Helpers the tests use: `propose`"),
+        "{markdown}"
+    );
 
-    let patch = "@@ -1,3 +1,3 @@\n fn existing() {\n-    old();\n+    new();\n }\n";
+    // Found by reviewing the test-section change: an item that only edits or
+    // deletes tests adds none, so Gewu does not write it as tests.
+    let patch = "@@ -1,4 +1,3 @@\n #[test]\n fn existing() {\n-    old();\n+    new();\n }\n";
     let edit = ReviewInput::new(
         SourceIdentity::new("base", "head", b"diff"),
-        vec![Change::new("src/tests.rs", (1, 3, 1, 3), patch)],
+        vec![Change::new("src/tests.rs", (1, 4, 1, 3), patch)],
     );
-    let expansion = test_expansion(&edit, &item(&edit), 6).expect("written");
-    assert_eq!(
-        expansion.chunks[0].title,
-        "Changes to existing tests in `src/tests.rs`"
-    );
-    assert!(
-        expansion.chunks[0]
-            .summary
-            .contains("as the diff changes them")
-    );
+    assert!(test_expansion(&edit, &item(&edit), 6).is_none());
 }
 
 /// Found by running Cursor on #276: test items of 200 to 370 lines, which

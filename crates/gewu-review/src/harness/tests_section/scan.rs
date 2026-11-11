@@ -11,8 +11,21 @@ pub(super) fn code(line: &str) -> &str {
 /// language that marks tests by name or call.
 pub(super) fn starts_test(line: &str) -> bool {
     let text = code(line).trim_start();
-    // `#[cfg(test)]` gates a module of tests; it is not a test itself.
-    (text.starts_with("#[") && text.contains("test") && !text.contains("cfg("))
+    // An attribute named as a test: `#[test]`, `#[tokio::test]`,
+    // `#[test_case(…)]`, `#[rstest]`. `#[cfg(test)]` gates a module, and
+    // `#[serde(rename = "latest")]` only mentions the word.
+    let attribute = text
+        .strip_prefix("#[")
+        .map(|rest| {
+            rest.split(['(', ']'])
+                .next()
+                .unwrap_or_default()
+                .rsplit("::")
+                .next()
+                .unwrap_or_default()
+        })
+        .is_some_and(|name| name == "test" || name.starts_with("test_") || name == "rstest");
+    attribute
         || text.starts_with("def test")
         || text.starts_with("async def test")
         || text.starts_with("func Test")
@@ -126,6 +139,8 @@ mod tests {
         assert!(starts_test("+  it(\"keeps the tail\", () => {"));
         assert!(!starts_test("+fn helper() {}"));
         assert!(!starts_test("+#[cfg(test)]"), "a module gate, not a test");
+        assert!(!starts_test("+#[serde(rename = \"latest\")]"));
+        assert!(starts_test("+#[test_case(1)]"));
 
         let rust = [
             "+/// Grows by a quarter.",

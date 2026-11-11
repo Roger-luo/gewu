@@ -430,10 +430,10 @@ impl HarnessRunner {
             self.advance(&mut run.state, HarnessStage::Await)?;
             return self.evaluate(run);
         };
-        let expansion = match self.store.expansion() {
-            Ok(Some(expansion)) => expansion,
+        let (expansion, written) = match self.store.expansion() {
+            Ok(Some(expansion)) => (expansion, false),
             Ok(None) => match self.written_tests(run, &work) {
-                Some(expansion) => expansion,
+                Some(expansion) => (expansion, true),
                 None => return self.prompt_expand(run, &work),
             },
             Err(error) => return self.repair(run, &item, &[error.to_string()]),
@@ -484,7 +484,7 @@ impl HarnessRunner {
             if chunks == 1 { "" } else { "s" },
             item.id
         );
-        Ok(accepted(self.after_batch(run, batch)?, &note))
+        Ok(accepted(self.after_batch(run, batch, written)?, &note))
     }
 
     /// Applies the continue gates once the reviewer has had the current batch.

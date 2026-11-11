@@ -62,7 +62,12 @@ pub(super) fn pieces(change: &Change, quote: &Quote) -> Vec<Piece> {
         .map(|pair| {
             let span = &lines[pair[0]..pair[1]];
             let added = span.iter().all(|line| line.starts_with('+'));
-            let test = span.iter().position(|line| scan::starts_test(line));
+            // Only a test this change adds is one; a deleted test, or an
+            // unchanged one in the hunk's context, is not. Found by reviewing
+            // the test-section change.
+            let test = span
+                .iter()
+                .position(|line| line.starts_with('+') && scan::starts_test(line));
             // Found by QA of the #276 walkthrough: helpers such as `propose`
             // were titled as tests, and edits inside existing tests were
             // counted as whole tests "shown as written".

@@ -18,8 +18,17 @@ const PROOFREAD_PATH: &str = ".gewu/harness/proofread.json";
 impl HarnessRunner {
     /// Sends a newly appended batch to proofreading when the run asks for it,
     /// and otherwise to the reviewer.
-    pub(super) fn after_batch(&self, run: &mut Run, batch: Vec<String>) -> Result<String> {
-        if run.state.begin_proofread(batch) {
+    /// `written` says Gewu wrote the batch itself: there is no author's prose
+    /// for a fresh agent to score, so it goes straight to the reviewer. Found
+    /// by reviewing the test-section change: with proofreading on, the
+    /// default, agents were started to score and rewrite raw test code.
+    pub(super) fn after_batch(
+        &self,
+        run: &mut Run,
+        batch: Vec<String>,
+        written: bool,
+    ) -> Result<String> {
+        if !written && run.state.begin_proofread(batch) {
             self.store.discard_proofread()?;
             self.store.save_state(&run.state)?;
             return self.prompt_proofread(run);

@@ -380,6 +380,11 @@ impl Workbench {
                 && runner.would_expand()?
             {
                 prompt = runner.next()?;
+                // Gewu may have written the next item itself and reached the
+                // gate again, with nothing left for an agent to do.
+                if let Some(ended) = Ended::gate(&prompt) {
+                    return Ok(ended);
+                }
                 stage = Ended::stage(&prompt).or(stage);
                 resumed += 1;
                 fresh = 0;
