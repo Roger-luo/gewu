@@ -24,6 +24,7 @@ export function TaskScreen({
   onContinue,
   onCancel,
   onDelete,
+  onStartAgain,
 }: {
   backend: WorkbenchBackend;
   task: TaskView;
@@ -32,8 +33,10 @@ export function TaskScreen({
   onContinue: () => void;
   onCancel: () => void;
   onDelete: () => void;
+  onStartAgain: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const progress = progressLabel(task);
   const stage = task.status === "generating" ? stageLabel(task.stage) : null;
   const failed = task.status === "failed";
@@ -62,6 +65,18 @@ export function TaskScreen({
           {progress && <span className="muted">{progress}</span>}
         </div>
       </header>
+
+      {task.outdated && (
+        <div className="notice outdated" role="status">
+          <p>
+            An older version of Gewu prepared this review, so it lacks {task.outdated}. Starting
+            again prepares it with this version.
+          </p>
+          <button type="button" className="btn primary" onClick={() => setRestarting(true)}>
+            Start again…
+          </button>
+        </div>
+      )}
 
       {task.message && (
         <p className={failed ? "notice failure" : "notice"} role={failed ? "alert" : undefined}>
@@ -151,6 +166,30 @@ export function TaskScreen({
       </dl>
 
       <AgentLog key={task.id} backend={backend} task={task} />
+
+      {restarting && (
+        <Dialog title="Start this review again?" onClose={() => setRestarting(false)}>
+          <p className="muted">
+            Gewu prepares a new review of the same source with the same agent, then deletes this
+            one with its progress and feedback. Your repository is not changed.
+          </p>
+          <div className="dialog-actions">
+            <button type="button" className="btn" onClick={() => setRestarting(false)}>
+              Keep this review
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                setRestarting(false);
+                onStartAgain();
+              }}
+            >
+              Start again
+            </button>
+          </div>
+        </Dialog>
+      )}
 
       {confirming && (
         <Dialog title="Delete this review?" onClose={() => setConfirming(false)}>

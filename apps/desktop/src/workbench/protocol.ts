@@ -60,6 +60,8 @@ export interface TaskView {
   stage: string | null;
   message: string | null;
   review: ReviewProgress | null;
+  /** What the review lacks because an older Gewu prepared it; starting it again gives it. */
+  outdated: string | null;
   /** Unix milliseconds. */
   created_at: number;
   updated_at: number;
@@ -143,6 +145,7 @@ export type WorkbenchAction =
   | { type: "continue_task"; task_id: string }
   | { type: "cancel_task"; task_id: string }
   | { type: "delete_task"; task_id: string }
+  | { type: "start_again"; task_id: string }
   | { type: "update_settings"; settings: Settings };
 
 export type WorkbenchScreen = "home" | "new-review" | "task" | "review" | "settings";

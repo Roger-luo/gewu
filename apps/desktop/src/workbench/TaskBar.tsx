@@ -22,7 +22,9 @@ export function TaskBar({
   const held = continueHeld(task, progress);
   const finishing =
     task.status === "awaiting_reviewer" && (task.review?.remaining_work_items ?? 0) === 0;
-  const message = held
+  const message = task.outdated
+    ? "An older version of Gewu prepared this review, so it lacks newer features."
+    : held
     ? "Mark every step reviewed before asking for the next batch."
     : finishing
       ? "Mark every step reviewed to finish the walkthrough."
@@ -41,6 +43,11 @@ export function TaskBar({
         )}
       </div>
       <div className="task-bar-actions">
+        {task.outdated && (
+          <button type="button" className="btn primary" onClick={onShowTask}>
+            Start again…
+          </button>
+        )}
         <button type="button" className="btn" onClick={onShowTask}>
           Agent log
         </button>

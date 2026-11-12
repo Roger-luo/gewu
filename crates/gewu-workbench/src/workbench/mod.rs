@@ -4,6 +4,7 @@
 mod actions;
 mod contributors;
 mod publication;
+mod start_again;
 
 pub use publication::Publication;
 

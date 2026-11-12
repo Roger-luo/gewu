@@ -111,3 +111,26 @@ chunks whose first sentence only points at lines. On these 120 chunks that
 check flags 36, of which 29 scored below 2 on `connection`, against 32 of the
 other 84. Whether either change lowers the fail rate is for the next app
 runs to show: `.gewu/harness/proofreads.jsonl` now keeps every verdict.
+
+### Did it work? (run 10, 2026-11-11)
+
+30 of run 10's 97 non-test chunks, proofread blind by Claude subagents with
+the same instructions, against the 120 chunks above:
+
+| below 2 on | run 10 (30) | before (120) |
+|---|---|---|
+| any dimension | 25 (83%, 95% CI 66–93%) | 98 (82%) |
+| `connection` | 2 (7%) | 61 (51%) |
+| `rationale` | 11 (37%) | 57 (48%) |
+| `change_framing` | 14 (47%) | 47 (39%) |
+| `minimality` | 9 (30%) | 21 (18%) |
+| `grounded` | 3 (10%) | 13 (11%) |
+
+The "why now" question and the status check fixed `connection`; no chunk
+opened with a line range. "What came before" and "why" did not move
+`change_framing` or `rationale` beyond noise, so the overall fail rate is
+unchanged. The two samples are different runs of the same PR.
+
+Cursor's own proofreader, in the same run, passed all 103 chunks it read:
+601 of its 618 scores were 3 and it listed no problems, so proofreading cost
+28 of the run's 112 minutes and rewrote nothing.

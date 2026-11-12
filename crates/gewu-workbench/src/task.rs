@@ -9,6 +9,21 @@ use crate::{
     log::TaskLogFile,
 };
 
+/// What each version of a task's preparation added. A review prepared
+/// before one of these lacks it for good: its checkout, manifest, and plan
+/// are made once. Found when a review of ppvm #276 begun before descriptions
+/// were saved showed no explainers, with nothing in the app to say why.
+pub(crate) const PREPARATIONS: &[(u32, &str)] = &[(
+    1,
+    "the pull request's description, which explainers quote and check claims \
+     against, and chunks held to a reading-time budget",
+)];
+
+/// The preparation version new tasks get.
+pub(crate) fn preparation() -> u32 {
+    PREPARATIONS.last().map_or(0, |(version, _)| *version)
+}
+
 /// What is persisted about a task, in `<home>/tasks/<id>/task.json`.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct TaskRecord {
@@ -26,6 +41,10 @@ pub(crate) struct TaskRecord {
     pub(crate) root: Option<PathBuf>,
     /// The root is a checkout of the task's own, removed with the task.
     pub(crate) isolated: bool,
+    /// The preparation version that made `root`; 0 before versions were
+    /// recorded.
+    #[serde(default)]
+    pub(crate) prepared: u32,
     pub(crate) created_at: u64,
     pub(crate) updated_at: u64,
 }
@@ -40,6 +59,18 @@ impl TaskRecord {
     pub(crate) fn uses_agent(&self) -> bool {
         self.preset()
             .is_ok_and(|preset| preset.kind == PresetKind::Acp)
+    }
+
+    /// What this review lacks because an older Gewu prepared it, or `None`
+    /// when it is current or not prepared yet.
+    pub(crate) fn outdated(&self) -> Option<String> {
+        self.root.as_ref()?;
+        let missing: Vec<&str> = PREPARATIONS
+            .iter()
+            .filter(|(version, _)| *version > self.prepared)
+            .map(|(_, added)| *added)
+            .collect();
+        (!missing.is_empty()).then(|| missing.join("; "))
     }
 
     pub(crate) fn set(
@@ -147,6 +178,7 @@ impl Task {
             stage: record.stage.clone(),
             message: record.message.clone(),
             review,
+            outdated: record.outdated(),
             created_at: record.created_at,
             updated_at: record.updated_at,
         }

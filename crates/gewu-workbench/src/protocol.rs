@@ -55,6 +55,10 @@ pub enum WorkbenchAction {
     DeleteTask {
         task_id: String,
     },
+    /// Replace a review with a new one of the same source and agent.
+    StartAgain {
+        task_id: String,
+    },
     UpdateSettings {
         settings: crate::Settings,
     },
@@ -110,6 +114,9 @@ pub struct TaskView {
     pub message: Option<String>,
     /// `None` until a walkthrough exists to open.
     pub review: Option<ReviewProgress>,
+    /// What the review lacks because an older Gewu prepared it; starting it
+    /// again gives it. `None` when it is current.
+    pub outdated: Option<String>,
     /// Unix milliseconds.
     pub created_at: u64,
     pub updated_at: u64,

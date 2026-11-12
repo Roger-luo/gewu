@@ -156,6 +156,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             onContinue={() => void wb.dispatch({ type: "continue_task", task_id: task.id })}
             onCancel={() => void wb.dispatch({ type: "cancel_task", task_id: task.id })}
             onDelete={() => void wb.deleteTask(task.id)}
+            onStartAgain={() => void wb.startAgain(task.id)}
           />
         )}
       </div>

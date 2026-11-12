@@ -27,6 +27,7 @@ impl Workbench {
             WorkbenchAction::ContinueTask { task_id } => self.continue_task(&task_id)?,
             WorkbenchAction::CancelTask { task_id } => self.cancel_task(&task_id)?,
             WorkbenchAction::DeleteTask { task_id } => self.delete_task(&task_id)?,
+            WorkbenchAction::StartAgain { task_id } => self.start_again(&task_id)?,
             WorkbenchAction::UpdateSettings { settings } => self.update_settings(settings)?,
         }
         self.snapshot()
@@ -108,6 +109,7 @@ impl Workbench {
             message: Some("Preparing the review".to_owned()),
             root: None,
             isolated: false,
+            prepared: 0,
             created_at,
             updated_at: created_at,
         };
@@ -140,7 +142,7 @@ impl Workbench {
         Ok(())
     }
 
-    fn delete_task(&self, task_id: &str) -> Result<(), WorkbenchError> {
+    pub(super) fn delete_task(&self, task_id: &str) -> Result<(), WorkbenchError> {
         let mut state = self.state()?;
         let task = state.task(task_id)?;
         if let Some(cancel) = &task.cancel {

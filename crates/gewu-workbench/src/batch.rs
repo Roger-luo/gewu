@@ -299,6 +299,7 @@ impl Workbench {
                 let task = state.task(task_id)?;
                 task.record.root = Some(prepared.root.clone());
                 task.record.isolated = prepared.isolated;
+                task.record.prepared = crate::task::preparation();
                 if let (false, Some(title)) = (task.record.titled, title) {
                     task.record.title = title;
                 }

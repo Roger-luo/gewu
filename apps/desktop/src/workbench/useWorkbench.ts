@@ -119,6 +119,19 @@ export function useWorkbench(backend: WorkbenchBackend) {
     [dispatch, navigate, places],
   );
 
+  const startAgain = useCallback(
+    async (taskId: string) => {
+      const known = new Set(snapshot?.tasks.map((task) => task.id));
+      const next = await dispatch({ type: "start_again", task_id: taskId });
+      const created = next?.tasks.find((task) => !known.has(task.id));
+      if (created) {
+        places.delete(taskId);
+        navigate({ screen: "task", task_id: created.id });
+      }
+    },
+    [dispatch, navigate, places, snapshot],
+  );
+
   return {
     backend,
     snapshot,
@@ -133,6 +146,7 @@ export function useWorkbench(backend: WorkbenchBackend) {
     navigate,
     createTask,
     deleteTask,
+    startAgain,
     setError,
   };
 }

@@ -429,3 +429,38 @@ fn an_empty_range_names_the_base_the_reader_typed() {
         "{message}"
     );
 }
+
+/// Found when a review of ppvm #276 begun before descriptions were saved
+/// showed no explainers, and nothing in the app said why.
+#[test]
+fn a_review_an_older_gewu_prepared_says_so_and_starts_again() {
+    let mut fixture = Fixture::new();
+    let id = fixture.start(range(), none());
+    let current = fixture.settled(&id);
+    assert_eq!(current.outdated, None, "a new review is current");
+
+    fixture.forget_preparation(&id);
+    let old = fixture.task(&id);
+    let missing = old.outdated.clone().expect("an older review says so");
+    assert!(missing.contains("description"), "{missing}");
+
+    fixture
+        .workbench
+        .dispatch(WorkbenchAction::StartAgain {
+            task_id: id.clone(),
+        })
+        .expect("start again");
+    let tasks = fixture.workbench.snapshot().expect("snapshot").tasks;
+    assert!(
+        tasks.iter().all(|task| task.id != id),
+        "the old review is gone"
+    );
+    let new = tasks.first().expect("a new review").clone();
+    assert_eq!(
+        (new.source.clone(), new.agent.clone()),
+        (old.source, old.agent)
+    );
+    let new = fixture.settled(&new.id);
+    assert_eq!(new.outdated, None, "{new:?}");
+    assert_eq!(fixture.chunks(&new.id), 2);
+}

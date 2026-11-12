@@ -133,6 +133,27 @@ describe("workbench", () => {
     expect(within(screen.getByRole("list", { name: "Reviews" })).getAllByRole("listitem")).toHaveLength(2);
   });
 
+  it("offers to start again a review an older Gewu prepared", async () => {
+    const user = userEvent.setup();
+    const backend = MockWorkbench.seeded(0);
+    const old = (await backend.workbench()).tasks.find((task) => task.source.type === "commit_range")!;
+    backend.outdate(old.id, "the pull request's description, which explainers quote");
+    renderWorkbench(backend);
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: "9b1d03aa..4f2a9c1e" }));
+    expect(screen.getByRole("status")).toHaveTextContent(/older version of Gewu .* lacks the pull request's description/);
+    await user.click(screen.getByRole("button", { name: "Start again…" }));
+    const dialog = screen.getByRole("dialog", { name: "Start this review again?" });
+    await user.click(within(dialog).getByRole("button", { name: "Start again" }));
+
+    const tasks = (await backend.workbench()).tasks;
+    expect(tasks.some((task) => task.id === old.id)).toBe(false);
+    const fresh = tasks.find((task) => task.source.type === "commit_range")!;
+    expect(fresh.outdated).toBeNull();
+    expect(main()).toHaveAttribute("data-gewu-task-id", fresh.id);
+    expect(screen.queryByText(/older version of Gewu/)).not.toBeInTheDocument();
+  });
+
   it("refuses a second review of the same uncommitted changes", async () => {
     const user = userEvent.setup();
     renderWorkbench(MockWorkbench.seeded(0));

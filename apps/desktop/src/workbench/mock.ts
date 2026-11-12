@@ -115,6 +115,18 @@ export class MockWorkbench implements WorkbenchBackend {
         this.task(action.task_id);
         this.tasks = this.tasks.filter((task) => task.view.id !== action.task_id);
         break;
+      case "start_again": {
+        const old = this.task(action.task_id).view;
+        this.tasks = this.tasks.filter((task) => task.view.id !== action.task_id);
+        this.create({
+          type: "create_task",
+          repository_id: old.repository_id,
+          source: old.source,
+          agent: old.agent,
+          title: null,
+        });
+        break;
+      }
       case "update_settings": {
         const { proofread_rounds, default_agent } = action.settings;
         if (proofread_rounds < 0 || proofread_rounds > 5) {
@@ -212,6 +224,7 @@ export class MockWorkbench implements WorkbenchBackend {
       stage: null,
       message: "Preparing the review",
       review: null,
+      outdated: null,
       created_at: this.clock,
       updated_at: this.clock,
     };
@@ -269,6 +282,11 @@ export class MockWorkbench implements WorkbenchBackend {
     task.view.message = message;
     task.view.updated_at = this.clock;
     this.record(task, status === "failed" ? "error" : "status", message);
+  }
+
+  /** Marks a review as prepared by an older Gewu, as a task on disk would be. */
+  outdate(taskId: string, missing: string) {
+    this.task(taskId).view.outdated = missing;
   }
 
   private seed(repository: RepositoryView, source: Source, presetId: string, status: TaskView["status"]) {

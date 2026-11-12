@@ -108,6 +108,19 @@ impl Fixture {
         }
     }
 
+    /// Removes a task's preparation version on disk and reopens the
+    /// workbench, the way a task an older Gewu prepared was recorded.
+    pub fn forget_preparation(&mut self, id: &str) {
+        let home = self._directory.path().join("home");
+        let path = home.join("tasks").join(id).join("task.json");
+        let mut record: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).expect("task")).expect("json");
+        record.as_object_mut().expect("record").remove("prepared");
+        std::fs::write(&path, serde_json::to_vec(&record).expect("json")).expect("write");
+        self.workbench = Workbench::open(Home::new(home), Path::new(env!("CARGO_BIN_EXE_gewu")))
+            .expect("reopen");
+    }
+
     /// Rewrites a task's source on disk and reopens the workbench, the way a
     /// pull-request task would have been recorded.
     pub fn set_source(&mut self, id: &str, source: Source) {

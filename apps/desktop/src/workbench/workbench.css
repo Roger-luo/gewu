@@ -895,3 +895,14 @@
 .agent-log-head h3 {
   margin: 0;
 }
+
+.notice.outdated {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.notice.outdated p {
+  margin: 0;
+}
