@@ -235,3 +235,23 @@ third shorter. Every result here is one model (Haiku), one or two PRs, and
 15–31 chunks per run, scored by one subagent whose strictness varied between
 runs as much as the prompts did. `rationale` is the most common failure that
 remains.
+
+### A second scorer on test 6
+
+A second Claude Sonnet subagent scored test 6's 19 chunks blind, without the
+first's scores. Below 2, first and second, and how many chunks they agree
+on pass or fail:
+
+| dimension | first | second | agree |
+|---|---|---|---|
+| grounded | 0 | 5 | 14 |
+| change_framing | 5 | 0 | 14 |
+| rationale | 5 | 3 | 17 |
+| representation_contrast | 0 | 0 | 19 |
+| showing | 1 | 1 | 19 |
+| minimality | 3 | 4 | 18 |
+| connection | 2 | 1 | 18 |
+
+On what this study changed — `showing`, `minimality`, `connection` — the two
+agree on 18 or 19 of 19 chunks, and both put test 6 within its bars. They
+disagree most where it did not reach: `grounded` and `change_framing`.
