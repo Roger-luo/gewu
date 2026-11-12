@@ -176,6 +176,12 @@ Rules:
   extra comparison, a lock, a precondition — so the reviewer can weigh it. A
   chunk that only lists functions, call sites, and line ranges has told the
   reviewer where things are, not why the change is better.
+- Say why each part is there in a sentence the reviewer can point at. For a
+  pull request, `.gewu/description.md` ends with its commits' messages under
+  `## Commits`; a part's motive is often in the commit that added it. Name
+  that commit when you give its reason, and when no commit, test, or comment
+  says why, state what the part enables and leave the motive open in
+  `confidence` rather than supplying one.
 - Explainers make that argument checkable. Gewu draws them from data you
   give; you never write HTML. They are expected, not decoration: when this
   item delivers a claim from `description.md`, its first chunk quotes the

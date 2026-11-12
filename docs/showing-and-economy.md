@@ -255,3 +255,34 @@ on pass or fail:
 On what this study changed — `showing`, `minimality`, `connection` — the two
 agree on 18 or 19 of 19 chunks, and both put test 6 within its bars. They
 disagree most where it did not reach: `grounded` and `change_framing`.
+
+## Rationale
+
+`rationale` was the most common failure in every run here. Its problems read
+"no reason given" or "a motive the code does not show", and for a pull
+request the writer saw only its body: #1131's body is a summary, while its
+commits say why each part exists ("Pinning fixes the initial layout, so its
+rows measure placement and routing alone"). A pull request's description
+now ends with its non-merge commit messages, trailers dropped, and the
+expand prompt says to take a part's motive from the commit that added it.
+
+### Test 7 (fixed before running)
+
+#1131 again, scored blind by two Claude Sonnet subagents. Bar: `rationale`
+below 2 on at most half test 6's rate under each scorer (5/19 and 3/19, so
+at most 2 and 1 of about 19 chunks), with `showing`, `minimality`, and
+`connection` each at most 4.
+
+### Results (2026-11-12)
+
+The bar fails. `rationale` below 2 on 9 and 6 of 27 chunks (33% and 22%,
+against test 6's 26% and 16%), and `minimality` on 6 and 5; `showing` 0 and
+0, `connection` 3 and 0. The two scorers agree on `rationale` for 22 of 27
+chunks. Commit messages in the description did not lower `rationale`: the
+problems left are design choices no commit explains ("why validation lives
+in the rewrite rule rather than in `CodeBlockValidation`", "why partial
+pinning is rejected"). The rubric scores 2 for a motive left as an honest
+open question, and the writer did neither: it neither found a reason nor
+said that the repository gives none. That is the next thing to try; this
+change is kept because the commits also give claims to quote, and it did
+not make `rationale` worse beyond the scorers' disagreement.

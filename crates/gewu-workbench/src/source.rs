@@ -132,10 +132,33 @@ impl Source {
             Self::PullRequest { number, remote } => {
                 let request = git.pull_request(remote, *number)?;
                 let title = request.title.map(|title| format!("#{number} {title}"));
-                description = request.body.map(|body| match &title {
-                    Some(title) => format!("# {title}\n\n{body}\n"),
-                    None => format!("{body}\n"),
-                });
+                // The body says what the change is for; its commits often say
+                // why each part is there. Found by blind proofreads of
+                // bloqade-lanes #1131: `rationale` was the most common
+                // failure, and its commit messages held motives the body did
+                // not.
+                let commits = git
+                    .messages(&request.base, &request.head, MESSAGES)
+                    .ok()
+                    .filter(|messages| !messages.is_empty())
+                    .map(|messages| {
+                        let listed = messages
+                            .iter()
+                            .map(|message| format!("### {message}\n"))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        format!("\n## Commits\n\n{listed}")
+                    })
+                    .unwrap_or_default();
+                description = match (&title, request.body) {
+                    (Some(title), Some(body)) => Some(format!("# {title}\n\n{body}\n{commits}")),
+                    (None, Some(body)) => Some(format!("{body}\n{commits}")),
+                    (Some(title), None) if !commits.is_empty() => {
+                        Some(format!("# {title}\n{commits}"))
+                    }
+                    (None, None) if !commits.is_empty() => Some(commits.trim_start().to_owned()),
+                    _ => None,
+                };
                 (request.head, Ok(request.base), title)
             }
             Self::Directory { path, reference } => (git.commit(reference)?, Err(path), None),

@@ -1,4 +1,4 @@
-//! A pull-request task saves the request's title and body beside the review
+//! A pull-request task saves the request's title, body, and commit messages beside the review
 //! input, where the generating agent reads the author's claims. Its own test
 //! binary: it puts the fake `gh` from `fixtures/bin` first on `PATH`.
 
@@ -73,8 +73,10 @@ fn a_pull_request_task_saves_the_authors_description() {
         .join(&id)
         .join("checkout/.gewu/description.md");
     let text = std::fs::read_to_string(&description).expect("description saved");
+    // Its commits follow the body: they often say why each part is there.
     assert_eq!(
         text,
-        "# #7 Print receipts\n\nPrints receipts 2× faster by reusing the buffer.\n"
+        "# #7 Print receipts\n\nPrints receipts 2× faster by reusing the buffer.\n\n\
+         ## Commits\n\n### test: head\n"
     );
 }
