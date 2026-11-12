@@ -13,11 +13,18 @@ use crate::{
 /// before one of these lacks it for good: its checkout, manifest, and plan
 /// are made once. Found when a review of ppvm #276 begun before descriptions
 /// were saved showed no explainers, with nothing in the app to say why.
-pub(crate) const PREPARATIONS: &[(u32, &str)] = &[(
-    1,
-    "the pull request's description, which explainers quote and check claims \
-     against, and chunks held to a reading-time budget",
-)];
+pub(crate) const PREPARATIONS: &[(u32, &str)] = &[
+    (
+        1,
+        "the pull request's description, which explainers quote and check claims \
+         against, and chunks held to a reading-time budget",
+    ),
+    (
+        2,
+        "steppers for the loops and sequences a reader would otherwise trace, plainer \
+         prose, and a commit range's messages as its description",
+    ),
+];
 
 /// The preparation version new tasks get.
 pub(crate) fn preparation() -> u32 {
