@@ -10,6 +10,7 @@
 
 mod error;
 mod event;
+mod live;
 mod policy;
 mod preset;
 mod session;
@@ -18,6 +19,7 @@ mod terminal;
 
 pub use error::AgentError;
 pub use event::{AgentEvent, EventKind, EventSink};
+pub use live::AgentSession;
 pub use policy::Policy;
 pub use preset::{PRESETS, Preset, PresetKind, PresetView};
 pub use session::{AcpRun, Cancel, Outcome};

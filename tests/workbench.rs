@@ -48,11 +48,24 @@ fn an_acp_agent_writes_one_batch_ahead_of_the_reviewer() {
     fixture.git(&["commit", "-qm", "test: three files"]);
     let id = fixture.start(range(), fake("harness"));
 
-    // The fake stops after each batch; it is started again for the one ahead.
+    // The fake stops after each batch; the same agent is told to carry on
+    // for the one ahead, without being started again.
     let first = fixture.settled(&id);
     assert_eq!(first.status, TaskStatus::AwaitingReviewer, "{first:?}");
     assert_eq!(fixture.chunks(&id), 2, "the second batch is written ahead");
     let log = fixture.workbench.log(&id, 0).expect("log");
+    let count = |prefix: &str| {
+        log.events
+            .iter()
+            .filter(|event| event.text.starts_with(prefix))
+            .count()
+    };
+    // Each proofreader is a fresh agent; the author is opened once.
+    assert_eq!(
+        count("session open after "),
+        1 + count("Starting a fresh agent to proofread"),
+        "one author writes both batches: {log:?}"
+    );
     assert!(
         log.events
             .iter()

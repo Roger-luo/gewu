@@ -4,7 +4,7 @@
 
 use std::{path::Path, sync::Arc};
 
-use gewu_agent::{AcpRun, AgentEvent, Cancel, EventKind, EventSink, ProjectState};
+use gewu_agent::{AcpRun, AgentEvent, AgentSession, Cancel, EventKind, EventSink, ProjectState};
 use gewu_harness::{DEFAULT_MAX_CHUNKS, HarnessRunner};
 use gewu_review::{ReviewSpec, harness::HarnessStage};
 
@@ -366,6 +366,18 @@ impl Workbench {
         // gate after two sections.
         let mut resumed = 0;
         let mut furthest = written(root);
+        let sink: EventSink = {
+            let workbench = self.clone();
+            let id = task_id.to_owned();
+            Arc::new(move |event: AgentEvent| workbench.emit(&id, event.kind, event.text))
+        };
+        // One author for the whole loop: a fresh one per batch re-read the
+        // description, manifest, and code before writing, about half the
+        // writing time in a live run of #276. Proofreaders stay fresh agents.
+        let mut author = AgentSession::new(
+            AcpRun::new(root, command.clone(), &self.inner.gewu),
+            Arc::clone(&sink),
+        );
         let outcome = loop {
             let written_before = written(root);
             let (message, start) = if fresh == 0 {
@@ -379,12 +391,11 @@ impl Workbench {
             self.update(task_id, stage.clone(), message)?;
             self.emit(task_id, EventKind::Status, start);
             let before = ProjectState::capture(root)?;
-            let sink: EventSink = {
-                let workbench = self.clone();
-                let id = task_id.to_owned();
-                Arc::new(move |event: AgentEvent| workbench.emit(&id, event.kind, event.text))
+            let outcome = if fresh == 0 {
+                author.turn(cancel)
+            } else {
+                AcpRun::new(root, command.clone(), &self.inner.gewu).run(Arc::clone(&sink), cancel)
             };
-            let outcome = AcpRun::new(root, command.clone(), &self.inner.gewu).run(sink, cancel);
             if ProjectState::capture(root)? != before {
                 return Ok(Ended::new(
                     TaskStatus::Failed,

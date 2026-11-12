@@ -28,6 +28,7 @@ use tokio::sync::watch;
 use crate::{AgentError, AgentEvent, EventKind, EventSink, Policy, Preset, terminal::Terminals};
 
 const BRIEF: &str = include_str!("../../../harness/prompts/agent.md");
+const CONTINUE: &str = include_str!("../../../harness/prompts/continue.md");
 /// Agent stderr lines kept for an error message.
 const STDERR_TAIL: usize = 40;
 /// How long a cancelled agent has to end its turn before it is killed.
@@ -39,7 +40,7 @@ const CANCEL_GRACE: Duration = Duration::from_secs(5);
 /// session opens, so starting again loses no work.
 const HANDSHAKE_LIMIT: Duration = Duration::from_secs(120);
 /// Starts allowed when the handshake hangs.
-const HANDSHAKE_ATTEMPTS: u32 = 3;
+pub(crate) const HANDSHAKE_ATTEMPTS: u32 = 3;
 
 /// Stops a running session from another thread.
 #[derive(Clone, Debug)]
@@ -82,7 +83,9 @@ pub struct Outcome {
 #[derive(Clone)]
 pub struct AcpRun {
     command: Vec<String>,
-    prompt: String,
+    pub(crate) prompt: String,
+    /// What a session that already holds the brief is sent on a later turn.
+    pub(crate) follow_up: String,
     policy: Policy,
     handshake_limit: Duration,
 }
@@ -99,7 +102,36 @@ struct Context {
     stalled: Arc<std::sync::atomic::AtomicBool>,
 }
 
+/// One prompt for a running session, and where its outcome goes.
+pub(crate) struct Turn {
+    pub(crate) prompt: String,
+    pub(crate) cancel: Cancel,
+    pub(crate) reply: tokio::sync::oneshot::Sender<Result<Outcome, AgentError>>,
+}
+
 impl Context {
+    /// Denials and the last message are per turn.
+    fn begin_turn(&self) {
+        if let Ok(mut denials) = self.denials.lock() {
+            denials.clear();
+        }
+        if let Ok(mut message) = self.message.lock() {
+            message.clear();
+        }
+    }
+
+    fn outcome(&self, stop_reason: String) -> Outcome {
+        Outcome {
+            stop_reason,
+            denials: self.denials.lock().map(|d| d.clone()).unwrap_or_default(),
+            message: self
+                .message
+                .lock()
+                .map(|m| m.trim().to_owned())
+                .unwrap_or_default(),
+        }
+    }
+
     fn emit(&self, kind: EventKind, text: impl Into<String>) {
         (self.sink)(AgentEvent::new(kind, text));
     }
@@ -252,9 +284,11 @@ impl AcpRun {
     /// for harness commands.
     pub fn new(root: &Path, command: Vec<String>, gewu: &Path) -> Self {
         let prompt = BRIEF.replace("{{gewu}}", &gewu.to_string_lossy());
+        let follow_up = CONTINUE.replace("{{gewu}}", &gewu.to_string_lossy());
         Self {
             command,
             prompt,
+            follow_up,
             policy: Policy::new(root, gewu),
             handshake_limit: HANDSHAKE_LIMIT,
         }
@@ -269,28 +303,11 @@ impl AcpRun {
 
     /// Run one batch to the end of the agent's turn, blocking this thread.
     pub fn run(self, sink: EventSink, cancel: &Cancel) -> Result<Outcome, AgentError> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        let mut attempt = 1;
-        loop {
-            match runtime.block_on(self.clone().session(Arc::clone(&sink), cancel)) {
-                Err(AgentError::Unresponsive { .. })
-                    if attempt < HANDSHAKE_ATTEMPTS && !cancel.is_cancelled() =>
-                {
-                    attempt += 1;
-                    sink(AgentEvent::new(
-                        EventKind::Status,
-                        format!(
-                            "the agent did not open a session within {} s; starting it again \
-                             (attempt {attempt} of {HANDSHAKE_ATTEMPTS})",
-                            self.handshake_limit.as_secs()
-                        ),
-                    ));
-                }
-                other => return other,
-            }
-        }
+        crate::AgentSession::new(self, sink).turn(cancel)
+    }
+
+    pub(crate) fn handshake_limit(&self) -> Duration {
+        self.handshake_limit
     }
 
     /// `PATH` with the places agent CLIs are usually installed, because a
@@ -314,7 +331,14 @@ impl AcpRun {
         std::env::join_paths(dirs).unwrap_or_default()
     }
 
-    async fn session(self, sink: EventSink, cancel: &Cancel) -> Result<Outcome, AgentError> {
+    /// Starts the agent and serves `turns` on one session until the sender
+    /// is dropped or the agent stops. A turn's reply is dropped unsent when
+    /// the agent fails during it; the error is this function's result.
+    pub(crate) async fn serve(
+        self,
+        sink: EventSink,
+        turns: tokio::sync::mpsc::UnboundedReceiver<Turn>,
+    ) -> Result<(), AgentError> {
         let (program, args) = self.command.split_first().ok_or(AgentError::NoCommand)?;
         let path = Self::search_path();
         // Resolved here so a missing CLI is a clear error rather than a
@@ -361,7 +385,7 @@ impl AcpRun {
             stalled: Arc::default(),
         };
         let limit = self.handshake_limit;
-        let result = Self::connect(agent, context.clone(), root, self.prompt, limit, cancel).await;
+        let result = Self::connect(agent, context.clone(), root, limit, turns).await;
         if context.stalled.load(std::sync::atomic::Ordering::SeqCst) {
             context.terminals.release_all();
             let stalled = AgentError::Unresponsive {
@@ -371,7 +395,7 @@ impl AcpRun {
             return Err(stalled);
         }
         context.terminals.release_all();
-        let stop_reason = result.map_err(|error| match error {
+        result.map_err(|error| match error {
             AgentError::Protocol(message) => {
                 let tail = stderr
                     .lock()
@@ -382,19 +406,6 @@ impl AcpRun {
                 stopped
             }
             other => other,
-        })?;
-        Ok(Outcome {
-            stop_reason,
-            denials: context
-                .denials
-                .lock()
-                .map(|d| d.clone())
-                .unwrap_or_default(),
-            message: context
-                .message
-                .lock()
-                .map(|m| m.trim().to_owned())
-                .unwrap_or_default(),
         })
     }
 
@@ -402,10 +413,9 @@ impl AcpRun {
         agent: AcpAgent,
         context: Context,
         root: PathBuf,
-        prompt: String,
         handshake_limit: Duration,
-        cancel: &Cancel,
-    ) -> Result<String, AgentError> {
+        mut turns: tokio::sync::mpsc::UnboundedReceiver<Turn>,
+    ) -> Result<(), AgentError> {
         let on_update = context.clone();
         let on_permission = context.clone();
         let on_read = context.clone();
@@ -415,7 +425,7 @@ impl AcpRun {
         let on_wait = context.terminals.clone();
         let on_kill = context.terminals.clone();
         let on_release = context.terminals.clone();
-        let reason = Client
+        Client
             .v1()
             .name("gewu")
             .on_receive_notification(
@@ -500,96 +510,118 @@ impl AcpRun {
                 agent_client_protocol::on_receive_request!(),
             )
             .connect_with(agent, async |cx| {
-                // Bounded: a CLI that hangs here never opens a session, and
-                // is started again rather than waited on for its own timeout.
-                let began = std::time::Instant::now();
-                let handshake = async {
-                    let capabilities = ClientCapabilities::new()
-                        .fs(FileSystemCapabilities::new()
-                            .read_text_file(true)
-                            .write_text_file(true))
-                        .terminal(true);
-                    let init = cx
-                        .send_request(
-                            InitializeRequest::new(ProtocolVersion::V1)
-                                .client_capabilities(capabilities)
-                                .client_info(Implementation::new(
-                                    "gewu",
-                                    env!("CARGO_PKG_VERSION"),
-                                )),
-                        )
-                        .block_task()
-                        .await?;
-                    if let Some(info) = &init.agent_info {
-                        context.emit(
-                            EventKind::Status,
-                            format!("connected to {} {}", info.name, info.version),
-                        );
-                    }
-                    let new_session = || {
-                        cx.send_request(NewSessionRequest::new(root.clone()))
-                            .block_task()
+                let mut opened: Option<agent_client_protocol::v1::schema::SessionId> = None;
+                while let Some(turn) = turns.recv().await {
+                    context.begin_turn();
+                    let session_id = if let Some(id) = &opened {
+                        id.clone()
+                    } else {
+                        let id = Self::handshake(&cx, &context, &root, handshake_limit).await?;
+                        opened = Some(id.clone());
+                        id
                     };
-                    // Some agents (Cursor's) refuse a session until the client
-                    // calls `authenticate` with a method they handle themselves,
-                    // even when their CLI is signed in. Sign in once and retry.
-                    let opened = match new_session().await {
-                        Err(error) if error.code == ErrorCode::AUTH_REQUIRED => {
-                            let Some(method) = init
-                                .auth_methods
-                                .iter()
-                                .find(|method| matches!(method, AuthMethod::Agent(_)))
-                            else {
-                                return Err(error);
-                            };
-                            context.emit(
-                                EventKind::Status,
-                                format!("signing in to the agent with {}", method.name()),
-                            );
-                            cx.send_request(AuthenticateRequest::new(method.id().clone()))
-                                .block_task()
-                                .await?;
-                            new_session().await?
+                    let prompt = cx
+                        .send_request(PromptRequest::new(
+                            session_id.clone(),
+                            vec![ContentBlock::Text(TextContent::new(turn.prompt))],
+                        ))
+                        .block_task();
+                    tokio::pin!(prompt);
+                    let (stop, abandoned) = tokio::select! {
+                        response = &mut prompt => (response?.stop_reason, false),
+                        () = turn.cancel.cancelled() => {
+                            context.emit(EventKind::Status, "cancelling the agent");
+                            cx.send_notification(CancelNotification::new(session_id))?;
+                            match tokio::time::timeout(CANCEL_GRACE, &mut prompt).await {
+                                Ok(response) => (response?.stop_reason, false),
+                                Err(_) => (StopReason::Cancelled, true),
+                            }
                         }
-                        other => other?,
                     };
-                    Ok::<_, agent_client_protocol::Error>(opened)
-                };
-                let Ok(session) = tokio::time::timeout(handshake_limit, handshake).await else {
-                    context
-                        .stalled
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
-                    return Err(agent_client_protocol::Error::internal_error());
-                };
-                let session = session?;
-                // Logged so a slow start can be told apart from a slow model.
-                context.emit(
-                    EventKind::Status,
-                    format!("session open after {} s", began.elapsed().as_secs()),
-                );
-                let session_id = session.session_id;
-                let prompt = cx
-                    .send_request(PromptRequest::new(
-                        session_id.clone(),
-                        vec![ContentBlock::Text(TextContent::new(prompt))],
-                    ))
-                    .block_task();
-                tokio::pin!(prompt);
-                let response = tokio::select! {
-                    response = &mut prompt => response?,
-                    () = cancel.cancelled() => {
-                        context.emit(EventKind::Status, "cancelling the agent");
-                        cx.send_notification(CancelNotification::new(session_id))?;
-                        match tokio::time::timeout(CANCEL_GRACE, &mut prompt).await {
-                            Ok(response) => response?,
-                            Err(_) => return Ok(StopReason::Cancelled),
-                        }
+                    let _ = turn.reply.send(Ok(context.outcome(Self::stop_name(stop))));
+                    // An agent that ignored the cancel is not given another turn.
+                    if abandoned {
+                        break;
                     }
-                };
-                Ok(response.stop_reason)
+                }
+                Ok(())
             })
             .await?;
-        Ok(Self::stop_name(reason))
+        Ok(())
+    }
+
+    /// Initialise, sign in if the agent asks, and open a session, within
+    /// `limit`: a CLI that hangs here never opens a session, and is started
+    /// again rather than waited on for its own timeout.
+    async fn handshake(
+        cx: &agent_client_protocol::v1::ConnectionTo<agent_client_protocol::Agent>,
+        context: &Context,
+        root: &Path,
+        limit: Duration,
+    ) -> Result<agent_client_protocol::v1::schema::SessionId, agent_client_protocol::Error> {
+        let began = std::time::Instant::now();
+        let handshake = async {
+            let capabilities = ClientCapabilities::new()
+                .fs(FileSystemCapabilities::new()
+                    .read_text_file(true)
+                    .write_text_file(true))
+                .terminal(true);
+            let init = cx
+                .send_request(
+                    InitializeRequest::new(ProtocolVersion::V1)
+                        .client_capabilities(capabilities)
+                        .client_info(Implementation::new("gewu", env!("CARGO_PKG_VERSION"))),
+                )
+                .block_task()
+                .await?;
+            if let Some(info) = &init.agent_info {
+                context.emit(
+                    EventKind::Status,
+                    format!("connected to {} {}", info.name, info.version),
+                );
+            }
+            let new_session = || {
+                cx.send_request(NewSessionRequest::new(root.to_path_buf()))
+                    .block_task()
+            };
+            // Some agents (Cursor's) refuse a session until the client
+            // calls `authenticate` with a method they handle themselves,
+            // even when their CLI is signed in. Sign in once and retry.
+            let opened = match new_session().await {
+                Err(error) if error.code == ErrorCode::AUTH_REQUIRED => {
+                    let Some(method) = init
+                        .auth_methods
+                        .iter()
+                        .find(|method| matches!(method, AuthMethod::Agent(_)))
+                    else {
+                        return Err(error);
+                    };
+                    context.emit(
+                        EventKind::Status,
+                        format!("signing in to the agent with {}", method.name()),
+                    );
+                    cx.send_request(AuthenticateRequest::new(method.id().clone()))
+                        .block_task()
+                        .await?;
+                    new_session().await?
+                }
+                other => other?,
+            };
+            Ok::<_, agent_client_protocol::Error>(opened)
+        };
+        let Ok(session) = tokio::time::timeout(limit, handshake).await else {
+            context
+                .stalled
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            return Err(agent_client_protocol::Error::internal_error());
+        };
+        let session = session?;
+        // Logged so a slow start can be told apart from a slow model.
+        context.emit(
+            EventKind::Status,
+            format!("session open after {} s", began.elapsed().as_secs()),
+        );
+        Ok(session.session_id)
     }
 
     fn stop_name(reason: StopReason) -> String {

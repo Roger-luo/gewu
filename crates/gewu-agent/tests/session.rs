@@ -207,3 +207,59 @@ fn an_agent_that_never_opens_a_session_fails_after_three_starts() {
         .count();
     assert_eq!(restarts, 2, "{events:?}");
 }
+
+fn turns_session(
+    root: &Path,
+    turns: &str,
+) -> (gewu_agent::AgentSession, Arc<Mutex<Vec<AgentEvent>>>) {
+    let (sink, events) = recorder();
+    let command = vec![
+        "env".to_owned(),
+        "FAKE_AGENT_MODE=turns".to_owned(),
+        "FAKE_AGENT_DELAY=0".to_owned(),
+        format!("FAKE_AGENT_TURNS={turns}"),
+        "python3".to_owned(),
+        fake_agent(),
+    ];
+    let run = AcpRun::new(root, command, &PathBuf::from("/usr/local/bin/gewu"));
+    (gewu_agent::AgentSession::new(run, sink), events)
+}
+
+/// Found in a live run of ppvm #276: a fresh author per batch spent half the
+/// writing time re-reading what the last one had read.
+#[test]
+fn later_turns_reach_the_same_agent_without_the_brief() {
+    let root = project();
+    let (mut session, _) = turns_session(root.path(), "");
+    let cancel = Cancel::default();
+    let first = session.turn(&cancel).expect("first turn").message;
+    let second = session.turn(&cancel).expect("second turn").message;
+    let pid = |message: &str| message.split_whitespace().nth(1).map(str::to_owned);
+    assert!(first.ends_with(" brief"), "{first}");
+    assert!(second.ends_with(" follow-up"), "{second}");
+    assert_eq!(pid(&first), pid(&second), "one process serves both turns");
+}
+
+#[test]
+fn an_agent_that_exits_between_turns_is_replaced_with_the_brief() {
+    let root = project();
+    let (mut session, events) = turns_session(root.path(), "1");
+    let cancel = Cancel::default();
+    let first = session.turn(&cancel).expect("first turn").message;
+    let second = session
+        .turn(&cancel)
+        .expect("a new agent takes over")
+        .message;
+    assert!(second.ends_with(" brief"), "{second}");
+    assert_ne!(
+        first.split_whitespace().nth(1),
+        second.split_whitespace().nth(1)
+    );
+    let events = events.lock().expect("events");
+    assert!(
+        events
+            .iter()
+            .any(|event| event.text == "the agent's session ended; starting a new one"),
+        "{events:?}"
+    );
+}

@@ -14,6 +14,8 @@ FAKE_AGENT_MODE selects other behavior:
                      write, one refused command, then end the turn
   meddle             edit a project file directly, then end the turn
   fail               exit with an error before answering the prompt
+  turns              say its pid and whether the prompt was the brief, then
+                     end the turn; with FAKE_AGENT_TURNS=1, exit after one
 FAKE_AGENT_LOGIN makes session/new need `authenticate` first, as Cursor's
 agent does: `required` accepts the advertised method, `refused` turns it
 down as a signed-out CLI would.
@@ -116,7 +118,10 @@ class Agent:
 
     def prompt(self, text):
         match = re.search(r"The Gewu binary is `([^`]+)`", text)
-        gewu = match.group(1) if match else "gewu"
+        # A later turn in the same session carries no brief; keep the first.
+        if match:
+            self.gewu = match.group(1)
+        gewu = getattr(self, "gewu", "gewu")
         if MODE == "fail":
             sys.stderr.write("simulated failure while writing the walkthrough\n")
             sys.exit(3)
@@ -125,6 +130,11 @@ class Agent:
             self.write_file(".gewu/harness/probe.txt", "allowed")
             self.write_file("outside.txt", "refused")
             self.run(["rm", "-rf", "."])
+            return
+        if MODE == "turns":
+            kind = "brief" if match else "follow-up"
+            self.say(f"pid {os.getpid()} {kind}")
+            self.served = getattr(self, "served", 0) + 1
             return
         if MODE == "meddle":
             with open(os.path.join(self.cwd, "MEDDLED.txt"), "w") as handle:
@@ -241,6 +251,8 @@ class Agent:
                 except Cancelled:
                     reason = "cancelled"
                 self.send({"id": message["id"], "result": {"stopReason": reason}})
+                if os.environ.get("FAKE_AGENT_TURNS") == str(getattr(self, "served", -1)):
+                    sys.exit(0)
             elif method == "session/cancel":
                 self.cancelled = True
             elif "id" in message and method:
