@@ -407,8 +407,9 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "Measured heights:\n\n{rows}\n{}{}{}",
+        "Measured heights:\n\n{rows}\n{}{}{}{}",
         openings(chunks),
+        cited(chunks),
         undrawn(chunks, &known),
         undrawn_sequence(chunks)
     )
@@ -430,6 +431,30 @@ fn openings(chunks: &[gewu_review::ReviewChunk]) -> String {
     format!(
         "\nThese chunks open by pointing at lines. Say first what part of the change the chunk \
          is and how it follows the chunk before it, and cite the lines after:\n\n{}\n",
+        notes.join("\n")
+    )
+}
+
+/// Line citations a chunk's prose may make before it reads as narrating the
+/// view: one points the reader at what matters, more walk them down the
+/// gutter.
+const MAX_LINE_CITATIONS: usize = 1;
+
+/// Chunks whose prose cites line numbers the view already shows, which blind
+/// proofreads failed on `minimality` (docs/showing-and-economy.md).
+fn cited(chunks: &[gewu_review::ReviewChunk]) -> String {
+    let notes: Vec<String> = chunks
+        .iter()
+        .filter(|chunk| chunk.line_citations() > MAX_LINE_CITATIONS)
+        .map(|chunk| format!("- `{}`: {} line numbers", chunk.id, chunk.line_citations()))
+        .collect();
+    if notes.is_empty() {
+        return String::new();
+    }
+    format!(
+        "\nThese chunks cite line numbers the reader sees in the gutter beside the prose. Name \
+         the code instead — the function, the branch, the check — and keep a number only where \
+         the view is long enough that the reader would otherwise search:\n\n{}\n",
         notes.join("\n")
     )
 }
@@ -905,5 +930,37 @@ mod tests {
         ];
         assert!(!super::measured(&drawn, &input).contains("draws anything"));
         assert!(!super::measured(&told[..2], &input).contains("draws anything"));
+    }
+
+    /// Found by blind proofreads of bloqade-lanes #1131: chunks walking the
+    /// reader down the gutter failed `minimality`.
+    #[test]
+    fn status_names_chunks_that_cite_line_numbers() {
+        let input = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            Vec::new(),
+        );
+        let chunk = |id: &str, markdown: &str| -> gewu_review::ReviewChunk {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "title": "t", "summary": "s", "kind": "concept",
+                "content": [{ "type": "narrative", "markdown": markdown }]
+            }))
+            .expect("chunk")
+        };
+        let status = super::measured(
+            &[
+                chunk(
+                    "walked",
+                    "With the tags read, line 160 checks and lines 163–178 warn.",
+                ),
+                chunk(
+                    "pointed",
+                    "With the tags read, the check on line 160 matters.",
+                ),
+            ],
+            &input,
+        );
+        assert!(status.contains("- `walked`: 2 line numbers"), "{status}");
+        assert!(!status.contains("- `pointed`: "), "{status}");
     }
 }

@@ -184,3 +184,27 @@ Claude Sonnet subagent, 1 of #901's 31 chunks and 0 of #1131's 22 fall below
 put), with a brief for its stepper. The same scorer failed 9 of #901's
 chunks on `rationale` and 6 on `minimality`, and 3 and 7 of #1131's: those
 remain the most common failures.
+
+## Line numbers in prose
+
+Five of #1131's seven `minimality` failures in test 4 narrated line numbers
+the gutter shows ("lines 140–156 …"). `gewu harness status` now names chunks
+whose prose cites more than one.
+
+### Test 5 (fixed before running)
+
+#1131 again, as in test 4, scored blind. Bar: `minimality` below 2 on at
+most half test 4's rate (7/22, so at most 16%), with `showing` still at most
+20%.
+
+### Results (2026-11-12)
+
+The `minimality` bar fails: 7/22 (32%) → 5/23 (22%), against at most 16%.
+`showing` holds at 0/23. The check did what it targets: #1131's prose cited
+line numbers 24 times in 7 chunks in test 4 and not once in test 5, and
+none of the five remaining failures is about line numbers. They are
+openings that restate the summary (three) and wiring told in one narrative
+per one-line hunk (one), plus one chunk narrating its code. `connection`
+failures rose from 0 to 8 of 23, and `rationale` stayed the most common
+failure (10 of 23), as in every test here and in docs/proofread-prescreen.md.
+Neither was among the problems this study set out to fix; both are open.

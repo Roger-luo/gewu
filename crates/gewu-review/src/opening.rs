@@ -41,6 +41,39 @@ impl ReviewChunk {
     }
 }
 
+impl ReviewChunk {
+    /// How many times the chunk's prose cites a line or line range ("line
+    /// 160", "lines 140–156"), which the gutter beside it already shows.
+    /// Found by blind proofreads of bloqade-lanes #1131: five of its seven
+    /// `minimality` failures narrated line numbers.
+    #[must_use]
+    pub fn line_citations(&self) -> usize {
+        self.content
+            .iter()
+            .filter_map(|block| match block {
+                ChunkBlock::Narrative { markdown } => Some(markdown.as_str()),
+                _ => None,
+            })
+            .map(|prose| {
+                let words: Vec<String> = prose
+                    .split_whitespace()
+                    .map(|word| {
+                        word.trim_matches(|c: char| !c.is_alphanumeric())
+                            .to_lowercase()
+                    })
+                    .collect();
+                words
+                    .windows(2)
+                    .filter(|pair| {
+                        matches!(pair[0].as_str(), "line" | "lines")
+                            && pair[1].starts_with(|c: char| c.is_ascii_digit())
+                    })
+                    .count()
+            })
+            .sum()
+    }
+}
+
 /// Up to the first full stop followed by a space, or the whole text.
 fn first_sentence(prose: &str) -> &str {
     let line = prose.lines().next().unwrap_or(prose);
@@ -87,5 +120,18 @@ mod tests {
         ] {
             assert!(opening(text).is_none(), "{text}");
         }
+    }
+
+    #[test]
+    fn line_citations_are_counted_across_the_prose() {
+        let chunk: ReviewChunk = serde_json::from_value(serde_json::json!({
+            "id": "c", "title": "t", "summary": "s", "kind": "concept",
+            "content": [
+                { "type": "narrative", "markdown": "Line 160 checks it; lines 163–178 warn." },
+                { "type": "narrative", "markdown": "Line endings stay. See (line 9)." }
+            ]
+        }))
+        .expect("chunk");
+        assert_eq!(chunk.line_citations(), 3);
     }
 }
