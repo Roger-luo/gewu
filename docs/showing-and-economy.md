@@ -208,3 +208,30 @@ per one-line hunk (one), plus one chunk narrating its code. `connection`
 failures rose from 0 to 8 of 23, and `rationale` stayed the most common
 failure (10 of 23), as in every test here and in docs/proofread-prescreen.md.
 Neither was among the problems this study set out to fix; both are open.
+
+### Test 6 (fixed before running)
+
+Test 5's `connection` failures opened on a bare symbol: where test 4's
+chunks began "Completing `code_blocks.py` after …, lines 112–126 …", the
+rewrite dropped the placing clause with the numbers. The status note now
+says to keep the clause. #1131 again, scored blind. Bars: `connection`
+below 2 on at most 2 of the chunks (test 4: 0 of 22), and line citations
+stay near none (at most 3 chunks citing more than one).
+
+### Results (2026-11-12)
+
+Both bars pass: `connection` below 2 on 2 of 19 chunks (test 5: 8 of 23),
+and no chunk cites more than one line number. `minimality` fell to 3 of 19
+(16%), meeting the bar test 5 missed; `rationale` to 5 of 19 (26%, test 5:
+10 of 23); `showing` 1 of 19. This run drew two `claim`s and no stepper, and
+the scorer found one loop to draw, so how many steppers a walkthrough needs
+varies with what the writer splits into a chunk.
+
+## Where this leaves the walkthroughs
+
+Across tests 3–6, with proofreading and the status checks, `showing` stays
+at or under 12% where the old pipeline left 40–47%, and prose is about a
+third shorter. Every result here is one model (Haiku), one or two PRs, and
+15–31 chunks per run, scored by one subagent whose strictness varied between
+runs as much as the prompts did. `rationale` is the most common failure that
+remains.

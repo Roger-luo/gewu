@@ -438,6 +438,10 @@ fn openings(chunks: &[gewu_review::ReviewChunk]) -> String {
 /// Line citations a chunk's prose may make before it reads as narrating the
 /// view: one points the reader at what matters, more walk them down the
 /// gutter.
+///
+/// Found by test 5 in docs/showing-and-economy.md: told only to name the code,
+/// writers dropped the placing clause with the numbers, and eight of 23
+/// chunks opened on a bare symbol.
 const MAX_LINE_CITATIONS: usize = 1;
 
 /// Chunks whose prose cites line numbers the view already shows, which blind
@@ -454,7 +458,8 @@ fn cited(chunks: &[gewu_review::ReviewChunk]) -> String {
     format!(
         "\nThese chunks cite line numbers the reader sees in the gutter beside the prose. Name \
          the code instead — the function, the branch, the check — and keep a number only where \
-         the view is long enough that the reader would otherwise search:\n\n{}\n",
+         the view is long enough that the reader would otherwise search. Keep the opening \
+         clause that says how the chunk follows the one before; drop only the numbers:\n\n{}\n",
         notes.join("\n")
     )
 }
