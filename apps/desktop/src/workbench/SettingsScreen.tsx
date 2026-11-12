@@ -4,6 +4,7 @@ import type { GitHubPreferences } from "../backend/types";
 import { GearIcon } from "../components/Icons";
 import type { GitHubState } from "../hooks/useGitHub";
 import { GitHubSettingsFields } from "./GitHubSettingsFields";
+import { ProofreaderField } from "./ProofreaderField";
 import type { AgentPreset, Settings, SettingsView } from "./protocol";
 
 /**
@@ -31,6 +32,7 @@ export function SettingsScreen({
     proofread_rounds: settings.proofread_rounds,
     default_agent: settings.default_agent,
     explain_tests: settings.explain_tests,
+    proofreader: settings.proofreader,
   });
   // Only the GitHub fields edited here. The rest show the live value, so a
   // sign-in from the sidebar while this screen is open is not undone by Save.
@@ -159,6 +161,14 @@ export function SettingsScreen({
             many times, before you see it. Between 0 and {settings.max_proofread_rounds}; 0 turns
             proofreading off. Applies to reviews you start from now on.
           </p>
+          <ProofreaderField
+            agents={agents}
+            value={draft.proofreader}
+            onChange={(proofreader) => {
+              setDraft({ ...draft, proofreader });
+              setState("idle");
+            }}
+          />
           <label className="settings-check">
             <input
               type="checkbox"

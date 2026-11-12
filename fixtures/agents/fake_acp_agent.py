@@ -11,7 +11,8 @@ FAKE_AGENT_MODE selects other behavior:
   follow             the same, but keep writing items for as long as the
                      harness asks for the next, as a real agent does
   probe              exercise the policy: one allowed write, one refused
-                     write, one refused command, then end the turn
+                     write, one refused command, then end the turn; told
+                     what was refused, end the next turn without trying again
   meddle             edit a project file directly, then end the turn
   fail               exit with an error before answering the prompt
   turns              say its pid and whether the prompt was the brief, then
@@ -125,6 +126,9 @@ class Agent:
         if MODE == "fail":
             sys.stderr.write("simulated failure while writing the walkthrough\n")
             sys.exit(3)
+        if MODE == "probe" and text.startswith("Gewu refused"):
+            self.say("Carrying on within the rules.")
+            return
         if MODE == "probe":
             self.say("Probing the policy.")
             self.write_file(".gewu/harness/probe.txt", "allowed")
@@ -200,8 +204,8 @@ class Agent:
             ids = re.findall(r'^\s*"id": "([^"]+)"', listed, re.M)
             self.say(f"Proofreading {len(ids)} step(s).\n")
             scores = {name: 3 for name in ("grounded", "change_framing", "rationale",
-                                           "representation_contrast", "minimality",
-                                           "connection")}
+                                           "representation_contrast", "showing",
+                                           "minimality", "connection")}
             self.write_file(".gewu/harness/proofread.json", {
                 "schema_version": 1, "source": source,
                 "chunks": [{"id": id, "scores": scores, "problems": []} for id in ids]})

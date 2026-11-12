@@ -29,6 +29,7 @@ use crate::{AgentError, AgentEvent, EventKind, EventSink, Policy, Preset, termin
 
 const BRIEF: &str = include_str!("../../../harness/prompts/agent.md");
 const CONTINUE: &str = include_str!("../../../harness/prompts/continue.md");
+const REFUSED: &str = include_str!("../../../harness/prompts/refused.md");
 /// Agent stderr lines kept for an error message.
 const STDERR_TAIL: usize = 40;
 /// How long a cancelled agent has to end its turn before it is killed.
@@ -86,6 +87,9 @@ pub struct AcpRun {
     pub(crate) prompt: String,
     /// What a session that already holds the brief is sent on a later turn.
     pub(crate) follow_up: String,
+    /// What an agent that stopped after a refusal is told; `{{refused}}`
+    /// takes the requests.
+    pub(crate) refused: String,
     policy: Policy,
     handshake_limit: Duration,
 }
@@ -251,8 +255,17 @@ impl Context {
         &self,
         request: &CreateTerminalRequest,
     ) -> Result<CreateTerminalResponse, agent_client_protocol::Error> {
-        self.policy
-            .check_command(&request.command, &request.args)
+        // Claude Code's adapter sends a whole shell line as the command,
+        // with no arguments. Found by a live run: every harness command was
+        // refused as not the Gewu binary.
+        let (program, args) =
+            if request.args.is_empty() && request.command.contains(char::is_whitespace) {
+                self.policy.shell_command(&request.command)
+            } else {
+                self.policy
+                    .check_command(&request.command, &request.args)
+                    .map(|()| (request.command.clone(), request.args.clone()))
+            }
             .map_err(|reason| self.deny(reason))?;
         let root = self.policy.root().to_path_buf();
         let cwd = match &request.cwd {
@@ -264,12 +277,7 @@ impl Context {
         };
         let id = self
             .terminals
-            .create(
-                &request.command,
-                &request.args,
-                &cwd,
-                request.output_byte_limit,
-            )
+            .create(&program, &args, &cwd, request.output_byte_limit)
             .map_err(|error| agent_client_protocol::Error::new(-32603, error.to_string()))?;
         Ok(CreateTerminalResponse::new(TerminalId::new(id)))
     }
@@ -285,10 +293,12 @@ impl AcpRun {
     pub fn new(root: &Path, command: Vec<String>, gewu: &Path) -> Self {
         let prompt = BRIEF.replace("{{gewu}}", &gewu.to_string_lossy());
         let follow_up = CONTINUE.replace("{{gewu}}", &gewu.to_string_lossy());
+        let refused = REFUSED.replace("{{gewu}}", &gewu.to_string_lossy());
         Self {
             command,
             prompt,
             follow_up,
+            refused,
             policy: Policy::new(root, gewu),
             handshake_limit: HANDSHAKE_LIMIT,
         }

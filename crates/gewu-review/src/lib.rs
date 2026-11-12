@@ -10,6 +10,7 @@ pub mod harness;
 mod height;
 mod input;
 pub mod load;
+mod loops;
 mod opening;
 mod publication;
 mod reading;

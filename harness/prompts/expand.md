@@ -154,6 +154,11 @@ Rules:
   more than the basis), and say when it is alive: a structure built and
   dropped inside one step saves at that moment, which lowers peak memory only
   if that moment is the peak.
+- Do not narrate the view. "Lines 20–34 implement `multiply` and `swap`"
+  tells the reviewer what the gutter already shows; say what to look for in
+  those lines instead. Say that a file is new once, where it first appears,
+  not again in every chunk that quotes it. Name the one caller that shows how
+  the code is used, not every caller, importer, and re-export.
 - When you name callers, say which are production and which are tests; a
   test-only constructor is not evidence of how the change is used. Name only
   code that calls it at the head, checked with a search of the head; base
@@ -177,8 +182,12 @@ Rules:
   claim in a `claim` block; when the point is that a record shrinks, a cost
   scales with a size, an algorithm proceeds in steps, or work moves out of a
   loop, the chunk that shows it carries a `layout`, `cost_model`, `stepper`,
-  or `timeline`. Prose that says "32 bytes instead of 48" without a layout
-  has left the reviewer to picture it. Add them as `content` blocks:
+  or `timeline`. This holds with no claim at all: an elimination, a rewrite
+  pass, or a structure moved through states by several operations (allocate,
+  lend, return, free) is a `stepper` whatever the change is for. Prose that
+  says "32 bytes instead of 48" without a layout has left the reviewer to
+  picture it; prose that walks through a reduction one sentence at a time has
+  made them run it in their head. Add them as `content` blocks:
 
   ```json
   { "type": "explainer", "kind": "claim",
@@ -256,10 +265,20 @@ Rules:
     count. A fact from an outside library, such as a hash table's load
     factor, may be used when `source` names the library it comes from.
   - `stepper`: when the point is how an algorithm proceeds — a lookup, a
-    probe sequence, a state machine — and a reader would otherwise simulate
-    it in their head. Two to twelve steps; each caption says what happens and
-    why it matters. `code` is the quoted code or a faithful excerpt of it
-    (at most 30 lines), copied from the quoted lines — drop lines with a
+    probe sequence, an elimination, a state machine — and a reader would
+    otherwise simulate it in their head. Step through one concrete example:
+    the one `description.md` gives, a test's input, or small illustrative
+    values said to be illustrative. `state` holds the data the reader would
+    track, not only counters: a matrix's rows after each pivot, which slots
+    of a register are full or lent, which sites of a word a block occupies
+    (`word 0: [a a a · ]`). When the point is how several statements
+    act on one structure in turn (a lifecycle, a protocol), the stepper's
+    `code` may be a short program from a test or the description instead of
+    the quoted lines, with `source` naming where it comes from; put it on the
+    first chunk of those statements, and let the later chunks refer to it.
+    Two to twelve steps; each caption says what happens and why it matters.
+    `code` is a faithful excerpt (at most 30 lines), copied from the quoted
+    lines or from that program — drop lines with a
     `// …` comment rather than rewriting them, and say in `source` which
     file and lines it shows; a later step changes `code` only when the point is
     that the code changes, and otherwise moves `highlight`. Set `start_line`

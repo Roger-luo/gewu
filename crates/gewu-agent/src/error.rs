@@ -27,14 +27,16 @@ pub enum AgentError {
 }
 
 impl AgentError {
-    /// A protocol failure told plainly: the agent's last line on stderr, or
-    /// its exit status, rather than the transport's error dump.
+    /// A protocol failure told plainly: the agent's last `Error:` line on
+    /// stderr, else its last line with words in it, or its exit status,
+    /// rather than the transport's error dump. Found by starting Claude Code
+    /// inside a Claude Code session: its reason came first, and an object
+    /// dump after it ended in a bare `}`.
     pub(crate) fn stopped(message: &str, stderr: &str) -> Self {
-        let last_line = stderr
-            .lines()
-            .rev()
-            .map(str::trim)
-            .find(|line| !line.is_empty())
+        let lines = || stderr.lines().rev().map(str::trim);
+        let last_line = lines()
+            .find(|line| line.starts_with("Error:"))
+            .or_else(|| lines().find(|line| line.chars().any(char::is_alphabetic)))
             .map(str::to_owned);
         let exit_status = || {
             let (_, rest) = message.split_once("exit status: ")?;
@@ -64,6 +66,21 @@ impl From<agent_client_protocol::Error> for AgentError {
 #[cfg(test)]
 mod tests {
     use super::AgentError;
+
+    #[test]
+    fn stopped_prefers_the_agents_error_line_to_a_dump_after_it() {
+        let stderr = "Error: Claude Code cannot be launched inside another Claude Code session.\n\
+                      Error handling request {\n  id: 1,\n} {\n  code: -32603,\n}\n";
+        assert_eq!(
+            AgentError::stopped("closed", stderr).to_string(),
+            "the agent stopped unexpectedly: Error: Claude Code cannot be launched inside \
+             another Claude Code session."
+        );
+        assert_eq!(
+            AgentError::stopped("closed", "warming up\n}\n").to_string(),
+            "the agent stopped unexpectedly: warming up"
+        );
+    }
 
     #[test]
     fn stopped_prefers_the_last_stderr_line() {

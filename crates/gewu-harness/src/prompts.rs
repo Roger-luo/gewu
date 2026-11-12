@@ -406,7 +406,12 @@ pub fn measured(chunks: &[gewu_review::ReviewChunk], input: &gewu_review::Review
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("Measured heights:\n\n{rows}\n{}", openings(chunks))
+    format!(
+        "Measured heights:\n\n{rows}\n{}{}{}",
+        openings(chunks),
+        undrawn(chunks, &known),
+        undrawn_sequence(chunks)
+    )
 }
 
 /// Chunks whose prose opens by pointing at lines, which proofreaders mark
@@ -426,6 +431,63 @@ fn openings(chunks: &[gewu_review::ReviewChunk]) -> String {
         "\nThese chunks open by pointing at lines. Say first what part of the change the chunk \
          is and how it follows the chunk before it, and cite the lines after:\n\n{}\n",
         notes.join("\n")
+    )
+}
+
+/// Chunks that quote an added loop and draw nothing, which blind proofreads
+/// failed on `showing` (docs/showing-and-economy.md).
+fn undrawn(
+    chunks: &[gewu_review::ReviewChunk],
+    changes: &std::collections::HashMap<&String, &gewu_review::Change>,
+) -> String {
+    let notes: Vec<String> = chunks
+        .iter()
+        .filter_map(|chunk| {
+            let line = chunk.undrawn_loop(changes)?;
+            Some(format!("- `{}`: `{line}`", chunk.id))
+        })
+        .collect();
+    if notes.is_empty() {
+        return String::new();
+    }
+    format!(
+        "\nThese chunks quote a loop and draw nothing. If the reader would run it in their head \
+         to follow the change, step through one example with a `stepper` — the description's, a \
+         test's, or small illustrative values — with the data it transforms as `state`:\n\n{}\n",
+        notes.join("\n")
+    )
+}
+
+/// Chunks a batch spends on one subject before a reader has seen it work,
+/// without one explainer among them. Found by the app's walkthrough of
+/// bloqade-circuit #901: six chunks each added one register operation, and
+/// none drew a register going through them.
+const UNDRAWN_RUN: usize = 3;
+
+/// A batch of several chunks with no explainer at all, which may be one
+/// sequence told a statement at a time.
+fn undrawn_sequence(chunks: &[gewu_review::ReviewChunk]) -> String {
+    let told: Vec<&str> = chunks
+        .iter()
+        .filter(|chunk| chunk.kind != gewu_review::ChunkKind::Test)
+        .map(|chunk| chunk.id.as_str())
+        .collect();
+    let drawn = chunks.iter().any(|chunk| {
+        chunk
+            .content
+            .iter()
+            .any(|block| matches!(block, gewu_review::ChunkBlock::Explainer(_)))
+    });
+    if drawn || told.len() < UNDRAWN_RUN {
+        return String::new();
+    }
+    format!(
+        "\nNone of these {} chunks draws anything. If they each add one operation on the same \
+         structure — allocate, lend, return, take, free — show the structure going through them \
+         once, with a `stepper` on the first over a short program from a test or the \
+         description, its `state` the structure after each step; the later chunks refer back \
+         to it.\n",
+        told.len()
     )
 }
 
@@ -773,5 +835,75 @@ mod tests {
         assert!(!status.contains("- `placed`:"), "{status}");
         let clean = super::measured(&[chunk("placed", "With the heap built, it holds.")], &input);
         assert!(!clean.contains("pointing at lines"), "{clean}");
+    }
+
+    /// Found by blind proofreads of ppvm #233: chunks quoting an added loop
+    /// with nothing drawn failed `showing`, so the status names them.
+    #[test]
+    fn status_names_chunks_that_quote_a_loop_and_draw_nothing() {
+        let change = gewu_review::Change::new(
+            "src/rows.rs",
+            (1, 0, 1, 2),
+            "@@ -1,0 +1,2 @@\n+for row in 0..n {\n+}\n",
+        );
+        let input = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            vec![change.clone()],
+        );
+        let chunk: gewu_review::ReviewChunk = serde_json::from_value(serde_json::json!({
+            "id": "sweep", "title": "t", "summary": "s", "kind": "concept",
+            "content": [
+                { "type": "narrative", "markdown": "With the rows split, the sweep runs." },
+                { "type": "changes", "presentation": "added_code",
+                  "quotes": [{ "change_id": change.id, "start": 1, "end": 2 }] }
+            ]
+        }))
+        .expect("chunk");
+        let status = super::measured(&[chunk], &input);
+        assert!(status.contains("quote a loop and draw nothing"), "{status}");
+        assert!(
+            status.contains("- `sweep`: `for row in 0..n {`"),
+            "{status}"
+        );
+    }
+
+    /// Found by the app's walkthrough of bloqade-circuit #901: a register's
+    /// lifecycle told one statement per chunk, with nothing drawn.
+    #[test]
+    fn status_asks_a_batch_with_nothing_drawn_to_draw_its_sequence() {
+        let input = gewu_review::ReviewInput::new(
+            gewu_review::SourceIdentity::new("base", "head", b""),
+            Vec::new(),
+        );
+        let chunk = |id: &str, explained: bool| -> gewu_review::ReviewChunk {
+            let mut content =
+                vec![serde_json::json!({ "type": "narrative", "markdown": "With r." })];
+            if explained {
+                content.push(serde_json::json!({
+                    "type": "explainer", "kind": "claim", "claim": "c", "how": "h"
+                }));
+            }
+            serde_json::from_value(serde_json::json!({
+                "id": id, "title": "t", "summary": "s", "kind": "concept", "content": content
+            }))
+            .expect("chunk")
+        };
+        let told = [
+            chunk("alloc", false),
+            chunk("borrow", false),
+            chunk("free", false),
+        ];
+        let status = super::measured(&told, &input);
+        assert!(
+            status.contains("None of these 3 chunks draws anything"),
+            "{status}"
+        );
+        let drawn = [
+            chunk("alloc", true),
+            chunk("borrow", false),
+            chunk("free", false),
+        ];
+        assert!(!super::measured(&drawn, &input).contains("draws anything"));
+        assert!(!super::measured(&told[..2], &input).contains("draws anything"));
     }
 }

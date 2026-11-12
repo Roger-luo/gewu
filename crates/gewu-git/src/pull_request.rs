@@ -45,10 +45,22 @@ impl Repository<'_> {
     }
 
     /// Fetches one ref and returns the commit it names.
+    ///
+    /// The ref lands under a name of this fetch's own, not `FETCH_HEAD`,
+    /// which every fetch in the repository overwrites. Found by preparing
+    /// two reviews of one repository at once: one read the other's
+    /// `FETCH_HEAD` as it was rewritten, and failed.
     fn fetched(&self, remote: &str, reference: &str) -> Result<String, GitError> {
+        static FETCHES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let own = format!(
+            "refs/gewu/fetch/{}-{}",
+            std::process::id(),
+            FETCHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
+        let refspec = format!("+{reference}:{own}");
         let output = self
             .command()
-            .args(["fetch", "--quiet", "--no-tags", remote, reference])
+            .args(["fetch", "--quiet", "--no-tags", remote, &refspec])
             .output()
             .map_err(|error| GitError::message(format!("could not run git fetch: {error}")))?;
         if !output.status.success() {
@@ -57,7 +69,11 @@ impl Repository<'_> {
                 String::from_utf8_lossy(&output.stderr).trim()
             )));
         }
-        self.git_text(["rev-parse", "FETCH_HEAD^{commit}"])
+        let commit = self.git_text(["rev-parse", &format!("{own}^{{commit}}")]);
+        // Git keeps the unnamed commit for weeks, and the review checks it
+        // out next; the name is not needed once it is read.
+        let _ = self.git_text(["update-ref", "-d", &own]);
+        commit
     }
 
     /// The request's target branch, title, and body, from `gh`, if it can

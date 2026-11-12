@@ -19,7 +19,7 @@ GEWU = "{{gewu}}"
 HERE = pathlib.Path(__file__).parent
 STATE = pathlib.Path(".gewu/harness")
 DIMENSIONS = ["grounded", "change_framing", "rationale", "representation_contrast",
-              "minimality", "connection"]
+              "showing", "minimality", "connection"]
 
 
 def harness(*args):

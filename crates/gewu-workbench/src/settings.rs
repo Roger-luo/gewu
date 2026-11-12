@@ -23,6 +23,12 @@ pub struct Settings {
     /// doc comments.
     #[serde(default)]
     pub explain_tests: bool,
+    /// The preset that proofreads each batch. `None` proofreads with the
+    /// agent that wrote it. Found by live runs: Cursor's proofreader passed
+    /// 42 of the 43 chunks it read in three pull requests, scoring 3 on 249 of
+    /// 259 dimensions, so its rubric caught nothing.
+    #[serde(default)]
+    pub proofreader: Option<String>,
 }
 
 fn default_rounds() -> u32 {
@@ -35,6 +41,7 @@ impl Default for Settings {
             proofread_rounds: default_rounds(),
             default_agent: None,
             explain_tests: false,
+            proofreader: None,
         }
     }
 }
@@ -57,7 +64,24 @@ impl Settings {
                 "a custom default agent needs the command that starts it",
             ));
         }
+        if let Some(id) = &self.proofreader
+            && !gewu_agent::Preset::find(id).is_some_and(|preset| {
+                preset.kind == gewu_agent::PresetKind::Acp && preset.id != "custom"
+            })
+        {
+            return Err(WorkbenchError::invalid(format!(
+                "`{id}` cannot proofread; pick an installed agent, or the writer"
+            )));
+        }
         Ok(self)
+    }
+
+    /// The command that proofreads a batch `writer` wrote.
+    pub(crate) fn proofreader_command(&self, writer: Vec<String>) -> Vec<String> {
+        self.proofreader
+            .as_deref()
+            .and_then(gewu_agent::Preset::find)
+            .map_or(writer, |preset| preset.command(None))
     }
 }
 
@@ -72,4 +96,21 @@ pub struct SettingsView {
     pub home: String,
     /// `GEWU_BIN`: the binary agents run harness commands with.
     pub gewu: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+
+    #[test]
+    fn the_writer_proofreads_unless_another_agent_is_chosen() {
+        let writer = vec!["agent".to_owned(), "acp".to_owned()];
+        let settings = Settings::default();
+        assert_eq!(settings.proofreader_command(writer.clone()), writer);
+        let settings = Settings {
+            proofreader: Some("gemini".into()),
+            ..Settings::default()
+        };
+        assert_eq!(settings.proofreader_command(writer), ["gemini", "--acp"]);
+    }
 }

@@ -134,6 +134,17 @@ impl Fixture {
             .expect("reopen");
     }
 
+    /// The `.gewu/description.md` a review's checkout was given, if any.
+    pub fn description(&self, id: &str) -> Option<String> {
+        let checkout = self
+            ._directory
+            .path()
+            .join("home/tasks")
+            .join(id)
+            .join("checkout");
+        std::fs::read_to_string(checkout.join(".gewu/description.md")).ok()
+    }
+
     pub fn chunks(&self, id: &str) -> usize {
         self.workbench
             .task_snapshot(id)

@@ -85,9 +85,19 @@ fn allowed_requests_are_served_and_others_refused() {
         "allowed"
     );
     assert!(!root.path().join("outside.txt").exists());
-    assert_eq!(outcome.denials.len(), 2, "{:?}", outcome.denials);
-    assert!(outcome.denials[0].contains("outside.txt"));
-    assert!(outcome.denials[1].contains("rm -rf"));
+    let denials: Vec<&str> = events
+        .iter()
+        .filter(|event| event.kind == EventKind::Denied)
+        .map(|event| event.text.as_str())
+        .collect();
+    assert_eq!(denials.len(), 2, "{denials:?}");
+    assert!(denials[0].contains("outside.txt"));
+    assert!(denials[1].contains("rm -rf"));
+    // Told what was refused, the agent carries on in the same session
+    // instead of the run failing. Found by running Claude Code, which stops
+    // at a refusal as if the reviewer had said no.
+    assert!(outcome.denials.is_empty(), "{:?}", outcome.denials);
+    assert_eq!(outcome.message, "Carrying on within the rules.");
     assert!(
         events
             .iter()

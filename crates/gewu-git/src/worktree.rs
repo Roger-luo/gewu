@@ -27,6 +27,22 @@ impl Repository<'_> {
         self.git_text(["log", "-1", "--format=%s", revision])
     }
 
+    /// The full messages of the commits in `base..head`, newest first, at
+    /// most `limit` of them; only `head`'s when `base` is not a commit.
+    pub fn messages(&self, base: &str, head: &str, limit: usize) -> Result<Vec<String>, GitError> {
+        let count = format!("--max-count={limit}");
+        let range = format!("{base}..{head}");
+        let log = self
+            .git_text(["log", &count, "--format=%B%x00", &range])
+            .or_else(|_| self.git_text(["log", "-1", "--format=%B%x00", head]))?;
+        Ok(log
+            .split('\0')
+            .map(str::trim)
+            .filter(|message| !message.is_empty())
+            .map(str::to_owned)
+            .collect())
+    }
+
     /// A commit or tree a revision names; Base of a range may be Git's empty tree.
     pub fn treeish(&self, revision: &str) -> Result<String, GitError> {
         self.resolve(revision, false)

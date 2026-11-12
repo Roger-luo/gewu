@@ -21,6 +21,7 @@ fn settings_are_saved_and_outlive_the_run() {
             command: None,
         }),
         explain_tests: true,
+        proofreader: Some("claude".into()),
     };
     let snapshot = fixture
         .workbench
@@ -46,6 +47,7 @@ fn out_of_range_settings_are_refused() {
             proofread_rounds: 99,
             default_agent: None,
             explain_tests: false,
+            proofreader: None,
         },
         Settings {
             proofread_rounds: 1,
@@ -54,6 +56,16 @@ fn out_of_range_settings_are_refused() {
                 command: Some("  ".into()),
             }),
             explain_tests: false,
+            proofreader: None,
+        },
+        // Neither starts an agent that can proofread.
+        Settings {
+            proofreader: Some("none".into()),
+            ..Settings::default()
+        },
+        Settings {
+            proofreader: Some("custom".into()),
+            ..Settings::default()
         },
     ] {
         let error = fixture

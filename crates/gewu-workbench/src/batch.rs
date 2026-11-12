@@ -356,6 +356,7 @@ impl Workbench {
         // rewrite takes one more run, and the last reading one more.
         // Rewrites a batch may get after a fresh agent scores it.
         let rounds = self.settings().proofread_rounds;
+        let proofreader = self.settings().proofreader_command(command.clone());
         let mut fresh = 0;
         // Times an author that stopped between items, having written one, is
         // started again: the gate lets it write one batch ahead, and an agent
@@ -395,7 +396,8 @@ impl Workbench {
             let outcome = if fresh == 0 {
                 author.turn(cancel)
             } else {
-                AcpRun::new(root, command.clone(), &self.inner.gewu).run(Arc::clone(&sink), cancel)
+                AcpRun::new(root, proofreader.clone(), &self.inner.gewu)
+                    .run(Arc::clone(&sink), cancel)
             };
             if ProjectState::capture(root)? != before {
                 return Ok(Ended::new(

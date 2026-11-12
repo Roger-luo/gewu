@@ -4,6 +4,25 @@ use gewu_review::{DEFAULT_MAX_CHUNK_LINES, ReviewInput, harness::ReviewOrigin};
 
 use crate::{Source, WorkbenchError, repository::RepositoryRecord};
 
+/// The most commit messages a range's description holds.
+const MESSAGES: usize = 20;
+
+/// A range's description from its commit messages, newest first: one
+/// commit's message as it is, several under a heading each.
+fn description_of(messages: &[String]) -> Option<String> {
+    match messages {
+        [] => None,
+        [message] => Some(format!("# {message}\n")),
+        _ => Some(
+            messages
+                .iter()
+                .map(|message| format!("## {message}\n"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ),
+    }
+}
+
 /// A source made concrete: where the review lives and what it covers.
 pub(crate) struct Prepared {
     pub(crate) root: PathBuf,
@@ -101,6 +120,13 @@ impl Source {
                         let short = |id: &str| id.chars().take(8).collect::<String>();
                         format!("{subject} ({}..{})", short(&base), short(&head))
                     });
+                // The commit messages are the author's account of a range, as a
+                // pull request's body is. Found by reviewing a squashed commit:
+                // with no description, no claim could be quoted.
+                description = git
+                    .messages(&base, &head, MESSAGES)
+                    .ok()
+                    .and_then(|messages| description_of(&messages));
                 (head, Ok(base), title)
             }
             Self::PullRequest { number, remote } => {
@@ -165,5 +191,18 @@ impl Source {
             input,
             title,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn several_commits_each_get_a_heading() {
+        let messages = ["feat: b\n\nWhy b.".to_owned(), "feat: a".to_owned()];
+        assert_eq!(
+            super::description_of(&messages).as_deref(),
+            Some("## feat: b\n\nWhy b.\n\n## feat: a\n")
+        );
+        assert_eq!(super::description_of(&[]), None);
     }
 }

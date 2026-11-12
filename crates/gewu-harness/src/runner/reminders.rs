@@ -73,8 +73,10 @@ const UNTIL_DRAWN: [(&str, &str); 2] = [
     (
         "stepper",
         "No section so far steps through an algorithm. If this item has code a reader would \
-         simulate in their head — a compaction, a heap sift, a probe or a bound-and-prune loop \
-         — show it with a `stepper`.",
+         simulate in their head — a compaction, a heap sift, an elimination, a probe or a \
+         bound-and-prune loop, or several statements moving one structure through states — \
+         show it with a `stepper` over a concrete example: the description's, a test's, or \
+         small illustrative values.",
     ),
     (
         "timeline",

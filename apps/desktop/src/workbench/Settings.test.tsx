@@ -43,6 +43,9 @@ describe("settings", () => {
     );
     expect(within(agents).getByRole("spinbutton", { name: "Proofread rounds" })).toHaveValue(2);
     expect(within(agents).getByRole("checkbox", { name: /Explain tests/ })).not.toBeChecked();
+    expect(within(agents).getByRole("combobox", { name: "Proofreading agent" })).toHaveDisplayValue(
+      "The agent that wrote the review",
+    );
 
     const storage = within(settings).getByRole("region", { name: "Where Gewu keeps things" });
     expect(storage).toHaveTextContent("GEWU_HOME");
@@ -63,10 +66,14 @@ describe("settings", () => {
     await user.clear(rounds);
     await user.type(rounds, "0");
     await user.click(within(agents).getByRole("checkbox", { name: /Explain tests/ }));
+    const proofreader = within(agents).getByRole("combobox", { name: "Proofreading agent" });
+    expect(within(proofreader).queryByRole("option", { name: /No agent|Custom/ })).toBeNull();
+    await user.selectOptions(proofreader, "claude");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
     expect(within(agents).getByRole("checkbox", { name: /Explain tests/ })).toBeChecked();
+    expect(proofreader).toHaveDisplayValue("Claude Code");
     expect(mockRehearsing()).toBe(true);
     expect((await mockGitHub.settings()).method).toBe("gh");
     const account = screen.getByRole("region", { name: "Account and settings" });

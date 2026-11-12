@@ -17,6 +17,9 @@ fn a_commit_range_without_an_agent_opens_as_a_raw_diff_in_its_own_checkout() {
     let task = fixture.settled(&id);
     assert_eq!(task.status, TaskStatus::Complete, "{task:?}");
     assert_eq!(fixture.chunks(&id), 2);
+    // The commit message is the range's description, as a pull request's
+    // body is, so claims can be quoted from it.
+    assert_eq!(fixture.description(&id).as_deref(), Some("# test: head\n"));
     assert!(
         !fixture.repository.join(".gewu").exists(),
         "a range review must not write into the reviewer's checkout"
@@ -137,6 +140,7 @@ fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
                 proofread_rounds: 0,
                 default_agent: None,
                 explain_tests: false,
+                proofreader: None,
             },
         })
         .expect("settings");

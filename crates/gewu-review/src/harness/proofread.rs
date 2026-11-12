@@ -30,11 +30,12 @@ pub struct ChunkProofread {
 
 impl Proofread {
     /// What each chunk is scored on. The prompt defines them; keep both in step.
-    pub const DIMENSIONS: [&'static str; 6] = [
+    pub const DIMENSIONS: [&'static str; 7] = [
         "grounded",
         "change_framing",
         "rationale",
         "representation_contrast",
+        "showing",
         "minimality",
         "connection",
     ];

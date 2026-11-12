@@ -3,9 +3,6 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use agent_client_protocol::v1::schema::{ToolCallUpdateFields, ToolKind};
-use serde_json::Value;
-
 /// `review` subcommands that only read. `generate`, `pr`, and `open` would
 /// start another agent or a terminal UI; `resolve` and `retarget` are the
 /// reviewer's decisions; `prepare` and `fallback` overwrite the review.
@@ -130,6 +127,12 @@ impl Policy {
     /// A shell line the agent wants to run. An optional leading
     /// `cd <project> &&` is accepted, because agents add one habitually.
     pub fn check_shell(&self, line: &str) -> Result<(), String> {
+        self.shell_command(line).map(drop)
+    }
+
+    /// The program and arguments a shell line runs, once it passes
+    /// [`Self::check_shell`]'s rules.
+    pub fn shell_command(&self, line: &str) -> Result<(String, Vec<String>), String> {
         let mut rest = line.trim();
         if let Some(after) = rest.strip_prefix("cd ")
             && let Some((dir, command)) = after.split_once("&&")
@@ -147,72 +150,13 @@ impl Policy {
             .split_whitespace()
             .map(|word| word.trim_matches(['"', '\'']).to_owned());
         let program = words.next().unwrap_or_default();
-        self.check_command(&program, &words.collect::<Vec<_>>())
-    }
-
-    /// Decide a `session/request_permission` for a tool call.
-    pub fn check_tool(&self, call: &ToolCallUpdateFields) -> Result<(), String> {
-        let title = call.title.as_deref().unwrap_or("tool call");
-        let paths = Self::paths(call);
-        match call.kind.unwrap_or_default() {
-            ToolKind::Think => Ok(()),
-            ToolKind::Read | ToolKind::Search => paths
-                .iter()
-                .try_for_each(|path| self.check_read(path).map(drop)),
-            ToolKind::Edit | ToolKind::Delete | ToolKind::Move => {
-                if paths.is_empty() {
-                    return Err(format!("edit names no file: {title}"));
-                }
-                paths
-                    .iter()
-                    .try_for_each(|path| self.check_write(path).map(drop))
-            }
-            ToolKind::Execute => {
-                let line = call
-                    .raw_input
-                    .as_ref()
-                    .and_then(Self::command_line)
-                    .unwrap_or_else(|| title.to_owned());
-                self.check_shell(&line)
-            }
-            ToolKind::Fetch => Err(format!("network access is not allowed: {title}")),
-            ToolKind::SwitchMode => Err(format!("mode switches are not allowed: {title}")),
-            _ => Err(format!("unrecognized tool: {title}")),
-        }
-    }
-
-    /// Paths a tool call names, from its locations or common input keys.
-    fn paths(call: &ToolCallUpdateFields) -> Vec<PathBuf> {
-        let mut paths: Vec<PathBuf> = call
-            .locations
-            .iter()
-            .flatten()
-            .map(|location| location.path.clone())
-            .collect();
-        if let Some(Value::Object(input)) = &call.raw_input {
-            for key in ["file_path", "filePath", "path", "notebook_path"] {
-                if let Some(Value::String(path)) = input.get(key) {
-                    paths.push(PathBuf::from(path));
-                }
-            }
-        }
-        paths
-    }
-
-    fn command_line(input: &Value) -> Option<String> {
-        match input.get("command")? {
-            Value::String(line) => Some(line.clone()),
-            Value::Array(words) => Some(
-                words
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            ),
-            _ => None,
-        }
+        let args: Vec<String> = words.collect();
+        self.check_command(&program, &args)?;
+        Ok((program, args))
     }
 }
+
+mod tool;
 
 #[cfg(test)]
 mod tests;

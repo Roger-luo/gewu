@@ -41,7 +41,12 @@ export class MockWorkbench implements WorkbenchBackend {
     this.delayMs = delayMs;
   }
 
-  private settings: Settings = { proofread_rounds: 2, default_agent: null, explain_tests: false };
+  private settings: Settings = {
+    proofread_rounds: 2,
+    default_agent: null,
+    explain_tests: false,
+    proofreader: null,
+  };
 
   /** Two repositories and reviews in each state a reviewer meets. */
   static seeded(delayMs?: number): MockWorkbench {
@@ -128,12 +133,15 @@ export class MockWorkbench implements WorkbenchBackend {
         break;
       }
       case "update_settings": {
-        const { proofread_rounds, default_agent } = action.settings;
+        const { proofread_rounds, default_agent, proofreader } = action.settings;
         if (proofread_rounds < 0 || proofread_rounds > 5) {
           throw new BackendError("proofread rounds must be between 0 and 5");
         }
         if (default_agent?.preset_id === "custom" && !default_agent.command?.trim()) {
           throw new BackendError("a custom default agent needs the command that starts it");
+        }
+        if (proofreader === "none" || proofreader === "custom") {
+          throw new BackendError(`\`${proofreader}\` cannot proofread; pick an installed agent, or the writer`);
         }
         this.settings = structuredClone(action.settings);
         break;

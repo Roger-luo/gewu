@@ -36,9 +36,27 @@ Score each chunk from 0 to 3 on every dimension:
   that keeps the old name is not the old definition: score 1 if that is all
   the chunk shows. 0: the old shape is absent. Score 3 when the chunk
   introduces no new form of an existing structure.
+- `showing` — when the chunk's point is something a reader would otherwise
+  simulate or picture — a loop that transforms data (an elimination, a sift,
+  a rewrite pass), a sequence of operations on a structure (a lifecycle, a
+  protocol), a record's shape, or a cost that grows with a size — an
+  explainer (`stepper`, `layout`, `cost_model`, `timeline`) shows it. 3: an
+  explainer shows it, or the chunk has no such point. 1: the prose walks
+  through the steps or the states and nothing draws them; the problem names
+  the explainer and the example it should step through: one from a test, from
+  `.gewu/description.md`, or small illustrative values. 0: the chunk asks the
+  reader to trace state across several sentences with no example at all.
+  Read the batch as a whole too: when several of its chunks each add one
+  operation on the same structure (allocate, lend, return, take, free) and
+  no chunk draws them acting in turn, score the first of them 1 and name the
+  sequence its stepper should step through.
 - `minimality` — every sentence adds something: a fact, a question, or where
   the chunk fits. 1: sentences restate the title, the summary, the overview,
-  or the quoted lines.
+  or the quoted lines; narrate line ranges ("Lines 20–34 implement …") where
+  the view already shows them; list every caller, importer, or re-export when
+  one caller would say when the code is used; or open with "nothing existed
+  before" for a file the overview already called new. Name the sentences to
+  cut.
 - `connection` — the first sentence says what part of the change this is and
   how it follows from the previous chunk or the overview's map. 1: the chunk
   could be read in any order.
@@ -57,6 +75,7 @@ Write `.gewu/harness/proofread.json`:
         "change_framing": 2,
         "rationale": 1,
         "representation_contrast": 1,
+        "showing": 3,
         "minimality": 3,
         "connection": 2
       },

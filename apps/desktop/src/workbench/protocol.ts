@@ -82,6 +82,8 @@ export interface Settings {
   default_agent: AgentChoice | null;
   /** Has the agent walk through tests; off, Gewu writes test sections itself. */
   explain_tests: boolean;
+  /** The preset that proofreads each batch; `null` uses the writer. */
+  proofreader: string | null;
 }
 
 /** The settings, and where Gewu keeps things (set only by environment variables). */

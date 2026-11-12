@@ -93,7 +93,12 @@ Read the draft back, one chunk at a time, and answer for each:
   would meet separately get two views and a sentence each, even when the diff
   puts them side by side.
 - When a view lists methods, does the prose name a caller? Otherwise the
-  reviewer learns what each one does and never when it is used.
+  reviewer learns what each one does and never when it is used. One caller
+  that shows the use is enough: a list of every caller, importer, or
+  re-export costs rows and tells the reviewer nothing they judge here.
+- Does the reader have to run a loop or a sequence of operations in their
+  head from the prose alone? Draw it with a `stepper` over a concrete
+  example; see the expand prompt.
 - Does `confidence` name something you could not settle from the repository? If
   it hedges or repeats `summary`, leave the field out.
 
