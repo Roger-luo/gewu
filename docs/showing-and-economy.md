@@ -286,3 +286,52 @@ open question, and the writer did neither: it neither found a reason nor
 said that the repository gives none. That is the next thing to try; this
 change is kept because the commits also give claims to quote, and it did
 not make `rationale` worse beyond the scorers' disagreement.
+
+## Saying when the reason is not given
+
+The expand prompt now asks the writer to raise the question a reviewer
+would ask of each design choice the chunk shows, and, when nothing in the
+change answers it, to say so in the narrative and name the alternative,
+rather than in `confidence` or not at all. The rubric scores that 2.
+
+### Test 8 (fixed before running)
+
+#1131 again, scored blind by two Claude Sonnet subagents, each reading the
+code and the description. Bar: `rationale` below 2 on at most 15% of
+chunks under each scorer, with `showing`, `minimality`, and `connection`
+each at most 20%.
+
+### Results (2026-11-16)
+
+21 chunks, scored by two Claude Sonnet subagents that both read the
+description and the code. Below 2, scorer A and scorer B:
+
+| dimension | A | B |
+|---|---|---|
+| grounded | 0 | 2 |
+| change_framing | 1 | 9 |
+| rationale | 0 | 4 |
+| showing | 0 | 0 |
+| minimality | 6 | 10 |
+| connection | 2 | 4 |
+
+`rationale` passes under A (0%) and misses under B (19%, against 15%); test
+7 had 33% and 22%. `minimality` fails under both. Its problems are mostly
+new, and come from the explainers this study asked for: `claim` blocks that
+restate the summary, and narratives that list the steps a stepper then
+replays over the same lines. The rest are ones the prompt already names
+(re-export lists, "nothing existed before" openers).
+
+## An explainer says something the prose does not
+
+The expand prompt and the proofread rubric now say: a stepper's narrative
+says what to watch for and leaves the steps to the stepper; a `claim`'s
+`how` says what this chunk adds to the claim, never the summary again; an
+explainer that repeats the narrative or the summary scores 1 on
+`minimality`.
+
+### Test 9 (fixed before running)
+
+#1131 again, scored by two subagents as in test 8. Bars: `minimality` below
+2 on at most 20% of chunks and `rationale` at most 15%, under each scorer;
+`showing` and `connection` each at most 20%.

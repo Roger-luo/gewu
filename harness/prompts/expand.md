@@ -179,9 +179,14 @@ Rules:
 - Say why each part is there in a sentence the reviewer can point at. For a
   pull request, `.gewu/description.md` ends with its commits' messages under
   `## Commits`; a part's motive is often in the commit that added it. Name
-  that commit when you give its reason, and when no commit, test, or comment
-  says why, state what the part enables and leave the motive open in
-  `confidence` rather than supplying one.
+  that commit when you give its reason. Ask too what a reviewer would ask of
+  each design choice the chunk shows — why here and not in the pass beside
+  it, why reject rather than accept, why all at once rather than one by one
+  — and answer it. When no commit, test, or comment says why, say so in the
+  narrative, in one sentence that names the alternative: "Nothing in the
+  change says why validation runs in the rewrite rather than in
+  `CodeBlockValidation`." Never supply a motive yourself, and never leave the
+  question unasked: a reviewer who must guess the reason cannot judge it.
 - Explainers make that argument checkable. Gewu draws them from data you
   give; you never write HTML. They are expected, not decoration: when this
   item delivers a claim from `description.md`, its first chunk quotes the
@@ -304,7 +309,10 @@ Rules:
     explains, next to the quote. Keep each one smaller than the budget;
     the measurement says when it is not.
   - An explainer supports the narrative and does not replace it: the prose
-    still says what to look for in the code. Use as many as teach something
+    still says what to look for in the code. Nor does the prose repeat it:
+    beside a stepper, the narrative says what to watch for and leaves the
+    steps to the stepper, and a `claim`'s `how` says what this chunk adds to
+    the claim, never the summary or the overview again. Use as many as teach something
     distinct — a cost model belongs beside the layout it builds on — and none
     in a chunk that only moves code around. Their rows together stay under
     the chunk budget; the measurement reports them.
