@@ -335,3 +335,25 @@ explainer that repeats the narrative or the summary scores 1 on
 #1131 again, scored by two subagents as in test 8. Bars: `minimality` below
 2 on at most 20% of chunks and `rationale` at most 15%, under each scorer;
 `showing` and `connection` each at most 20%.
+
+### Results (2026-11-16)
+
+Every bar fails, and test 9 is worse than test 8 on almost every count:
+
+| dimension | A | B |
+|---|---|---|
+| grounded | 0 | 1 |
+| change_framing | 1 | 0 |
+| rationale | 12 | 6 |
+| showing | 0 | 0 |
+| minimality | 13 | 8 |
+| connection | 3 | 8 |
+
+(of 20 chunks). The change is reverted. The same scorer setup put
+`rationale` at 0 of 21 one run before; across tests 6–9 the same PR, model,
+and pipeline moved `rationale` between 0% and 60% and `minimality` between
+16% and 65%. Run-to-run and scorer-to-scorer variation is now larger than
+the effects being tested, so further prompt changes cannot be told apart
+from noise at this sample size. What held in every run since test 3 is
+`showing` at or near zero against 40–47% before, and no prose narrating
+line numbers.

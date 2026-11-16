@@ -309,10 +309,7 @@ Rules:
     explains, next to the quote. Keep each one smaller than the budget;
     the measurement says when it is not.
   - An explainer supports the narrative and does not replace it: the prose
-    still says what to look for in the code. Nor does the prose repeat it:
-    beside a stepper, the narrative says what to watch for and leaves the
-    steps to the stepper, and a `claim`'s `how` says what this chunk adds to
-    the claim, never the summary or the overview again. Use as many as teach something
+    still says what to look for in the code. Use as many as teach something
     distinct — a cost model belongs beside the layout it builds on — and none
     in a chunk that only moves code around. Their rows together stay under
     the chunk budget; the measurement reports them.

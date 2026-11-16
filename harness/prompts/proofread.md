@@ -55,9 +55,7 @@ Score each chunk from 0 to 3 on every dimension:
   or the quoted lines; narrate line ranges ("Lines 20–34 implement …") where
   the view already shows them; list every caller, importer, or re-export when
   one caller would say when the code is used; or open with "nothing existed
-  before" for a file the overview already called new; or an explainer
-  repeats the narrative or the summary — a narrative listing the steps a
-  stepper then replays, a `claim` whose `how` restates the summary. Name the sentences to
+  before" for a file the overview already called new. Name the sentences to
   cut.
 - `connection` — the first sentence says what part of the change this is and
   how it follows from the previous chunk or the overview's map. 1: the chunk
