@@ -357,3 +357,30 @@ the effects being tested, so further prompt changes cannot be told apart
 from noise at this sample size. What held in every run since test 3 is
 `showing` at or near zero against 40–47% before, and no prose narrating
 line numbers.
+
+## Rationale, pooled (fixed before scoring)
+
+Instead of another prompt change, a larger measurement: the 69 old-pipeline
+chunks from tests 1 and 2 (#233, #901) and the 41 chunks written with the
+current `rationale` guidance (tests 8 and 9, #1131), shuffled under neutral
+ids, each with its PR's description, scored on `rationale` alone by three
+independent Claude Sonnet subagents. Bar: the share below 2, averaged over
+the scorers, is at least 10 points lower for the new chunks than the old,
+and lower under each scorer. (The PRs differ between groups; this is a
+check against the old pipeline's level, not a controlled comparison.)
+
+### Results (2026-11-16)
+
+| scorer | old pipeline, below 2 | current guidance, below 2 |
+|---|---|---|
+| 1 | 43/69 (62%, 95% CI 51–73) | 9/41 (22%, 12–37) |
+| 2 | 41/69 (59%, 48–70) | 10/41 (24%, 14–39) |
+| 3 | 37/69 (54%, 42–65) | 8/41 (20%, 10–34) |
+
+The bar passes: 58% → 22% averaged over the scorers, lower under each, with
+no overlap between the groups' intervals under any scorer. The three agree
+within 8 points on each group. So the per-run swings in tests 6–9 were
+scorer and sample noise around a level well below the old pipeline's. The
+groups' PRs differ, so this does not isolate the prompt from the PR; it
+does show that walkthroughs written now say why far more often than the
+ones this study started from.
