@@ -1,6 +1,7 @@
 use gewu_app::Action;
 use gewu_workbench::{
-    GitHub, Preferences, PromptView, SignInMethod, Workbench, WorkbenchAction, WorkbenchError,
+    GitHub, Preferences, PromptReport, PromptView, SignInMethod, Workbench, WorkbenchAction,
+    WorkbenchError,
 };
 use serde::{Deserialize, Serialize};
 use tiny_http::{Method, Request};
@@ -36,6 +37,15 @@ pub(super) fn route(
         },
         (Method::Get, ["repositories", id, "refs"]) => answer(workbench.refs(id)),
         (Method::Get, ["prompts"]) => Json::ok(PromptView::all()),
+        (Method::Post, ["prompts", "report"]) => match Json::body::<PromptReport>(request) {
+            Ok(report) => answer(
+                github
+                    .with_transport(|github| report.send(github))
+                    .map_err(Into::into)
+                    .and_then(|reply| reply),
+            ),
+            Err(reply) => reply,
+        },
         (Method::Get, ["tasks", id, "log"]) => answer(workbench.log(id, after(query))),
         (Method::Get, ["tasks", id, "snapshot"]) => answer(workbench.task_snapshot(id)),
         (Method::Post, ["tasks", id, "dispatch"]) => match Json::body::<Action>(request) {

@@ -1,7 +1,11 @@
 //! The prompts agents are sent, for the settings screen to show: Gewu keeps
 //! nothing about how it instructs agents out of the reviewer's sight.
 
+mod report;
+
 use gewu_prompts::Prompt;
+
+pub use report::PromptReport;
 use serde::{Deserialize, Serialize};
 
 /// One prompt as the reviewer inspects it.

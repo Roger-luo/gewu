@@ -171,3 +171,10 @@ export interface PromptView {
   /** What some backends get after it. */
   additions: { backend: string; text: string }[];
 }
+
+/** What a reader saw wrong in one prompt, filed as an issue on Gewu. */
+export interface PromptReport {
+  prompt_id: string;
+  backend: string | null;
+  body: string;
+}

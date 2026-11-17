@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App } from "../App";
 import { ErrorBanner } from "../components/ErrorBanner";
 import type { WorkbenchBackend } from "./backend";
+import type { PromptReport } from "./protocol";
 import { Dialog } from "./Dialog";
 import { AddRepositoryForm } from "./AddRepositoryForm";
 import { HomeScreen } from "./HomeScreen";
@@ -20,6 +21,10 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   const github = useGitHub(backend.github);
   // Stable, so Settings fetches the prompts once per opening.
   const loadPrompts = useCallback(() => backend.prompts(), [backend]);
+  const reportPrompt = useCallback(
+    (report: PromptReport) => backend.reportPrompt(report),
+    [backend],
+  );
   const [filter, setFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { route, snapshot, navigate: goTo } = wb;
@@ -138,6 +143,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             agents={snapshot.agents}
             github={github}
             loadPrompts={loadPrompts}
+            reportPrompt={reportPrompt}
             onSave={async (settings) => {
               // Refused values are shown beside Save, not in the banner.
               try {

@@ -26,7 +26,7 @@ pub use gewu_github::{
     Transport,
 };
 pub use home::Home;
-pub use prompts::{PromptAddition, PromptView};
+pub use prompts::{PromptAddition, PromptReport, PromptView};
 pub use protocol::{
     AgentChoice, LogEvent, RepositoryView, ReviewProgress, Source, TaskLog, TaskStatus, TaskView,
     WorkbenchAction, WorkbenchSnapshot,

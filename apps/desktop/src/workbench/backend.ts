@@ -14,6 +14,7 @@ import type {
 import type { Action, Snapshot } from "../protocol";
 import type { Publication, Receipt } from "../publication";
 import type {
+  PromptReport,
   PromptView,
   RepositoryRefs,
   TaskLog,
@@ -28,6 +29,8 @@ export interface WorkbenchBackend {
   refs(repositoryId: string): Promise<RepositoryRefs>;
   /** Every prompt agents are sent, for Settings to show. */
   prompts(): Promise<PromptView[]>;
+  /** Files a public issue on Gewu about a prompt; call only after the reader confirms. */
+  reportPrompt(report: PromptReport): Promise<Receipt>;
   log(taskId: string, after: number): Promise<TaskLog>;
   /** The review of one task, as the review screens consume it. */
   review(taskId: string): Backend;
@@ -56,6 +59,10 @@ export class HttpWorkbench implements WorkbenchBackend {
 
   prompts() {
     return request<PromptView[]>("/api/prompts");
+  }
+
+  reportPrompt(report: PromptReport) {
+    return request<Receipt>("/api/prompts/report", report);
   }
 
   log(taskId: string, after: number) {
@@ -118,6 +125,10 @@ export class TauriWorkbench implements WorkbenchBackend {
 
   prompts() {
     return command<PromptView[]>("prompts");
+  }
+
+  reportPrompt(report: PromptReport) {
+    return command<Receipt>("report_prompt", { report });
   }
 
   log(taskId: string, after: number) {

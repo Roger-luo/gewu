@@ -3,9 +3,9 @@
 
 use gewu_app::{Action, Snapshot};
 use gewu_workbench::{
-    Account, Contributor, GitHub, GitHubError, GitHubSettings, Preferences, PromptView,
-    Publication, Receipt, RepositoryRefs, SignInMethod, SignInPoll, SignInStart, TaskLog,
-    WorkbenchAction, WorkbenchSnapshot,
+    Account, Contributor, GitHub, GitHubError, GitHubSettings, Preferences, PromptReport,
+    PromptView, Publication, Receipt, RepositoryRefs, SignInMethod, SignInPoll, SignInStart,
+    TaskLog, WorkbenchAction, WorkbenchSnapshot,
 };
 use tauri::State;
 
@@ -167,6 +167,20 @@ pub fn github_update_settings(
 #[tauri::command]
 pub fn prompts() -> Vec<PromptView> {
     PromptView::all()
+}
+
+/// Files the reader's report about a prompt as a public issue on Gewu's
+/// repository; rehearsed instead when GitHub is set to rehearse. The UI
+/// calls this only after the reader confirms.
+#[tauri::command(async)]
+pub fn report_prompt(github: State<'_, GitHub>, report: PromptReport) -> Reply<Receipt> {
+    if github.rehearsing() {
+        let login =
+            text(github.account())?.map_or_else(|| "you".to_owned(), |account| account.login);
+        return text(report.rehearse(&login));
+    }
+    text(github.with_transport(|transport| report.send(transport)))?
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

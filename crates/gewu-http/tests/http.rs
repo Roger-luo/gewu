@@ -248,3 +248,39 @@ fn the_workbench_shows_every_prompt_agents_are_sent() {
     );
     assert!(expand["additions"].is_array());
 }
+
+#[test]
+fn a_report_about_a_prompt_goes_to_the_sandbox_github_not_github() {
+    let home = tempfile::tempdir().expect("home");
+    let assets = static_dir();
+    let server = RunningServer::serve(ServeOptions {
+        mode: Mode::Workbench {
+            home: home.path().to_path_buf(),
+            gewu: PathBuf::from("gewu"),
+        },
+        static_dir: assets.path().to_path_buf(),
+        port: 0,
+    });
+
+    let (status, _, body) = http_post(
+        &server.addr,
+        "/api/prompts/report",
+        r#"{"prompt_id":"nope","body":"x"}"#,
+    );
+    assert_eq!(status, 400, "{body}");
+
+    // Signed out, the sandbox refuses as GitHub would; nothing is sent.
+    let (status, _, body) = http_post(
+        &server.addr,
+        "/api/prompts/report",
+        r#"{"prompt_id":"expand","backend":"codex","body":"The rubric contradicts itself."}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let receipt: serde_json::Value = serde_json::from_str(&body).expect("json");
+    assert!(
+        receipt["failure"]
+            .as_str()
+            .is_some_and(|f| f.contains("sign in")),
+        "{body}"
+    );
+}

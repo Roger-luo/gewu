@@ -2,12 +2,13 @@ import { BackendError } from "../backend/types";
 import { MockBackend } from "../backend/mock";
 import { mockGitHub } from "../backend/mockGitHub";
 import { selfReviewSnapshot, showcaseSnapshot } from "../mock";
-import { reviewVenue } from "../publication";
+import { reviewVenue, type Receipt } from "../publication";
 import type { Snapshot } from "../protocol";
 import type { WorkbenchBackend } from "./backend";
 import type {
   AgentPreset,
   LogEvent,
+  PromptReport,
   PromptView,
   RepositoryRefs,
   RepositoryView,
@@ -153,6 +154,24 @@ export class MockWorkbench implements WorkbenchBackend {
 
   async prompts(): Promise<PromptView[]> {
     return structuredClone(PROMPTS);
+  }
+
+  /** Records the report; nothing leaves the mock. */
+  reports: PromptReport[] = [];
+
+  async reportPrompt(report: PromptReport): Promise<Receipt> {
+    this.reports.push(structuredClone(report));
+    const number = 900 + this.reports.length;
+    return {
+      posted: [
+        {
+          label: `Issue #${number} on Roger-luo/gewu: Prompt \`${report.prompt_id}\``,
+          url: `https://github.com/Roger-luo/gewu/issues/${number}`,
+          feedback_ids: [],
+        },
+      ],
+      rehearsed: true,
+    };
   }
 
   async refs(repositoryId: string): Promise<RepositoryRefs> {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-import type { AgentPreset, PromptView } from "./protocol";
+import type { Receipt } from "../publication";
+import { PromptReportForm } from "./PromptReportForm";
+import type { AgentPreset, PromptReport, PromptView } from "./protocol";
 
 /**
  * Every prompt Gewu sends agents, read-only: what each one is for, the text
@@ -11,9 +13,12 @@ import type { AgentPreset, PromptView } from "./protocol";
 export function PromptsSection({
   agents,
   load,
+  report,
 }: {
   agents: AgentPreset[];
   load: () => Promise<PromptView[]>;
+  /** Files a report about a prompt; absent where reports cannot be sent. */
+  report?: (report: PromptReport) => Promise<Receipt>;
 }) {
   const [open, setOpen] = useState(false);
   const [prompts, setPrompts] = useState<PromptView[] | null>(null);
@@ -115,6 +120,16 @@ export function PromptsSection({
                   backend && (
                     <p className="muted">{backendLabel} adds nothing here: it gets the text above.</p>
                   )
+                )}
+                {report && (
+                  <PromptReportForm
+                    key={prompt.id}
+                    promptId={prompt.id}
+                    promptTitle={prompt.title}
+                    backend={backend || null}
+                    backendLabel={backend ? backendLabel : null}
+                    onSend={report}
+                  />
                 )}
               </article>
             )}

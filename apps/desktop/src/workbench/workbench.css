@@ -989,3 +989,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+.prompt-report {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.prompt-report textarea {
+  width: 100%;
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.prompt-report-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

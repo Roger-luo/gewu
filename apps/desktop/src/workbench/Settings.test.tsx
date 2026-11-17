@@ -75,7 +75,42 @@ describe("settings", () => {
     expect(view).toHaveTextContent("State why each part exists");
     await user.selectOptions(within(view).getByRole("combobox", { name: "As sent to" }), "claude");
     expect(view).toHaveTextContent("Claude Code adds nothing here");
-    expect(within(prompts).queryByRole("textbox")).toBeNull();
+    // The prompt is read, not edited: the only text box is the report.
+    expect(within(prompts).getAllByRole("textbox").map((box) => box.closest("[role=group]"))).toEqual([
+      within(view).getByRole("group", { name: "Report a problem with this prompt" }),
+    ]);
+  });
+
+  it("reports a problem with a prompt only after a second confirmation", async () => {
+    const user = userEvent.setup();
+    const backend = MockWorkbench.seeded(0);
+    render(<WorkbenchApp backend={backend} />);
+    await waitForReady();
+    const nav = screen.getByRole("navigation", { name: "Workbench" });
+    await user.click(within(nav).getByRole("button", { name: "Settings" }));
+    const prompts = within(main()).getByRole("region", { name: "Prompts agents are sent" });
+    await user.click(within(prompts).getByText("Show the prompts"));
+    const list = await within(prompts).findByRole("navigation", { name: "Prompts" });
+    await user.click(within(list).getByRole("button", { name: /Expand/ }));
+    const view = within(prompts).getByRole("article", { name: "Expand prompt" });
+    await user.selectOptions(within(view).getByRole("combobox", { name: "As sent to" }), "codex");
+
+    const form = within(view).getByRole("group", { name: "Report a problem with this prompt" });
+    expect(form).toHaveTextContent("public issue on Roger-luo/gewu");
+    const report = within(form).getByRole("button", { name: "Report a problem" });
+    expect(report).toBeDisabled();
+    await user.type(within(form).getByRole("textbox"), "The rubric contradicts itself.");
+    await user.click(report);
+    expect(backend.reports).toEqual([]);
+
+    const confirm = within(form).getByRole("group", { name: "Confirm the report" });
+    await user.click(within(confirm).getByRole("button", { name: "Send" }));
+    expect(backend.reports).toEqual([
+      { prompt_id: "expand", backend: "codex", body: "The rubric contradicts itself." },
+    ]);
+    expect(await within(form).findByRole("status")).toHaveTextContent(
+      /Rehearsed, nothing sent: Issue #901/,
+    );
   });
 
   it("saves the choices and the next review starts from them", async () => {
