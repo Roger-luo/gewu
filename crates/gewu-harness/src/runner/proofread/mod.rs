@@ -3,6 +3,7 @@
 //! bounded number of times, so a batch the rubric never passes still reaches
 //! the reviewer, with the scores that held it back.
 
+use gewu_prompts::Prompt;
 use gewu_review::{
     ReviewChunk, ValidatedReview,
     harness::{ChunkProofread, HarnessStage},
@@ -11,8 +12,6 @@ use gewu_review::{
 use super::{HarnessRunner, Run, error_strings, replace_chunks};
 use crate::{Result, artifacts, prompts};
 
-const PROOFREAD: &str = include_str!("../../../../../harness/prompts/proofread.md");
-const POLISH: &str = include_str!("../../../../../harness/prompts/polish.md");
 const PROOFREAD_PATH: &str = ".gewu/harness/proofread.json";
 
 impl HarnessRunner {
@@ -58,7 +57,8 @@ impl HarnessRunner {
                 batch.rewrites, run.state.proofread_rounds
             )
         };
-        Ok(PROOFREAD
+        Ok(Prompt::Proofread
+            .text()
             .replace("{{count}}", &chunks.len().to_string())
             .replace("{{round}}", &round)
             .replace("{{chunks}}", &prompts::chunk_json(&chunks)))
@@ -127,12 +127,12 @@ impl HarnessRunner {
             batch.rewrites + 1,
             run.state.proofread_rounds
         );
-        Ok(prompts::budgeted(POLISH, &run.input)
+        Ok(prompts::budgeted(&Prompt::Polish.text(), &run.input)
             .replace("{{count}}", &chunks.len().to_string())
             .replace("{{round}}", &round)
             .replace("{{findings}}", &findings)
             .replace("{{chunks}}", &prompts::chunk_json(&chunks))
-            .replace("{{rubric}}", prompts::rubric()))
+            .replace("{{rubric}}", &prompts::rubric()))
     }
 
     /// Replaces the chunks the proofread failed with their rewrites, then

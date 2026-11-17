@@ -7,6 +7,7 @@ license.workspace = true
 description = "ACP client that runs a coding agent through the Gewu harness"
 
 [dependencies]
+gewu-prompts = { path = "../gewu-prompts" }
 agent-client-protocol = { version = "5.0.0", features = ["process"] }
 hex = "0.4.3"
 serde = { version = "1.0.229", features = ["derive"] }

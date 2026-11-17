@@ -1,27 +1,15 @@
+use gewu_prompts::Prompt;
 use gewu_review::{
     FeedbackTarget, Handover, ReviewChunk, ReviewSession, ReviewSpec,
     harness::{InvestigationCheckpoint, WorkItem},
 };
 
-const INVESTIGATE: &str = include_str!("../../../harness/prompts/investigate.md");
-const PLAN: &str = include_str!("../../../harness/prompts/plan.md");
-const EXPAND: &str = include_str!("../../../harness/prompts/expand.md");
-const AWAITING: &str = include_str!("../../../harness/prompts/awaiting.md");
-const REPLAN: &str = include_str!("../../../harness/prompts/replan.md");
-/// The self-check both writing stages face. Expanding and rewriting produce the
-/// same artifact and fail the reviewer in the same ways, so they are held to one
-/// list rather than two that drift apart.
-const RUBRIC: &str = include_str!("../../../harness/prompts/rubric.md");
-const HANDOVER: &str = include_str!("../../../harness/prompts/handover.md");
-const REVISE: &str = include_str!("../../../harness/prompts/revise.md");
-const COMPLETE: &str = include_str!("../../../harness/prompts/complete.md");
-
 pub fn investigate() -> String {
-    INVESTIGATE.to_owned()
+    Prompt::Investigate.text().into_owned()
 }
 
 pub fn plan(input: &gewu_review::ReviewInput, max_chunks: usize) -> String {
-    budgeted(PLAN, input).replace("{{max_chunks}}", &max_chunks.to_string())
+    budgeted(&Prompt::Plan.text(), input).replace("{{max_chunks}}", &max_chunks.to_string())
 }
 
 /// Fills in the chunk budget the run holds chunks to — rows in the terminal,
@@ -41,7 +29,7 @@ pub fn expand(
     investigation: Option<&InvestigationCheckpoint>,
     max_chunks: usize,
 ) -> String {
-    budgeted(EXPAND, input)
+    budgeted(&Prompt::Expand.text(), input)
         .replace("{{item_id}}", &item.id)
         .replace("{{item_title}}", &item.title)
         .replace("{{item_purpose}}", &item.purpose)
@@ -104,9 +92,10 @@ fn rubric_for(item: &gewu_review::harness::WorkItem, input: &gewu_review::Review
                         .any(|extension| change.path.ends_with(extension))
                 })
         });
-    match RUBRIC.split_once(marker) {
+    let rubric = Prompt::Rubric.text();
+    match rubric.split_once(marker) {
         Some((core, _)) if source_only => core.trim_end().to_owned(),
-        _ => RUBRIC.trim_end().to_owned(),
+        _ => rubric.trim_end().to_owned(),
     }
 }
 
@@ -126,7 +115,8 @@ pub fn awaiting(spec: &ReviewSpec, remaining: usize) -> String {
         "Nothing more will be generated until the human has read what they\n\
          have — their feedback may change the code and make the rest of the plan wrong."
     };
-    AWAITING
+    Prompt::Awaiting
+        .text()
         .replace("{{why}}", why)
         .replace("{{after}}", after)
         .replace("{{review_id}}", &spec.session_key())
@@ -194,7 +184,8 @@ pub fn handover(handover: &Handover<'_>, feedback_ids: &[String]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    HANDOVER
+    Prompt::Handover
+        .text()
         .replace("{{count}}", &feedback_ids.len().to_string())
         .replace("{{requests}}", &requests)
 }
@@ -221,11 +212,11 @@ pub fn revise(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    budgeted(REVISE, input)
+    budgeted(&Prompt::Revise.text(), input)
         .replace("{{count}}", &chunks.len().to_string())
         .replace("{{requests}}", &requests)
         .replace("{{chunks}}", &chunk_json(chunks))
-        .replace("{{rubric}}", rubric())
+        .replace("{{rubric}}", &rubric())
 }
 
 /// Chunks as the JSON a rewrite starts from, one fenced block each.
@@ -241,8 +232,11 @@ pub fn chunk_json(chunks: &[&ReviewChunk]) -> String {
         .join("\n\n")
 }
 
-pub fn rubric() -> &'static str {
-    RUBRIC.trim_end()
+/// The self-check both writing stages face. Expanding and rewriting produce the
+/// same artifact and fail the reviewer in the same ways, so they are held to one
+/// list rather than two that drift apart.
+pub fn rubric() -> String {
+    Prompt::Rubric.text().trim_end().to_owned()
 }
 
 pub fn revised(chunk_ids: &[String]) -> String {
@@ -271,7 +265,8 @@ pub fn replan(stale_chunks: &[String], remainder: usize) -> String {
             bullets(stale_chunks)
         )
     };
-    REPLAN
+    Prompt::Replan
+        .text()
         .replace("{{stale}}", &stale)
         .replace("{{remainder}}", &remainder.to_string())
 }
@@ -522,7 +517,7 @@ fn undrawn_sequence(chunks: &[gewu_review::ReviewChunk]) -> String {
 }
 
 pub fn complete(review_id: &str) -> String {
-    COMPLETE.replace("{{review_id}}", review_id)
+    Prompt::Complete.text().replace("{{review_id}}", review_id)
 }
 
 /// The spans an item owns, as the agent must name them back.
@@ -820,8 +815,8 @@ mod tests {
             Vec::new(),
         );
         let seconds = rows.clone().with_max_chunk_seconds(Some(240));
-        use super::{EXPAND, PLAN, REVISE, budgeted};
-        for template in [PLAN, EXPAND, REVISE] {
+        use super::{Prompt, budgeted};
+        for template in [Prompt::Plan, Prompt::Expand, Prompt::Revise].map(Prompt::general) {
             let by_rows = budgeted(template, &rows);
             let by_time = budgeted(template, &seconds);
             for filled in [
@@ -835,7 +830,7 @@ mod tests {
             assert!(by_time.contains("about 4 min of reading"), "{by_time}");
             assert!(!by_time.contains("40 rendered rows"));
         }
-        assert!(budgeted(EXPAND, &seconds).contains("words a minute"));
+        assert!(budgeted(Prompt::Expand.general(), &seconds).contains("words a minute"));
     }
 
     /// Found by proofreading 120 chunks: openings that only point at lines

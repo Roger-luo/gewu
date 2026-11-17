@@ -28,9 +28,19 @@ struct Terminal {
 pub struct Terminals {
     next: Arc<Mutex<u64>>,
     open: Arc<Mutex<HashMap<String, Terminal>>>,
+    /// Set on every command, e.g. the backend a harness prompt is for.
+    env: Arc<Vec<(String, String)>>,
 }
 
 impl Terminals {
+    /// Terminals whose commands all see `env`.
+    pub fn with_env(env: Vec<(String, String)>) -> Self {
+        Self {
+            env: Arc::new(env),
+            ..Self::default()
+        }
+    }
+
     pub fn create(
         &self,
         program: &str,
@@ -40,6 +50,7 @@ impl Terminals {
     ) -> std::io::Result<String> {
         let mut child = Command::new(program)
             .args(args)
+            .envs(self.env.iter().map(|(key, value)| (key, value)))
             .current_dir(cwd)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -174,4 +185,32 @@ impl Terminals {
 
 fn poisoned() -> std::io::Error {
     std::io::Error::other("terminal registry lock poisoned")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Terminals;
+
+    #[test]
+    fn commands_see_the_terminals_environment() {
+        let terminals = Terminals::with_env(vec![("GEWU_AGENT".into(), "codex".into())]);
+        let id = terminals
+            .create(
+                "/bin/sh",
+                &["-c".into(), "printf %s \"$GEWU_AGENT\"".into()],
+                &std::env::temp_dir(),
+                None,
+            )
+            .expect("start");
+        // Exit can arrive before the output threads finish draining.
+        for _ in 0..200 {
+            if let Some((text, _, Some(_))) = terminals.output(&id)
+                && text == "codex"
+            {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("output was {:?}", terminals.output(&id));
+    }
 }

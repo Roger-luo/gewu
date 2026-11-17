@@ -10,7 +10,7 @@ use super::artifacts;
 use crate::{Error, Result};
 
 pub fn prompt() -> String {
-    include_str!("../../../harness/prompts/research.md").to_owned()
+    gewu_prompts::Prompt::Research.text().into_owned()
 }
 
 pub fn validate_checkpoint(

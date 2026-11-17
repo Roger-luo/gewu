@@ -83,6 +83,12 @@ impl Settings {
             .and_then(gewu_agent::Preset::find)
             .map_or(writer, |preset| preset.command(None))
     }
+
+    /// The backend whose prompts the proofreader gets: its own preset, or
+    /// the writer's when the writer proofreads.
+    pub(crate) fn proofreader_backend(&self, writer: Option<String>) -> Option<String> {
+        self.proofreader.clone().or(writer)
+    }
 }
 
 /// The settings screen's workbench section: the settings, and where Gewu

@@ -351,12 +351,16 @@ impl Workbench {
         }
         let mut stage = Ended::stage(&prompt);
         let command = record.preset()?.command(record.agent.command.as_deref());
+        // Prompts carry the backend's additions; a custom command is no known
+        // backend, so it gets the general prompts.
+        let backend = (record.agent.preset_id != "custom").then(|| record.agent.preset_id.clone());
         // The author stops where proofreading begins, and a fresh agent reads
         // the batch: a walkthrough reads as complete to whoever wrote it. Each
         // rewrite takes one more run, and the last reading one more.
         // Rewrites a batch may get after a fresh agent scores it.
         let rounds = self.settings().proofread_rounds;
         let proofreader = self.settings().proofreader_command(command.clone());
+        let proofreader_backend = self.settings().proofreader_backend(backend.clone());
         let mut fresh = 0;
         // Times an author that stopped between items, having written one, is
         // started again: the gate lets it write one batch ahead, and an agent
@@ -377,7 +381,7 @@ impl Workbench {
         // description, manifest, and code before writing, about half the
         // writing time in a live run of #276. Proofreaders stay fresh agents.
         let mut author = AgentSession::new(
-            AcpRun::new(root, command.clone(), &self.inner.gewu),
+            AcpRun::new(root, command.clone(), &self.inner.gewu).with_backend(backend.clone()),
             Arc::clone(&sink),
         );
         let outcome = loop {
@@ -397,6 +401,7 @@ impl Workbench {
                 author.turn(cancel)
             } else {
                 AcpRun::new(root, proofreader.clone(), &self.inner.gewu)
+                    .with_backend(proofreader_backend.clone())
                     .run(Arc::clone(&sink), cancel)
             };
             if ProjectState::capture(root)? != before {

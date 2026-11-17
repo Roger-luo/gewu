@@ -6,6 +6,7 @@
 //! anything else it changes is reported, because a walkthrough of code its
 //! author edited is a walkthrough of nothing.
 
+use gewu_prompts::{BACKEND_ENV, Prompt};
 use std::{
     path::{Path, PathBuf},
     process::Command,
@@ -24,7 +25,6 @@ use gewu_harness::{
 
 use super::{StartArgs, watch::Watch};
 
-const BRIEF: &str = include_str!("../../../../harness/prompts/agent.md");
 const WAITING: &str = "# Gewu harness: waiting for the reviewer";
 const COMPLETE: &str = "# COMPLETE";
 const PROOFREAD: &str = "# Gewu harness: proofread";
@@ -36,6 +36,16 @@ pub enum Agent {
     Claude,
     /// Codex, in its workspace-write sandbox.
     Codex,
+}
+
+impl Agent {
+    /// The agent preset whose prompt additions this agent gets.
+    fn backend(&self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
 }
 
 #[derive(Debug, Args)]
@@ -405,7 +415,10 @@ impl GenerateArgs {
     fn agent_command(&self) -> Result<Command> {
         let gewu = std::env::current_exe().context("could not locate the gewu binary")?;
         let gewu = gewu.to_string_lossy();
-        let brief = BRIEF.replace("{{gewu}}", &gewu);
+        let backend = self.agent.backend();
+        let brief = Prompt::Agent
+            .text_for(Some(backend))
+            .replace("{{gewu}}", &gewu);
         let (program, mut args): (&str, Vec<String>) = match self.agent {
             Agent::Claude => (
                 "claude",
@@ -446,7 +459,8 @@ impl GenerateArgs {
             args.splice(1..1, ["--model".to_owned(), model.clone()]);
         }
         let mut command = Command::new(self.agent_program.as_deref().unwrap_or(Path::new(program)));
-        command.args(args);
+        // The harness prompts the agent fetches carry the same backend's additions.
+        command.args(args).env(BACKEND_ENV, backend);
         Ok(command)
     }
 

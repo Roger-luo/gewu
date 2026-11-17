@@ -1623,6 +1623,7 @@ name = "gewu-agent"
 version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
+ "gewu-prompts",
  "hex",
  "serde",
  "serde_json",
@@ -1653,6 +1654,7 @@ dependencies = [
  "gewu-git",
  "gewu-harness",
  "gewu-http",
+ "gewu-prompts",
  "gewu-review",
  "gewu-tui",
  "gewu-workbench",
@@ -1720,6 +1722,7 @@ name = "gewu-harness"
 version = "0.1.0"
 dependencies = [
  "gewu-git",
+ "gewu-prompts",
  "gewu-review",
  "serde",
  "serde_json",
@@ -1739,6 +1742,10 @@ dependencies = [
  "thiserror 2.0.20",
  "tiny_http",
 ]
+
+[[package]]
+name = "gewu-prompts"
+version = "0.1.0"
 
 [[package]]
 name = "gewu-review"

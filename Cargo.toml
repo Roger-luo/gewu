@@ -9,6 +9,7 @@ members = [
     "crates/gewu-git",
     "crates/gewu-github",
     "crates/gewu-harness",
+    "crates/gewu-prompts",
     "crates/gewu-http",
     "crates/gewu-review",
     "crates/gewu-tui",

@@ -25,11 +25,10 @@ use agent_client_protocol::{
 };
 use tokio::sync::watch;
 
+use gewu_prompts::{BACKEND_ENV, Prompt};
+
 use crate::{AgentError, AgentEvent, EventKind, EventSink, Policy, Preset, terminal::Terminals};
 
-const BRIEF: &str = include_str!("../../../harness/prompts/agent.md");
-const CONTINUE: &str = include_str!("../../../harness/prompts/continue.md");
-const REFUSED: &str = include_str!("../../../harness/prompts/refused.md");
 /// Agent stderr lines kept for an error message.
 const STDERR_TAIL: usize = 40;
 /// How long a cancelled agent has to end its turn before it is killed.
@@ -92,6 +91,9 @@ pub struct AcpRun {
     pub(crate) refused: String,
     policy: Policy,
     handshake_limit: Duration,
+    /// The agent preset this run is, so prompts carry its additions.
+    backend: Option<String>,
+    gewu: PathBuf,
 }
 
 /// Shared between the handlers of one session.
@@ -291,17 +293,45 @@ impl AcpRun {
     /// `command` starts the agent; `gewu` is the binary the agent will run
     /// for harness commands.
     pub fn new(root: &Path, command: Vec<String>, gewu: &Path) -> Self {
-        let prompt = BRIEF.replace("{{gewu}}", &gewu.to_string_lossy());
-        let follow_up = CONTINUE.replace("{{gewu}}", &gewu.to_string_lossy());
-        let refused = REFUSED.replace("{{gewu}}", &gewu.to_string_lossy());
-        Self {
+        let mut run = Self {
             command,
-            prompt,
-            follow_up,
-            refused,
+            prompt: String::new(),
+            follow_up: String::new(),
+            refused: String::new(),
             policy: Policy::new(root, gewu),
             handshake_limit: HANDSHAKE_LIMIT,
-        }
+            backend: None,
+            gewu: gewu.to_path_buf(),
+        };
+        run.render_prompts();
+        run
+    }
+
+    /// Names the agent preset this run is (`claude`, `codex`, …). Its
+    /// prompts carry that backend's additions, and so do the harness prompts
+    /// the agent fetches: the preset is set in [`BACKEND_ENV`] for the agent
+    /// and every command it runs.
+    #[must_use]
+    pub fn with_backend(mut self, backend: Option<String>) -> Self {
+        self.backend = backend;
+        self.render_prompts();
+        self
+    }
+
+    fn render_prompts(&mut self) {
+        let gewu = self.gewu.to_string_lossy();
+        let backend = self.backend.as_deref();
+        let render = |prompt: Prompt| prompt.text_for(backend).replace("{{gewu}}", &gewu);
+        self.prompt = render(Prompt::Agent);
+        self.follow_up = render(Prompt::Continue);
+        self.refused = render(Prompt::Refused);
+    }
+
+    fn backend_env(&self) -> Vec<(String, String)> {
+        self.backend
+            .iter()
+            .map(|backend| (BACKEND_ENV.to_owned(), backend.clone()))
+            .collect()
     }
 
     /// How long the handshake may take before the agent is started again.
@@ -372,6 +402,10 @@ impl AcpRun {
                 .chain(args.iter().cloned()),
             )
             .env("PATH", path.to_string_lossy());
+        let env = self.backend_env();
+        let config = env
+            .iter()
+            .fold(config, |config, (key, value)| config.env(key, value));
         let stderr = Arc::new(Mutex::new(VecDeque::new()));
         let agent = AcpAgent::new(config).with_debug({
             let stderr = Arc::clone(&stderr);
@@ -391,7 +425,7 @@ impl AcpRun {
             sink,
             denials: Arc::default(),
             message: Arc::default(),
-            terminals: Terminals::default(),
+            terminals: Terminals::with_env(env),
             stalled: Arc::default(),
         };
         let limit = self.handshake_limit;

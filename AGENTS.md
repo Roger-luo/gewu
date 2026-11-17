@@ -54,6 +54,8 @@ mise exec -- prek run --all-files
 - `crates/gewu-decide`: typed yes/no decisions (TypeSafe Jev, a mock) for the
   cognitive-load score; its rubric is data in `crates/gewu-review/rubrics/load.toml`.
 - `crates/gewu-harness`: progressive generation harness (no terminal I/O).
+- `crates/gewu-prompts`: the prompts agents are sent, shipped in the binary,
+  with each backend's additions in `harness/prompts/backends/`.
 - `crates/gewu-tui`: terminal review UI.
 - `crates/gewu-cli`: command parsing and terminal presentation.
 - `crates/gewu-desktop`: Tauri shell exposing the app protocol over IPC.

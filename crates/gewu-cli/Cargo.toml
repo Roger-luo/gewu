@@ -12,6 +12,7 @@ clap = { version = "4.6.6", features = ["derive"] }
 gewu-decide = { version = "0.1.0", path = "../gewu-decide" }
 gewu-git = { version = "0.1.0", path = "../gewu-git" }
 gewu-harness = { version = "0.1.0", path = "../gewu-harness" }
+gewu-prompts = { path = "../gewu-prompts" }
 gewu-http = { version = "0.1.0", path = "../gewu-http" }
 gewu-workbench = { path = "../gewu-workbench" }
 gewu-review = { version = "0.1.0", path = "../gewu-review" }

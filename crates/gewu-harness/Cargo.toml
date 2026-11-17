@@ -8,6 +8,7 @@ description = "Progressive review generation harness for Gewu"
 
 [dependencies]
 gewu-git = { version = "0.1.0", path = "../gewu-git" }
+gewu-prompts = { path = "../gewu-prompts" }
 gewu-review = { version = "0.1.0", path = "../gewu-review" }
 serde = "1.0.229"
 serde_json = "1.0.151"
