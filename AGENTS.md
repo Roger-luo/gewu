@@ -11,9 +11,11 @@ Design principle: the human reviewer should do the least work possible to
 perform a review. Every design, from the generated prose to the app's layout,
 is judged by the reading, scanning, and clicking it saves the reviewer.
 Reconsider anything that adds to it. For example, keep text and code in one
-centered column that a reader takes in without moving their head, keep side
-panels beside that column, open a comment box beside the lines it is about
-instead of over them, and typeset math rather than leave TeX to decode.
+centered column that a reader takes in without moving their head; put what
+explains them (a concept card, a code block's note) in one side column beside
+it, level with what it explains, as a blog sets its margin notes; open a
+comment box beside the lines it is about instead of over them; and typeset
+math rather than leave TeX to decode.
 
 The current interface is a CLI. Keep domain behavior independent of the CLI so
 a native macOS application can reuse it later.

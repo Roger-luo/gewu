@@ -55,10 +55,10 @@ describe("context pane", () => {
     expect(screen.getByText("After").parentElement?.querySelector(".dropped-field")).toBeNull();
 
     const handle = screen.getByRole("separator", { name: "Context pane width" });
-    expect(handle).toHaveAttribute("aria-valuenow", "560");
+    expect(handle).toHaveAttribute("aria-valuenow", "400");
     handle.focus();
     await user.keyboard("{ArrowLeft}");
-    expect(handle).toHaveAttribute("aria-valuenow", "576");
-    expect(document.documentElement.style.getPropertyValue("--context-width")).toBe("576px");
+    expect(handle).toHaveAttribute("aria-valuenow", "416");
+    expect(document.documentElement.style.getPropertyValue("--context-width")).toBe("416px");
   });
 });

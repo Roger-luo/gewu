@@ -1,14 +1,14 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useRef } from "react";
 
-import { InlineMarkdown, Markdown } from "./Markdown";
+import { InlineMarkdown } from "./Markdown";
 import type { CommentRequest, LineSelection } from "../anchors";
+import { hasNotes, planBody } from "../bodyPlan";
 import { locate, type Composer } from "../composer";
+import { useSideColumn } from "../hooks/useSideColumn";
 import { plainInline } from "../markdown";
-import { assignNotes } from "../quoteNotes";
 import { sectionPosition } from "../navigation";
 import type { Action, Snapshot } from "../protocol";
-import { ChangesBlock } from "./ChangesBlock";
-import { ExplainerView } from "./explainers/ExplainerView";
+import { ChunkBody } from "./ChunkBody";
 import { ContextPane } from "./ContextPane";
 import { FeedbackPanel } from "./FeedbackPanel";
 
@@ -48,23 +48,12 @@ export function ChunkScreen({
   composer?: Composer | null;
 }) {
   const chunk = snapshot.chunks[chunkIndex];
-  const [narrow, setNarrow] = useState(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return false;
-    }
-    return window.matchMedia("(max-width: 1100px)").matches;
-  });
-
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 1100px)");
-    const onChange = () => setNarrow(media.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
+  const mainRef = useRef<HTMLElement>(null);
+  const wide = useSideColumn(mainRef);
 
   if (!chunk) {
     return (
-      <main data-gewu-screen="chunk" aria-label="Review step">
+      <main ref={mainRef} data-gewu-screen="chunk" aria-label="Review step">
         <p className="muted">Chunk not found.</p>
       </main>
     );
@@ -74,194 +63,141 @@ export function ChunkScreen({
   const feedback = snapshot.feedback.filter(
     (item) => item.chunk_id === chunk.id,
   );
-  const showAside = Boolean(chunk.context) && !narrow;
+  const pieces = planBody(chunk.blocks);
+  // The concept card and the quotes' notes share one side column beside the
+  // reading column, each level with what it explains; a narrow window keeps
+  // them in the column.
+  const side = wide && (Boolean(chunk.context) || hasNotes(pieces));
   const language =
     chunk.blocks
       .flatMap((block) => (block.type === "changes" ? block.quotes : []))
       .find((quote) => quote.language)?.language ?? null;
 
   return (
-    <div className={`app-body${showAside ? " has-context" : ""}`}>
+    <div className="app-body">
       <main
+        ref={mainRef}
+        className={side ? "has-side" : undefined}
         data-gewu-screen="chunk"
         data-gewu-chunk-id={chunk.id}
         aria-label={plainInline(chunk.title)}
       >
-        <div className="screen-header">
-          <div>
-            <div className="eyebrow stage">
-              <InlineMarkdown
-                source={[
-                  `Step ${chunkIndex + 1} of ${snapshot.chunks.length}`,
-                  section,
-                  KIND_LABELS[chunk.kind],
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              />
+        <div className="chunk-column">
+          {side && chunk.context && <ContextPane context={chunk.context} language={language} />}
+          <div className="screen-header">
+            <div>
+              <div className="eyebrow stage">
+                <InlineMarkdown
+                  source={[
+                    `Step ${chunkIndex + 1} of ${snapshot.chunks.length}`,
+                    section,
+                    KIND_LABELS[chunk.kind],
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              </div>
+              <h2 className="screen-title" tabIndex={-1}>
+                <InlineMarkdown source={chunk.title} />
+              </h2>
             </div>
-            <h2 className="screen-title" tabIndex={-1}>
-              <InlineMarkdown source={chunk.title} />
-            </h2>
           </div>
-        </div>
 
-        <div className="chunk-toolbar">
-          <ChunkStatusChip
-            reviewed={chunk.status.reviewed}
+          <div className="chunk-toolbar">
+            <ChunkStatusChip
+              reviewed={chunk.status.reviewed}
+              openIssues={chunk.status.open_issues}
+            />
+            <div className="toolbar-actions">
+              <div className="toolbar-group" role="group" aria-label="Leave feedback">
+                <button type="button" className="btn" onClick={onAddComment}>
+                  Comment
+                </button>
+                <button type="button" className="btn" onClick={onRequestChange}>
+                  Request changes
+                </button>
+              </div>
+              <div className="toolbar-group" role="group" aria-label="Mark this step">
+                <button
+                  type="button"
+                  className={chunk.status.reviewed ? "btn reviewed-toggle" : "btn primary"}
+                  aria-pressed={chunk.status.reviewed}
+                  title={
+                    chunk.status.reviewed
+                      ? "Marks this step unreviewed again"
+                      : "Marks this step read and opens the next unreviewed one"
+                  }
+                  onClick={() => void onToggleReviewed()}
+                >
+                  {chunk.status.reviewed ? (
+                    <>
+                      <span aria-hidden>✓ </span>Reviewed
+                    </>
+                  ) : (
+                    "Mark reviewed"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p className="chunk-summary">
+            <InlineMarkdown source={chunk.summary} />
+          </p>
+
+          {chunk.context && !side && (
+            <details className="context-disclosure">
+              <summary>
+                {chunk.context.kind === "concept"
+                  ? "Concept: definition and example"
+                  : "Refactor: reason and signatures"}
+              </summary>
+              <ContextPane context={chunk.context} language={language} />
+            </details>
+          )}
+
+          {chunk.confidence && (
+            <div className="notice uncertainty">
+              Uncertainty: <InlineMarkdown source={chunk.confidence} />
+            </div>
+          )}
+          {chunk.oversized_reason && (
+            <div className="notice oversized">
+              Oversized: <InlineMarkdown source={chunk.oversized_reason} />
+            </div>
+          )}
+
+          <ChunkBody
+            blocks={chunk.blocks}
+            pieces={pieces}
+            lineSelection={lineSelection}
+            onSelectLine={onSelectLine}
+            onComment={onComment}
+            onCommentLines={onCommentLines}
+            composer={composer}
+          />
+
+          {composer && !locate(chunk.blocks, composer.place) && (
+            <div className="block chunk-composer">{composer.node}</div>
+          )}
+
+          {chunk.status.open_issues > 0 && (
+            <p className="notice feedback-jump" role="status">
+              {chunk.status.open_issues === 1
+                ? "1 open change request — resolve it in Feedback below."
+                : `${chunk.status.open_issues} open change requests — resolve them in Feedback below.`}
+            </p>
+          )}
+
+          <FeedbackPanel
+            items={feedback}
+            onDispatch={onDispatch}
             openIssues={chunk.status.open_issues}
           />
-          <div className="toolbar-actions">
-            <div className="toolbar-group" role="group" aria-label="Leave feedback">
-              <button type="button" className="btn" onClick={onAddComment}>
-                Comment
-              </button>
-              <button type="button" className="btn" onClick={onRequestChange}>
-                Request changes
-              </button>
-            </div>
-            <div className="toolbar-group" role="group" aria-label="Mark this step">
-              <button
-                type="button"
-                className={chunk.status.reviewed ? "btn reviewed-toggle" : "btn primary"}
-                aria-pressed={chunk.status.reviewed}
-                title={
-                  chunk.status.reviewed
-                    ? "Marks this step unreviewed again"
-                    : "Marks this step read and opens the next unreviewed one"
-                }
-                onClick={() => void onToggleReviewed()}
-              >
-                {chunk.status.reviewed ? (
-                  <>
-                    <span aria-hidden>✓ </span>Reviewed
-                  </>
-                ) : (
-                  "Mark reviewed"
-                )}
-              </button>
-            </div>
-          </div>
         </div>
-
-        <p className="chunk-summary">
-          <InlineMarkdown source={chunk.summary} />
-        </p>
-
-        {chunk.context && narrow && (
-          <details className="context-disclosure">
-            <summary>
-              {chunk.context.kind === "concept"
-                ? "Concept: definition and example"
-                : "Refactor: reason and signatures"}
-            </summary>
-            <ContextPane context={chunk.context} language={language} />
-          </details>
-        )}
-
-        {chunk.confidence && (
-          <div className="notice uncertainty">
-            Uncertainty: <InlineMarkdown source={chunk.confidence} />
-          </div>
-        )}
-        {chunk.oversized_reason && (
-          <div className="notice oversized">
-            Oversized: <InlineMarkdown source={chunk.oversized_reason} />
-          </div>
-        )}
-
-        <ChunkBody
-          blocks={chunk.blocks}
-          lineSelection={lineSelection}
-          onSelectLine={onSelectLine}
-          onComment={onComment}
-          onCommentLines={onCommentLines}
-          composer={composer}
-        />
-
-        {composer && !locate(chunk.blocks, composer.place) && (
-          <div className="block chunk-composer">{composer.node}</div>
-        )}
-
-        {chunk.status.open_issues > 0 && (
-          <p className="notice feedback-jump" role="status">
-            {chunk.status.open_issues === 1
-              ? "1 open change request — resolve it in Feedback below."
-              : `${chunk.status.open_issues} open change requests — resolve them in Feedback below.`}
-          </p>
-        )}
-
-        <FeedbackPanel
-          items={feedback}
-          onDispatch={onDispatch}
-          openIssues={chunk.status.open_issues}
-        />
       </main>
-      {showAside && chunk.context && <ContextPane context={chunk.context} language={language} />}
     </div>
   );
-}
-
-function ChunkBody({
-  blocks,
-  lineSelection,
-  onSelectLine,
-  onComment,
-  onCommentLines,
-  composer,
-}: {
-  blocks: Snapshot["chunks"][number]["blocks"];
-  lineSelection: LineSelection | null;
-  onSelectLine: (changeId: string, line: number, extend: boolean) => void;
-  onComment: (request: CommentRequest) => void;
-  onCommentLines: (request: CommentRequest) => void;
-  composer: Composer | null;
-}) {
-  const rendered: ReactNode[] = [];
-  const at = composer && locate(blocks, composer.place);
-  let pending = "";
-  const flushLead = (key: string) => {
-    const markdown = pending;
-    pending = "";
-    if (!markdown) return;
-    rendered.push(
-      <div className="block" key={key}>
-        <Markdown source={markdown} />
-      </div>,
-    );
-  };
-  blocks.forEach((block, index) => {
-    if (block.type === "narrative") {
-      pending = pending ? `${pending}\n\n${block.markdown}` : block.markdown;
-      return;
-    }
-    if (block.type === "explainer") {
-      flushLead(`lead-${index}`);
-      rendered.push(
-        <div className="block" key={`explainer-${index}`}>
-          <ExplainerView explainer={block} />
-        </div>,
-      );
-      return;
-    }
-    const assigned = assignNotes(pending, block.quotes);
-    pending = assigned.lead;
-    flushLead(`lead-${index}`);
-    rendered.push(
-      <ChangesBlock
-        key={`changes-${index}`}
-        block={block}
-        notes={assigned.notes}
-        selected={lineSelection}
-        onSelectLine={onSelectLine}
-        onComment={onComment}
-        onCommentLines={onCommentLines}
-        composer={composer && at && at[0] === index ? { ...composer, quote: at[1] } : null}
-      />,
-    );
-  });
-  flushLead("lead-end");
-  return <>{rendered}</>;
 }
 
 function ChunkStatusChip({

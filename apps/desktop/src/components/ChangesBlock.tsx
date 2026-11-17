@@ -59,6 +59,17 @@ export function ChangesBlock({
             className={note ? "quote-row has-note" : "quote-row"}
             key={`${quote.change_id}-${quote.start}-${quote.end}`}
           >
+            {/* The note comes first so that, floated into the side column,
+                it starts level with its quote. */}
+            {note && (
+              <aside className="quote-note">
+                <Markdown source={note} />
+                {span && (
+                  <CommentActions target="explanation" span={span} onComment={onComment} />
+                )}
+                {underNote}
+              </aside>
+            )}
             <div className="quote-row-code">
               {covered && (
                 <CommentActions target="code" span={covered} onComment={onComment} />
@@ -73,15 +84,6 @@ export function ChangesBlock({
               />
               {underCode && <div className="quote-composer">{underCode}</div>}
             </div>
-            {note && (
-              <aside className="quote-note">
-                <Markdown source={note} />
-                {span && (
-                  <CommentActions target="explanation" span={span} onComment={onComment} />
-                )}
-                {underNote}
-              </aside>
-            )}
           </div>
         );
       })}

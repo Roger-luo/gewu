@@ -71,4 +71,21 @@ describe("navigation", () => {
       screen.getByRole("complementary", { name: /context/i }),
     ).toBeInTheDocument();
   });
+
+  it("puts the concept card and the notes in one side column beside the text", async () => {
+    const user = userEvent.setup();
+    renderApp("showcase");
+    await waitForReady();
+    await user.click(screen.getByRole("button", { name: /start guided review/i }));
+    await waitForReady();
+
+    const main = screen.getByRole("main");
+    expect(main).toHaveClass("has-side");
+    const column = main.querySelector(".chunk-column");
+    // The card is the column's first child, so it floats level with the title.
+    expect(column?.firstElementChild).toBe(screen.getByRole("complementary", { name: /context/i }));
+    for (const note of main.querySelectorAll(".quote-note")) {
+      expect(note.nextElementSibling).toHaveClass("quote-row-code");
+    }
+  });
 });
