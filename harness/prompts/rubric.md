@@ -42,6 +42,11 @@ Read the draft back, one chunk at a time, and answer for each:
   as what you did to learn it — "a search of `crates/` finds"?
 - Do you call code "unchanged" only when it is outside the diff? In a review
   from an empty base every line under review is new.
+- Does each narrative block read as a paragraph? Its first sentence states its
+  point, each sentence after it starts from what the one before ended on, and
+  facts that depend on each other share a sentence with the word that says
+  how. Three short sentences that each restart the subject are one sentence
+  not yet written: write it.
 - Is each point made once? "X, not Y", a second phrasing of the same sentence,
   and a sentence that only announces the next one all cost rows and teach
   nothing.

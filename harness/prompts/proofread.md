@@ -56,10 +56,15 @@ Score each chunk from 0 to 3 on every dimension:
   the view already shows them; list every caller, importer, or re-export when
   one caller would say when the code is used; or open with "nothing existed
   before" for a file the overview already called new. Name the sentences to
-  cut.
+  cut, or the short sentences to join into one.
 - `connection` — the first sentence says what part of the change this is and
-  how it follows from the previous chunk or the overview's map. 1: the chunk
-  could be read in any order.
+  how it follows from the previous chunk or the overview's map, and the
+  sentences inside the chunk follow from each other: each paragraph states its
+  point first, and each sentence starts from what the one before ended on. 1:
+  the chunk could be read in any order, or a paragraph is a run of short
+  sentences that each restart the subject and leave the reader to work out how
+  they relate; the problem quotes the run and says what joins it ("because the
+  shard is locked", "so the key is hashed once").
 
 Write `.gewu/harness/proofread.json`:
 

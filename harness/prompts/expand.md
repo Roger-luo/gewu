@@ -87,8 +87,9 @@ Rules:
   stops. Name the unit in the reason. It is not a way to avoid choosing lines:
   the reader pages through an oversized chunk, so a smaller view still wins
   whenever the unit is not indivisible.
-- Alternate prose and views. Say what to look for, show the lines that prove it,
-  move on. A view of five well-chosen lines beats a view of thirty. When one
+- Alternate prose and views. A paragraph says what to look for, the view shows
+  the lines that prove it, and the next paragraph picks up from what the view
+  showed. A view of five well-chosen lines beats a view of thirty. When one
   change has several call sites, each view gets the sentence for that site in
   the narrative block immediately before it. Do not gather every line range
   into one paragraph above a changes block that holds all of the views: the
@@ -346,6 +347,48 @@ Rules:
   a verdict. A later chunk that touches it names that chunk by its title, in
   quotation marks, instead of raising it again; titles are what the reviewer
   sees, and unquoted they read as a broken sentence.
+- Write each narrative block as a paragraph, not a list of facts; the reviewer
+  reads it as an argument, so give them its shape. These rules come from
+  scientific-writing guides (Gopen and Swan's "The Science of Scientific
+  Writing", Williams's *Style*), which describe how readers find their way
+  through a dense paragraph:
+  - One point per paragraph, stated in its first sentence; the sentences after
+    it give the lines, callers, tests, or commits that support it. A reader who
+    reads only first sentences should still follow the chunk. A paragraph whose
+    point you cannot name is an inventory: ask what its facts add up to — what
+    they let a caller do, what they cost, what they promise, what they leave out
+    — and open with that ("The crate root exports more than its doc comment promises:
+    a second trait and three types it needs"). Facts that add up to nothing the
+    view does not already show are cut, not joined.
+  - Begin each sentence with what the reader already has and end it with the
+    new thing you want them to take away. Inside a paragraph, what they have is
+    the symbol the last sentence ended on; at a paragraph's start, it is the
+    point the previous paragraph made or the view they just read. The next
+    sentence then starts where this one stopped, and the paragraph reads as one
+    line of thought instead of a fresh start every time.
+  - Keep one subject running through a paragraph: the type or function it is
+    about, as the subject of verbs that say what it does ("`InverseTableau`
+    evaluates the rule on the gate's generators"), rather than a new noun, or a
+    noun made from a verb ("the evaluation of"), in each sentence.
+  - Join facts that depend on each other into one sentence, with the word that
+    states how: because, so, which, so that, unless, instead of. Use a
+    connective only for a relation the code shows; a "however" with no contrast
+    or a "therefore" with no consequence is worse than none, and "and" or
+    "while" between two unrelated facts only hides that they are unrelated.
+  - Vary the length. Three short sentences in a row that each start a new
+    subject read as an inventory, and the reader has to work out how they
+    relate; write the sentence that relates them. A sentence carrying more than
+    two clauses of new facts splits.
+
+  Not: "`Cache::get` takes a key. It hashes the key. The hash picks a shard.
+  Each shard has its own lock. This avoids contention." But: "`Cache::get`
+  hashes the key to pick one of sixteen shards, each behind its own lock, so
+  two lookups wait for each other only when their keys land in the same
+  shard."
+
+  An explainer or the concept card beside a paragraph carries the detail the
+  reader looks up; the paragraph says what to notice in it, in a clause, and
+  goes on with the argument.
 - `context`, `confidence`, and `oversized_reason` are optional chunk-level
   fields. Omit them when they do not add information. When `context` is present,
   every field of its selected shape is required: a concept has `definition`,
@@ -364,12 +407,14 @@ alone. A proofreader asks exactly these, and most rewrites are for one of them:
    before it. One that opens with "Lines 85–92 …" or "In `file.rs`, …" has
    said where, not why now; `gewu harness status` lists those.
 
-Then make one deletion pass over every sentence: delete it if
-the reviewer would lose nothing — if it restates the quoted lines, their doc
-comment, the title, the summary, the overview, or a sentence before it. Keep
-sentences that add a fact, ask a question, or say where the chunk fits. A
-judge applies exactly this test, and a first draft typically loses a sixth of
-its sentences to it.
+Then make one pass over every sentence. Delete it if the reviewer would lose
+nothing — if it restates the quoted lines, their doc comment, the title, the
+summary, the overview, or a sentence before it. Keep sentences that add a fact,
+ask a question, or say where the chunk fits. A judge applies exactly this test,
+and a first draft typically loses a sixth of its sentences to it. Cutting is
+not the only fix: where two short sentences state facts that depend on each
+other, join them into the one sentence that says how, so the paragraph keeps
+its line of thought as it gets shorter.
 
 In a direct CLI session, write `expansion.json` and run `gewu harness status`
 before submitting: it reports each chunk's measured height against the budget,

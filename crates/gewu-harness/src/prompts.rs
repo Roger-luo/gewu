@@ -574,7 +574,11 @@ mod tests {
 
         assert!(expansion.contains("names that chunk by its title, in"));
         // Minimality stayed near 0.83 with the rules only in the checklist.
-        assert!(expansion.contains("make one deletion pass over every sentence"));
+        assert!(expansion.contains("make one pass over every sentence. Delete it if"));
+        // Cutting alone left runs of short sentences that each restart the
+        // subject (#298: median 13.5 words, a fifth under ten): join them too.
+        assert!(expansion.contains("join them into the one sentence that says how"));
+        assert!(expansion.contains("One point per paragraph, stated in its first sentence"));
         // "Read, not run" sentences were judged as narrating the review.
         assert!(expansion.contains("Do not write\n  that you read rather than ran something"));
         assert!(expansion.contains("The reviewer has read the overview."));

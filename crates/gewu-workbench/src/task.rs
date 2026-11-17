@@ -24,6 +24,11 @@ pub(crate) const PREPARATIONS: &[(u32, &str)] = &[
         "steppers for the loops and sequences a reader would otherwise trace, plainer \
          prose, and a commit range's messages as its description",
     ),
+    (
+        3,
+        "prose written as paragraphs: each states its point first, and its \
+         sentences follow from one another instead of listing facts",
+    ),
 ];
 
 /// The preparation version new tasks get.
