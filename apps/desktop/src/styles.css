@@ -29,6 +29,11 @@
   --radius-sm: 6px;
   --nav-width: 240px;
   --context-width: 560px;
+  /* One column for prose and code: about 110 characters of body text, so a
+     wide window adds margins instead of lines the eye must sweep across. */
+  --reading-width: 60rem;
+  /* The reading column with the screen's side padding. */
+  --reading-span: calc(var(--reading-width) + 2 * var(--space-6));
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -133,10 +138,30 @@ button {
   grid-template-columns: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
+  container-type: inline-size;
 }
 
+/* The reading column and the context pane are centered as one pair, the
+   pane against the text, so the eye does not cross empty space to reach it.
+   The spare width goes to both outer edges: the pane's column takes half,
+   as padding past its content, and the reading column's left the other half. */
 .app-body.has-context {
-  grid-template-columns: minmax(0, 1fr) var(--context-width);
+  grid-template-columns:
+    minmax(0, 1fr)
+    calc(
+      var(--context-width) +
+        max(0px, (100% - var(--reading-span) - var(--context-width)) / 2)
+    );
+}
+
+.app-body.has-context main[data-gewu-screen] > * {
+  margin-right: 0;
+}
+
+.app-body.has-context .context-pane {
+  padding-right: calc(
+    var(--space-4) + max(0px, (100cqw - var(--reading-span) - var(--context-width)) / 2)
+  );
 }
 
 main[data-gewu-screen] {
@@ -144,6 +169,12 @@ main[data-gewu-screen] {
   padding: var(--space-4) var(--space-6) var(--space-6);
   min-width: 0;
   container-type: inline-size;
+}
+
+/* Centered at the reading width on a wide window; full width on a narrow one. */
+main[data-gewu-screen] > * {
+  max-width: var(--reading-width);
+  margin-inline: auto;
 }
 
 .screen-title:focus {
@@ -1501,6 +1532,14 @@ main[data-gewu-screen] {
 @media (max-width: 1100px) {
   .app-body.has-context {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-body.has-context main[data-gewu-screen] > * {
+    margin-right: auto;
+  }
+
+  .app-body.has-context .context-pane {
+    padding-right: var(--space-4);
   }
 
   .context-pane {

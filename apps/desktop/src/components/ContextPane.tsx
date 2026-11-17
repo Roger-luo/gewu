@@ -113,8 +113,16 @@ function useContextWidth() {
       handle.setPointerCapture(event.pointerId);
       const startX = event.clientX;
       const startWidth = value;
+      const pair = centeredPair(handle);
+      // Where on the handle it was grabbed, so the handle stays under the
+      // pointer instead of jumping to it.
+      const grab = startX - handle.getBoundingClientRect().left;
       const move = (moveEvent: PointerEvent) => {
-        setWidth(startWidth - (moveEvent.clientX - startX));
+        setWidth(
+          pair
+            ? pair.widthFor(moveEvent.clientX - grab)
+            : startWidth - (moveEvent.clientX - startX),
+        );
       };
       const stop = () => {
         handle.removeEventListener("pointermove", move);
@@ -153,4 +161,36 @@ function clampWidth(width: number): number {
     return WIDTH.default;
   }
   return Math.min(WIDTH.max, Math.max(WIDTH.min, Math.round(width)));
+}
+
+/**
+ * The pane's width that puts its left edge at `edge`, when the reading
+ * column and the pane are centered as a pair. Widening the pane re-centers
+ * the pair, so the edge moves half as far as the width changes; solving for
+ * the width keeps the handle under the pointer. Null outside the layout.
+ */
+function centeredPair(handle: HTMLElement): { widthFor: (edge: number) => number } | null {
+  const body = handle.closest(".app-body");
+  const main = body?.querySelector<HTMLElement>("main[data-gewu-screen]");
+  const column = main?.firstElementChild;
+  if (!body || !main || !column) {
+    return null;
+  }
+  const mainStyle = getComputedStyle(main);
+  const reading =
+    parseFloat(getComputedStyle(column).maxWidth) +
+    parseFloat(mainStyle.paddingLeft) +
+    parseFloat(mainStyle.paddingRight);
+  if (!Number.isFinite(reading)) {
+    return null;
+  }
+  const { left, width } = body.getBoundingClientRect();
+  return {
+    widthFor(edge: number) {
+      const offset = edge - left;
+      // Past the reading column the outer margins are open, and half of each
+      // change in width comes out of the left margin.
+      return offset > reading ? width + reading - 2 * offset : width - offset;
+    },
+  };
 }
