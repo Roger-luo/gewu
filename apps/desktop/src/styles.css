@@ -1785,3 +1785,10 @@ main[data-gewu-screen] > * {
 .chunk-composer .inline-composer {
   margin: var(--space-2) 0 0;
 }
+
+/* Display math scrolls on its own rather than widening the column. */
+.math-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0 0 0.85em;
+}

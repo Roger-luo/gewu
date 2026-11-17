@@ -316,6 +316,11 @@ Rules:
 - Put code in a context `example` as code text, without an outer Markdown fence;
   Gewu supplies the visual code boundary. Keep explanation and headings in the
   `definition` or `relation` fields instead of embedding them in the example.
+- Write math as TeX between dollar signs, which Gewu typesets: `$G^\dagger P G$`
+  inline, `$$…$$` on its own lines for a display equation. Keep a code span for
+  code, such as an identifier or an expression as the source spells it; use TeX
+  when the sentence states the mathematics, such as a conjugation, a sum, or a
+  bound like $O(n^2)$. A literal dollar sign is `\$`.
 - Put uncertain interpretation in `confidence` — what the repository leaves
   open, not a risk you already stated; never invent motivation. Do not write
   that you read rather than ran something: the reviewer assumes the walkthrough
