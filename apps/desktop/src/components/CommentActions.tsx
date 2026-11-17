@@ -12,6 +12,12 @@ export function CommentActions({
   onComment: (request: CommentRequest) => void;
 }) {
   const what = target === "code" ? "code" : "explanation";
+  const lines =
+    span.start_line === span.end_line
+      ? `line ${span.start_line}`
+      : `lines ${span.start_line}–${span.end_line}`;
+  // Only code comments land on GitHub lines, so only they name the lines.
+  const where = target === "code" ? <span className="comment-lines"> · {lines}</span> : null;
   return (
     <div className="comment-actions" role="group" aria-label={`Feedback on this ${what}`}>
       <button
@@ -20,6 +26,7 @@ export function CommentActions({
         onClick={() => onComment({ kind: "note", target, span })}
       >
         Comment on {what}
+        {where}
       </button>
       <button
         type="button"
@@ -27,6 +34,7 @@ export function CommentActions({
         onClick={() => onComment({ kind: "issue", target, span })}
       >
         Request change on {what}
+        {where}
       </button>
     </div>
   );

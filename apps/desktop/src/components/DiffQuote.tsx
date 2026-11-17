@@ -1,16 +1,19 @@
 import type { QuoteView } from "../protocol";
 import { TokenLine } from "./TokenLine";
 import { useHighlightedLines } from "./useHighlightedLines";
+import { LineComment } from "./LineComment";
 import { QuoteFrame } from "./QuoteFrame";
 
 export function DiffQuote({
   quote,
   selectedLines,
-  onToggleLine,
+  onSelectLine,
+  onCommentLine,
 }: {
   quote: QuoteView;
   selectedLines: Set<number>;
-  onToggleLine: (changeId: string, line: number) => void;
+  onSelectLine: (changeId: string, line: number, extend: boolean) => void;
+  onCommentLine?: (line: number) => void;
 }) {
   const { lines: highlighted, pending } = useHighlightedLines(
     quote.lines.map((row) => row.text).join("\n"),
@@ -27,13 +30,13 @@ export function DiffQuote({
             const selected =
               selectable && selectedLines.has(row.new_line as number);
             return (
-              <tr key={`${quote.change_id}-${index}`} className={row.kind}>
+              <tr key={`${quote.change_id}-${index}`} className={selected ? `${row.kind} selected` : row.kind}>
                 <td className="ln">{row.old_line ?? ""}</td>
                 <td
                   className={`ln${selected ? " selected" : ""}`}
-                  onClick={() => {
+                  onClick={(event) => {
                     if (selectable && row.new_line != null) {
-                      onToggleLine(quote.change_id, row.new_line);
+                      onSelectLine(quote.change_id, row.new_line, event.shiftKey);
                     }
                   }}
                   onKeyDown={(event) => {
@@ -43,7 +46,7 @@ export function DiffQuote({
                       (event.key === "Enter" || event.key === " ")
                     ) {
                       event.preventDefault();
-                      onToggleLine(quote.change_id, row.new_line);
+                      onSelectLine(quote.change_id, row.new_line, event.shiftKey);
                     }
                   }}
                   role={selectable ? "button" : undefined}
@@ -60,7 +63,10 @@ export function DiffQuote({
                 <td className="marker">
                   {row.kind === "added" ? "+" : row.kind === "removed" ? "-" : " "}
                 </td>
-                <td>
+                <td className="code-cell">
+                  {selectable && row.new_line != null && onCommentLine && (
+                    <LineComment line={row.new_line} onComment={onCommentLine} />
+                  )}
                   <code className="diff-code">
                     <TokenLine tokens={highlighted?.[index]} plain={row.text} language={quote.language} />
                   </code>

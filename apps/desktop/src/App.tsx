@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 
-import { anchorInput, anchorLabel, type CommentRequest } from "./anchors";
+import {
+  anchorInput,
+  anchorLabel,
+  selectLine as nextSelection,
+  spanSelection,
+  type CommentRequest,
+  type LineSelection,
+} from "./anchors";
 import type { Backend } from "./backend";
 import { ChunkScreen } from "./components/ChunkScreen";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -46,28 +53,14 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     onChange: task?.onChange,
     revision: task?.view.updated_at,
   });
-  const [lineSelection, setLineSelection] = useState<{
-    changeId: string;
-    lines: Set<number>;
-  } | null>(null);
+  const [lineSelection, setLineSelection] = useState<LineSelection | null>(null);
 
   useKeyboard(app);
   useTestApi(app, task?.host);
   useFocusOnNavigate(app.screen, app.chunkIndex);
 
-  const toggleLine = useCallback((changeId: string, line: number) => {
-    setLineSelection((current) => {
-      if (!current || current.changeId !== changeId) {
-        return { changeId, lines: new Set([line]) };
-      }
-      const next = new Set(current.lines);
-      if (next.has(line)) {
-        next.delete(line);
-      } else {
-        next.add(line);
-      }
-      return next.size === 0 ? null : { changeId, lines: next };
-    });
+  const selectLine = useCallback((changeId: string, line: number, extend: boolean) => {
+    setLineSelection((current) => nextSelection(current, changeId, line, extend));
   }, []);
 
   const anchor = useMemo<FeedbackAnchorInput>(() => {
@@ -90,6 +83,15 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
       app.openFeedback(request.kind, { target: request.target, span: request.span });
     },
     [app],
+  );
+  // A comment opened from one line selects what it covers, so the gutter
+  // shows the lines the comment will land on.
+  const commentOnLines = useCallback(
+    (request: CommentRequest) => {
+      setLineSelection(spanSelection(request.span));
+      openComment(request);
+    },
+    [openComment],
   );
 
   // Lines the reader selected inside the block they comment on narrow the
@@ -246,8 +248,9 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             onAddComment={() => app.openFeedback("note")}
             onRequestChange={() => app.openFeedback("issue")}
             lineSelection={lineSelection}
-            onToggleLine={toggleLine}
+            onSelectLine={selectLine}
             onComment={openComment}
+            onCommentLines={commentOnLines}
           />
         )}
         {app.screen === "summary" && (

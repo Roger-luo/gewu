@@ -71,6 +71,37 @@ describe("comments on blocks and explanations", () => {
     expect(dialog.textContent).toMatch(new RegExp(`Anchored to \\S+:${number}(?!\\d|-)`));
   });
 
+  it("comments on one line from the + beside it", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk();
+    const [plus] = within(main).getAllByRole("button", { name: /^comment on line \d+$/i });
+    const number = plus.getAttribute("aria-label")?.match(/\d+/)?.[0];
+    await user.click(plus);
+
+    const dialog = screen.getByRole("dialog", { name: /add comment/i });
+    expect(dialog.textContent).toMatch(new RegExp(`Anchored to \\S+:${number}(?!\\d|-)`));
+  });
+
+  it("extends a selection with shift-click and names it on the block button", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk();
+    const [codeGroup] = within(main).getAllByRole("group", { name: /feedback on this code/i });
+    const block = (codeGroup.closest(".quote-row") ?? main) as HTMLElement;
+    const lines = within(block).getAllByRole("button", { name: /^select line \d+$/i });
+    const numbers = lines.map((line) => Number(line.getAttribute("aria-label")?.match(/\d+/)?.[0]));
+    const [first, third] = [numbers[0], numbers[2]];
+    await user.click(lines[0]);
+    await user.keyboard("{Shift>}");
+    await user.click(lines[2]);
+    await user.keyboard("{/Shift}");
+
+    const button = within(codeGroup).getByRole("button", { name: /comment on code/i });
+    expect(button).toHaveTextContent(`lines ${first}–${third}`);
+    await user.click(within(block).getByRole("button", { name: `Comment on line ${numbers[1]}` }));
+    const dialog = screen.getByRole("dialog", { name: /add comment/i });
+    expect(dialog.textContent).toMatch(new RegExp(`Anchored to \\S+:${first}-${third}`));
+  });
+
   it("forgets a block anchor when the dialog is cancelled", async () => {
     const user = userEvent.setup();
     const main = await openFirstChunk();

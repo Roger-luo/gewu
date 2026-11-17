@@ -1,4 +1,4 @@
-import { anchorInput, anchorLabel, quoteSpan } from "./anchors";
+import { anchorInput, anchorLabel, lineSpan, narrowSpan, quoteSpan, selectLine } from "./anchors";
 import type { QuoteLine, QuoteView } from "./protocol";
 
 function quote(lines: QuoteLine[]): QuoteView {
@@ -70,5 +70,36 @@ describe("anchors", () => {
     expect(anchorLabel({ path: "a.rs", side: "old", start_line: 3, end_line: 9 })).toBe(
       "a.rs:3-9 (before)",
     );
+  });
+});
+
+describe("selectLine", () => {
+  it("picks one line, extends from it with shift, and clears on a repeat click", () => {
+    const one = selectLine(null, "c", 10, false);
+    expect([...(one?.lines ?? [])]).toEqual([10]);
+    const run = selectLine(one, "c", 7, true);
+    expect([...(run?.lines ?? [])].sort((a, b) => a - b)).toEqual([7, 8, 9, 10]);
+    expect(selectLine(run, "c", 12, true)?.lines.size).toBe(3);
+    expect(selectLine(one, "c", 10, false)).toBeNull();
+  });
+
+  it("starts over in another change even with shift", () => {
+    const other = selectLine(selectLine(null, "a", 3, false), "b", 9, true);
+    expect(other?.changeId).toBe("b");
+    expect([...(other?.lines ?? [])]).toEqual([9]);
+  });
+});
+
+describe("line spans", () => {
+  const block = { change_id: "c", path: "p", side: "new" as const, start_line: 5, end_line: 20 };
+
+  it("comments on the selection when the line is in it, else on that line", () => {
+    expect(lineSpan(block, new Set([8, 9]), 9)).toMatchObject({ start_line: 8, end_line: 9 });
+    expect(lineSpan(block, new Set([8, 9]), 15)).toMatchObject({ start_line: 15, end_line: 15 });
+  });
+
+  it("narrows a block only to selected lines inside it", () => {
+    expect(narrowSpan(block, new Set([2, 30]))).toEqual(block);
+    expect(narrowSpan(block, new Set([6, 7]))).toMatchObject({ start_line: 6, end_line: 7 });
   });
 });

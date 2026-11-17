@@ -1096,6 +1096,45 @@ main[data-gewu-screen] {
   cursor: default;
 }
 
+/* A selected run reads as one band across the code, not only the gutter. */
+.diff-table tr.selected .code-cell {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--accent-soft);
+}
+
+.diff-table .code-cell {
+  position: relative;
+}
+
+/* GitHub-style "+": hidden until the row is hovered or focused. */
+.line-comment {
+  position: absolute;
+  left: -0.6rem;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+  line-height: 20px;
+  cursor: pointer;
+  opacity: 0;
+  z-index: 1;
+}
+
+.diff-table tr:hover .line-comment,
+.line-comment:focus-visible {
+  opacity: 1;
+}
+
+.comment-lines {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
 .markdown-doc .shiki {
   margin: 0;
   padding: var(--space-3);

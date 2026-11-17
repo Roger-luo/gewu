@@ -22,7 +22,7 @@ describe("added code", () => {
           },
         })}
         selectedLines={new Set()}
-        onToggleLine={() => undefined}
+        onSelectLine={() => undefined}
       />,
     );
 

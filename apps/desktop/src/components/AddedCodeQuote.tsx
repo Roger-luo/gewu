@@ -1,4 +1,5 @@
 import type { QuoteView } from "../protocol";
+import { LineComment } from "./LineComment";
 import { QuoteFrame } from "./QuoteFrame";
 import { TokenLine } from "./TokenLine";
 import { useHighlightedLines } from "./useHighlightedLines";
@@ -7,11 +8,13 @@ import { useHighlightedLines } from "./useHighlightedLines";
 export function AddedCodeQuote({
   quote,
   selectedLines,
-  onToggleLine,
+  onSelectLine,
+  onCommentLine,
 }: {
   quote: QuoteView;
   selectedLines: Set<number>;
-  onToggleLine: (changeId: string, line: number) => void;
+  onSelectLine: (changeId: string, line: number, extend: boolean) => void;
+  onCommentLine?: (line: number) => void;
 }) {
   const rows = quote.lines.filter((line) => line.kind !== "removed");
   const { lines: highlighted, pending } = useHighlightedLines(
@@ -29,7 +32,7 @@ export function AddedCodeQuote({
           {rows.map((row, index) => {
             const selected = row.new_line != null && selectedLines.has(row.new_line);
             return (
-              <tr key={`${quote.change_id}-${index}`}>
+              <tr key={`${quote.change_id}-${index}`} className={selected ? "selected" : undefined}>
                 <td className="ln-cell">
                   <button
                     type="button"
@@ -37,16 +40,19 @@ export function AddedCodeQuote({
                     disabled={row.new_line == null}
                     aria-pressed={row.new_line != null ? selected : undefined}
                     aria-label={row.new_line != null ? `Select line ${row.new_line}` : undefined}
-                    onClick={() => {
+                    onClick={(event) => {
                       if (row.new_line != null) {
-                        onToggleLine(quote.change_id, row.new_line);
+                        onSelectLine(quote.change_id, row.new_line, event.shiftKey);
                       }
                     }}
                   >
                     {row.new_line ?? ""}
                   </button>
                 </td>
-                <td>
+                <td className="code-cell">
+                  {row.new_line != null && onCommentLine && (
+                    <LineComment line={row.new_line} onComment={onCommentLine} />
+                  )}
                   <code className="diff-code">
                     <TokenLine tokens={highlighted?.[index]} plain={row.text} language={quote.language} />
                   </code>

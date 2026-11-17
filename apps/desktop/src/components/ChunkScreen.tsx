@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { InlineMarkdown, Markdown } from "./Markdown";
-import type { CommentRequest } from "../anchors";
+import type { CommentRequest, LineSelection } from "../anchors";
 import { plainInline } from "../markdown";
 import { assignNotes } from "../quoteNotes";
 import { sectionPosition } from "../navigation";
@@ -28,8 +28,9 @@ export function ChunkScreen({
   onAddComment,
   onRequestChange,
   lineSelection,
-  onToggleLine,
+  onSelectLine,
   onComment,
+  onCommentLines,
 }: {
   snapshot: Snapshot;
   chunkIndex: number;
@@ -37,9 +38,10 @@ export function ChunkScreen({
   onToggleReviewed: () => Promise<void>;
   onAddComment: () => void;
   onRequestChange: () => void;
-  lineSelection: { changeId: string; lines: Set<number> } | null;
-  onToggleLine: (changeId: string, line: number) => void;
+  lineSelection: LineSelection | null;
+  onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onComment: (request: CommentRequest) => void;
+  onCommentLines: (request: CommentRequest) => void;
 }) {
   const chunk = snapshot.chunks[chunkIndex];
   const [narrow, setNarrow] = useState(() => {
@@ -167,8 +169,9 @@ export function ChunkScreen({
         <ChunkBody
           blocks={chunk.blocks}
           lineSelection={lineSelection}
-          onToggleLine={onToggleLine}
+          onSelectLine={onSelectLine}
           onComment={onComment}
+          onCommentLines={onCommentLines}
         />
 
         {chunk.status.open_issues > 0 && (
@@ -193,13 +196,15 @@ export function ChunkScreen({
 function ChunkBody({
   blocks,
   lineSelection,
-  onToggleLine,
+  onSelectLine,
   onComment,
+  onCommentLines,
 }: {
   blocks: Snapshot["chunks"][number]["blocks"];
-  lineSelection: { changeId: string; lines: Set<number> } | null;
-  onToggleLine: (changeId: string, line: number) => void;
+  lineSelection: LineSelection | null;
+  onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onComment: (request: CommentRequest) => void;
+  onCommentLines: (request: CommentRequest) => void;
 }) {
   const rendered: ReactNode[] = [];
   let pending = "";
@@ -236,8 +241,9 @@ function ChunkBody({
         block={block}
         notes={assigned.notes}
         selected={lineSelection}
-        onToggleLine={onToggleLine}
+        onSelectLine={onSelectLine}
         onComment={onComment}
+        onCommentLines={onCommentLines}
       />,
     );
   });
