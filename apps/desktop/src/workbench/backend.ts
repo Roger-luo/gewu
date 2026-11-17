@@ -1,4 +1,6 @@
 import { HttpBackend, request } from "../backend/http";
+import { listen } from "@tauri-apps/api/event";
+
 import { command } from "../backend/tauri";
 import type {
   Backend,
@@ -36,11 +38,16 @@ export interface WorkbenchBackend {
   review(taskId: string): Backend;
   /** The GitHub account publishing posts as. */
   github?: GitHubBackend;
+  /** Calls `listener` when the app menu's Settings… (⌘,) is chosen; returns how to stop. */
+  onOpenSettings?: (listener: () => void) => () => void;
   /** A native folder picker, where the platform has one. */
   pickDirectory?: () => Promise<string | null>;
 }
 
 const path = (id: string) => encodeURIComponent(id);
+
+/** The event the app menu's Settings… item sends; see `settings_menu.rs`. */
+const OPEN_SETTINGS = "gewu://open-settings";
 
 export class HttpWorkbench implements WorkbenchBackend {
   github = httpGitHub;
@@ -129,6 +136,11 @@ export class TauriWorkbench implements WorkbenchBackend {
 
   reportPrompt(report: PromptReport) {
     return command<Receipt>("report_prompt", { report });
+  }
+
+  onOpenSettings(listener: () => void) {
+    const stop = listen(OPEN_SETTINGS, listener);
+    return () => void stop.then((unlisten) => unlisten());
   }
 
   log(taskId: string, after: number) {

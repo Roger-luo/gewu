@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { mockGitHub, mockRehearsing, signOutMockGitHub } from "../backend/mockGitHub";
@@ -7,6 +7,11 @@ import { MockWorkbench } from "./mock";
 import { WorkbenchApp } from "./WorkbenchApp";
 
 const main = () => screen.getByRole("main");
+
+/** Opens a Settings tab, as the reader does before using its fields. */
+async function tab(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole("tab", { name: new RegExp(name) }));
+}
 
 async function openSettings(user: ReturnType<typeof userEvent.setup>) {
   render(<WorkbenchApp backend={MockWorkbench.seeded(0)} />);
@@ -37,6 +42,7 @@ describe("settings", () => {
     );
     expect(within(github).getByRole("checkbox", { name: /Rehearse instead of sending/ })).not.toBeChecked();
 
+    await tab(user, "Agents");
     const agents = within(settings).getByRole("region", { name: "Agents and generation" });
     expect(within(agents).getByRole("combobox", { name: /Default agent/ })).toHaveDisplayValue(
       "The one you used last",
@@ -47,6 +53,7 @@ describe("settings", () => {
       "The agent that wrote the review",
     );
 
+    await tab(user, "Storage");
     const storage = within(settings).getByRole("region", { name: "Where Gewu keeps things" });
     expect(storage).toHaveTextContent("GEWU_HOME");
     expect(storage).toHaveTextContent("/Users/ada/.gewu");
@@ -57,8 +64,8 @@ describe("settings", () => {
   it("shows every prompt and what a backend adds to it, read-only", async () => {
     const user = userEvent.setup();
     const settings = await openSettings(user);
+    await tab(user, "Prompts");
     const prompts = within(settings).getByRole("region", { name: "Prompts agents are sent" });
-    await user.click(within(prompts).getByText("Show the prompts"));
 
     const list = await within(prompts).findByRole("navigation", { name: "Prompts" });
     expect(within(list).getAllByRole("button").map((button) => button.textContent)).toEqual([
@@ -88,8 +95,8 @@ describe("settings", () => {
     await waitForReady();
     const nav = screen.getByRole("navigation", { name: "Workbench" });
     await user.click(within(nav).getByRole("button", { name: "Settings" }));
+    await tab(user, "Prompts");
     const prompts = within(main()).getByRole("region", { name: "Prompts agents are sent" });
-    await user.click(within(prompts).getByText("Show the prompts"));
     const list = await within(prompts).findByRole("navigation", { name: "Prompts" });
     await user.click(within(list).getByRole("button", { name: /Expand/ }));
     const view = within(prompts).getByRole("article", { name: "Expand prompt" });
@@ -119,6 +126,7 @@ describe("settings", () => {
     const github = await within(settings).findByRole("region", { name: "GitHub" });
     await user.click(within(github).getByRole("radio", { name: /The GitHub CLI/ }));
     await user.click(within(github).getByRole("checkbox", { name: /Rehearse/ }));
+    await tab(user, "Agents");
     const agents = within(settings).getByRole("region", { name: "Agents and generation" });
     await user.selectOptions(within(agents).getByRole("combobox", { name: /Default agent/ }), "codex");
     const rounds = within(agents).getByRole("spinbutton", { name: "Proofread rounds" });
@@ -135,6 +143,7 @@ describe("settings", () => {
     expect(proofreader).toHaveDisplayValue("Claude Code");
     expect(mockRehearsing()).toBe(true);
     expect((await mockGitHub.settings()).method).toBe("gh");
+    await user.click(screen.getByRole("button", { name: /Back to reviews/ }));
     const account = screen.getByRole("region", { name: "Account and settings" });
     expect(account).toHaveTextContent("via GitHub CLI");
 
@@ -146,6 +155,7 @@ describe("settings", () => {
   it("refuses rounds out of range and keeps the old value", async () => {
     const user = userEvent.setup();
     const settings = await openSettings(user);
+    await tab(user, "Agents");
     const rounds = within(settings).getByRole("spinbutton", { name: "Proofread rounds" });
     await user.clear(rounds);
     await user.type(rounds, "9");
@@ -155,23 +165,42 @@ describe("settings", () => {
     expect(screen.queryByText("Saved")).not.toBeInTheDocument();
   });
 
-  it("does not undo a sign-in made from the sidebar while Settings is open", async () => {
+  it("is a page of its own, with its sections in the sidebar and a way back", async () => {
     const user = userEvent.setup();
-    const settings = await openSettings(user);
-    const github = await within(settings).findByRole("region", { name: "GitHub" });
-    expect(within(github).getByRole("radio", { name: /Gewu's GitHub app/ })).toBeChecked();
+    await openSettings(user);
+    // The workbench sidebar gives way to the sections.
+    expect(screen.queryByRole("navigation", { name: "Workbench" })).toBeNull();
+    const sections = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(within(sections).getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "GitHub",
+      "Agents",
+      "Prompts",
+      "Storage",
+    ]);
+    expect(screen.getByRole("heading", { name: "GitHub", level: 2 })).toBeInTheDocument();
+    await tab(user, "Storage");
+    expect(screen.getByRole("heading", { name: "Storage", level: 2 })).toBeInTheDocument();
 
-    const account = screen.getByRole("region", { name: "Account and settings" });
-    await user.click(within(account).getByRole("button", { name: /sign in to github/i }));
-    await user.click(screen.getByRole("button", { name: /use the github cli/i }));
-    expect(account).toHaveTextContent("via GitHub CLI");
-    expect(within(github).getByRole("radio", { name: /The GitHub CLI/ })).toBeChecked();
+    await user.click(within(sections).getByRole("button", { name: /Back to reviews/ }));
+    expect(screen.getByRole("navigation", { name: "Workbench" })).toBeInTheDocument();
+    expect(main()).toHaveAttribute("data-gewu-screen", "home");
+  });
 
-    await user.click(within(github).getByRole("checkbox", { name: /Rehearse/ }));
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(account).toHaveTextContent("via GitHub CLI");
-    expect(mockRehearsing()).toBe(true);
+  it("opens from the app menu's Settings…", async () => {
+    let open: (() => void) | null = null;
+    const backend = Object.assign(MockWorkbench.seeded(0), {
+      onOpenSettings: (listener: () => void) => {
+        open = listener;
+        return () => {
+          open = null;
+        };
+      },
+    });
+    render(<WorkbenchApp backend={backend} />);
+    await waitForReady();
+    expect(open).not.toBeNull();
+    act(() => open?.());
+    expect(await screen.findByRole("navigation", { name: "Settings sections" })).toBeInTheDocument();
   });
 });
 

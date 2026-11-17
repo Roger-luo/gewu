@@ -858,31 +858,11 @@
   align-self: center;
 }
 
-/* Save stays in reach while the form scrolls, and on the title's row. */
-.settings-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  flex-wrap: nowrap;
-  padding-block: var(--space-2);
-  background: var(--bg-elevated);
-}
-
 .field input:disabled {
   background: var(--bg-muted);
   color: var(--text-secondary);
   border-style: dashed;
   cursor: not-allowed;
-}
-
-.settings-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.settings-title svg {
-  color: var(--text-secondary);
 }
 
 .agent-log-head {
@@ -960,6 +940,7 @@
 
 .prompt-backend {
   min-width: 12rem;
+  flex: none;
 }
 
 .prompt-text {
@@ -984,7 +965,7 @@
   font-size: 13px;
 }
 
-@media (max-width: 900px) {
+@container (max-width: 640px) {
   .prompts-browser {
     grid-template-columns: 1fr;
   }
@@ -1007,4 +988,187 @@
   align-items: center;
   gap: var(--space-2);
   justify-content: flex-end;
+}
+
+/* Settings, as a page of its own (as Codex lays its settings out): the
+   sidebar lists the sections under a way back, and the chosen section fills
+   the main column. */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings-back {
+  align-self: flex-start;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-tab-icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.settings-tab-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-tab:hover {
+  background: var(--bg-muted);
+}
+
+.settings-tab.selected {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.settings-tab.selected .settings-tab-icon {
+  color: var(--accent-ink);
+}
+
+main.settings-window {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  container-type: inline-size;
+}
+
+/* Over the section, on its left edge. */
+main.settings-window > .settings-page-title {
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+main.settings-window:has(.prompts-section) > .settings-page-title {
+  max-width: none;
+}
+
+.settings-nav {
+  padding-top: var(--space-3);
+}
+
+/* The page's rows span it: the reading-column cap would shrink each flex
+   row to its content. */
+main.settings-window > * {
+  max-width: none;
+  margin-inline: 0;
+}
+
+main.settings-window .settings,
+main.settings-window .settings-panel {
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+/* Two columns, as macOS settings panes are: each label right-aligned beside
+   its control, hints and checkboxes under the controls. A narrow sheet
+   keeps the single column. (44rem: a container query cannot read variables.) */
+@container (min-width: 44rem) {
+  main.settings-window .settings .settings-section {
+    --label-column: 12rem;
+    --label-gap: var(--space-4);
+  }
+
+  main.settings-window .settings .settings-section .field {
+    display: grid;
+    grid-template-columns: var(--label-column) minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--label-gap);
+  }
+
+  main.settings-window .settings .settings-section .field > span,
+  main.settings-window .settings .settings-choice legend {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  main.settings-window .settings .settings-section .field-hint,
+  main.settings-window .settings .settings-section .settings-check {
+    margin-left: calc(var(--label-column) + var(--label-gap));
+  }
+
+  main.settings-window .settings .settings-choice {
+    position: relative;
+    padding-left: calc(var(--label-column) + var(--label-gap));
+  }
+
+  main.settings-window .settings .settings-choice legend {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: var(--label-column);
+    padding: 0;
+  }
+
+  main.settings-window .settings .settings-choice .field-hint {
+    margin-left: 0;
+  }
+}
+
+main.settings-window .prompts-section {
+  max-width: none;
+  margin-top: 0;
+}
+
+/* The prompts use the sheet's width: their list beside the chosen text. */
+main.settings-window [role="tabpanel"]:has(.prompts-section) {
+  max-width: none;
+}
+
+/* Save stays in reach while a tab scrolls. */
+.settings-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg-elevated);
+  padding-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.settings-footer .warning {
+  margin: 0 auto 0 0;
+}
+
+/* Storage's paths line up with the other tabs' labels. */
+@container (min-width: 44rem) {
+  main.settings-window .settings-paths {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  main.settings-window .settings-paths dt {
+    text-align: right;
+  }
 }

@@ -328,7 +328,7 @@ export const STORIES: Story[] = [
     },
   },
   {
-    meta: { id: "settings-and-account", story: 7, title: "Settings and account", goal: "Find Settings and the GitHub account at the sidebar's foot, change a setting and save it, and see the sidebar keep its grouping in a narrow window." },
+    meta: { id: "settings-and-account", story: 7, title: "Settings and account", goal: "Find Settings and the GitHub account at the sidebar's foot, change a setting on its GitHub tab and save it, and see the sidebar keep its grouping in a narrow window." },
     async run(j) {
       const foot = () => j.control("region", "Account and settings");
       await j.step("See where the sidebar puts each control", async () => {
@@ -340,12 +340,17 @@ export const STORIES: Story[] = [
       await j.step("Open Settings from the sidebar's foot", async () => {
         await j.click("button", "Settings", foot());
         await j.screen("settings");
-        await j.see("Where Gewu keeps things");
+        // A page of its own, its sections in the sidebar: GitHub is first.
+        await j.control("tab", /GitHub/).waitFor();
       });
       await j.step("Turn on rehearsal and save", async () => {
         await j.control("checkbox", /Rehearse instead of sending/).check();
         await j.click("button", "Save");
         await j.see("Saved");
+      });
+      await j.step("Go back to the reviews", async () => {
+        await j.click("button", /Back to reviews/);
+        await j.screen("home");
       });
       await j.step("Open the GitHub account", async () => {
         await j.click("button", /^(Switch|Sign in to GitHub)$/, foot());
@@ -356,9 +361,10 @@ export const STORIES: Story[] = [
         await j.page.getByRole("dialog").waitFor({ state: "detached" });
       });
       const size = j.page.viewportSize();
-      await j.step("Narrow the window", async () => {
+      await j.step("Narrow the window and open Settings again", async () => {
         await j.page.setViewportSize({ width: 800, height: 700 });
-        await j.see("Where Gewu keeps things");
+        await j.click("button", "Settings", foot());
+        await j.control("checkbox", /Rehearse instead of sending/).waitFor();
       });
       await j.step("Turn rehearsal back off", async () => {
         await j.control("checkbox", /Rehearse instead of sending/).uncheck();
@@ -367,7 +373,7 @@ export const STORIES: Story[] = [
       });
       if (size) await j.page.setViewportSize(size);
       await j.step("Back to reviews", async () => {
-        await j.click("button", /^All reviews/);
+        await j.click("button", /Back to reviews/);
         await j.screen("home");
       });
     },

@@ -1,17 +1,33 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import type { GitHubPreferences } from "../backend/types";
-import { GearIcon } from "../components/Icons";
+import { AccountIcon, AgentIcon, DriveIcon, PromptIcon } from "../components/SettingsIcons";
 import type { GitHubState } from "../hooks/useGitHub";
+import type { Receipt } from "../publication";
+import { AgentsSettings } from "./AgentsSettings";
 import { GitHubSettingsFields } from "./GitHubSettingsFields";
 import { PromptsSection } from "./PromptsSection";
-import { ProofreaderField } from "./ProofreaderField";
-import type { Receipt } from "../publication";
 import type { AgentPreset, PromptReport, PromptView, Settings, SettingsView } from "./protocol";
+import { StorageSettings } from "./StorageSettings";
+
+type Tab = "github" | "agents" | "prompts" | "storage";
+
+/** The sections, in the order the sidebar lists them. */
+const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+  { id: "github", label: "GitHub", icon: <AccountIcon /> },
+  { id: "agents", label: "Agents", icon: <AgentIcon /> },
+  { id: "prompts", label: "Prompts", icon: <PromptIcon /> },
+  { id: "storage", label: "Storage", icon: <DriveIcon /> },
+];
+
+/** Tabs whose fields Save writes. */
+const EDITABLE: ReadonlySet<Tab> = new Set(["github", "agents"]);
 
 /**
- * Every option Gewu has, in one place: GitHub, agents and generation, and
- * where Gewu keeps things. Nothing is saved until Save.
+ * Every option Gewu has, as a page of its own: its sections in the sidebar,
+ * as Codex lays out its settings, and the chosen one beside them. Nothing is
+ * saved until Save, and the editable sections stay mounted so switching
+ * sections keeps edits.
  */
 export function SettingsScreen({
   settings,
@@ -23,7 +39,7 @@ export function SettingsScreen({
   loadPrompts,
   reportPrompt,
 }: {
-  /** Returns to the screen Settings was opened from. */
+  /** Leaves Settings, back to the screen it was opened from. */
   onBack?: () => void;
   backLabel?: string;
   settings: SettingsView;
@@ -36,6 +52,7 @@ export function SettingsScreen({
   /** Files a public issue on Gewu about a prompt, after the reader confirms. */
   reportPrompt?: (report: PromptReport) => Promise<Receipt>;
 }) {
+  const [tab, setTab] = useState<Tab>("github");
   const [draft, setDraft] = useState<Settings>({
     proofread_rounds: settings.proofread_rounds,
     default_agent: settings.default_agent,
@@ -53,7 +70,6 @@ export function SettingsScreen({
   };
   const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [problem, setProblem] = useState<string | null>(null);
-  const preset = draft.default_agent?.preset_id ?? "";
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -69,162 +85,108 @@ export function SettingsScreen({
     setState(saved && githubSaved ? "saved" : "failed");
   };
 
+  const current = TABS.find((item) => item.id === tab) ?? TABS[0];
+
   return (
-    <main data-gewu-screen="settings" aria-labelledby="settings-title">
-      <header className="screen-header new-review-header settings-header">
-        <div>
-          {onBack && (
-            <button type="button" className="btn ghost screen-back" onClick={onBack}>
-              <span aria-hidden>‹ </span>
-              {backLabel}
-            </button>
-          )}
-          <h2 id="settings-title" className="screen-title settings-title" tabIndex={-1}>
-            <GearIcon size={22} />
-            Settings
-          </h2>
-          <p className="muted">Everything Gewu lets you change. Nothing is saved until you press Save.</p>
-        </div>
-        <div className="new-review-start">
-          <span className="muted settings-saved" role="status">
-            {state === "saved" ? "Saved" : ""}
-          </span>
-          <button type="submit" form="settings-form" className="btn primary" disabled={state === "saving"}>
-            {state === "saving" ? "Saving…" : "Save"}
+    <div className="app-shell settings-page">
+      <nav className="navigator settings-nav" aria-label="Settings sections">
+        {onBack && (
+          <button type="button" className="btn ghost settings-back" onClick={onBack}>
+            <span aria-hidden>‹ </span>
+            {backLabel}
           </button>
-        </div>
-      </header>
-
-      <form id="settings-form" className="settings" onSubmit={(event) => void save(event)} noValidate>
-        {githubDraft && github.settings && (
-          <GitHubSettingsFields
-            settings={github.settings}
-            account={github.account}
-            draft={githubDraft}
-            onChange={(patch) => {
-              setGitHubEdits({ ...githubEdits, ...patch });
-              setState("idle");
-            }}
-          />
         )}
-        {state === "failed" && (
-          <p className="warning" role="alert">
-            Not saved: {problem ?? github.error ?? "see the message above"}.
-          </p>
-        )}
-
-        <section className="panel settings-section" aria-labelledby="settings-agents">
-          <h3 id="settings-agents">Agents and generation</h3>
-          <label className="field">
-            <span>Default agent for new reviews</span>
-            <select
-              value={preset}
-              onChange={(event) => {
-                const id = event.target.value;
-                setDraft({
-                  ...draft,
-                  default_agent: id ? { preset_id: id, command: id === "custom" ? (draft.default_agent?.command ?? "") : null } : null,
-                });
-                setState("idle");
-              }}
+        <div className="settings-tabs" role="tablist" aria-label="Settings" aria-orientation="vertical">
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`settings-tab-${item.id}`}
+              aria-selected={tab === item.id}
+              aria-controls={`settings-panel-${item.id}`}
+              className={tab === item.id ? "settings-tab selected" : "settings-tab"}
+              onClick={() => setTab(item.id)}
             >
-              <option value="">The one you used last</option>
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id} disabled={!agent.available}>
-                  {agent.label}
-                  {agent.available ? "" : " (not installed)"}
-                </option>
-              ))}
-            </select>
-          </label>
-          {preset === "custom" && (
-            <label className="field">
-              <span>Command that starts the agent</span>
-              <input
-                type="text"
-                value={draft.default_agent?.command ?? ""}
-                placeholder="my-agent --acp"
-                onChange={(event) => {
-                  setDraft({ ...draft, default_agent: { preset_id: "custom", command: event.target.value } });
+              <span className="settings-tab-icon">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+      <div className="app-main-column">
+        <main data-gewu-screen="settings" aria-labelledby="settings-title" className="settings-window">
+          <h2 id="settings-title" className="screen-title settings-page-title" tabIndex={-1}>
+            {current.label}
+          </h2>
+
+          <form id="settings-form" className="settings" onSubmit={(event) => void save(event)} noValidate>
+            <div {...panel("github", tab)}>
+              {githubDraft && github.settings ? (
+                <GitHubSettingsFields
+                  settings={github.settings}
+                  account={github.account}
+                  draft={githubDraft}
+                  onChange={(patch) => {
+                    setGitHubEdits({ ...githubEdits, ...patch });
+                    setState("idle");
+                  }}
+                />
+              ) : (
+                <p className="muted">Loading GitHub settings…</p>
+              )}
+            </div>
+            <div {...panel("agents", tab)}>
+              <AgentsSettings
+                settings={settings}
+                agents={agents}
+                draft={draft}
+                onChange={(next) => {
+                  setDraft(next);
                   setState("idle");
                 }}
               />
-            </label>
-          )}
-          <label className="field">
-            <span>Proofread rounds</span>
-            <input
-              type="number"
-              min={0}
-              max={settings.max_proofread_rounds}
-              value={draft.proofread_rounds}
-              onChange={(event) => {
-                setDraft({ ...draft, proofread_rounds: Number(event.target.value) });
-                setState("idle");
-              }}
-            />
-          </label>
-          <p className="muted field-hint">
-            After the agent writes a batch, a fresh agent checks it and asks for a rewrite, up to this
-            many times, before you see it. Between 0 and {settings.max_proofread_rounds}; 0 turns
-            proofreading off. Applies to reviews you start from now on.
-          </p>
-          <ProofreaderField
-            agents={agents}
-            value={draft.proofreader}
-            onChange={(proofreader) => {
-              setDraft({ ...draft, proofreader });
-              setState("idle");
-            }}
-          />
-          <label className="settings-check">
-            <input
-              type="checkbox"
-              checked={draft.explain_tests}
-              onChange={(event) => {
-                setDraft({ ...draft, explain_tests: event.target.checked });
-                setState("idle");
-              }}
-            />
-            <span>
-              Explain tests
-              <span className="muted">
-                {" "}
-                · The agent walks through tests like the rest of the change. Off, Gewu shows each
-                test as written, with its name and doc comment, at once and without agent time.
-                Applies to reviews you start from now on.
-              </span>
-            </span>
-          </label>
-        </section>
+            </div>
+            {EDITABLE.has(tab) && (
+              <footer className="settings-footer">
+                {state === "failed" && (
+                  <p className="warning" role="alert">
+                    Not saved: {problem ?? github.error ?? "see the message above"}.
+                  </p>
+                )}
+                <span className="muted settings-saved" role="status">
+                  {state === "saved" ? "Saved" : ""}
+                </span>
+                <button type="submit" className="btn primary" disabled={state === "saving"}>
+                  {state === "saving" ? "Saving…" : "Save"}
+                </button>
+              </footer>
+            )}
+          </form>
 
-        <section className="panel settings-section" aria-labelledby="settings-storage">
-          <h3 id="settings-storage">Where Gewu keeps things</h3>
-          <p className="muted">
-            These are set before Gewu starts, with environment variables, and shown here so nothing is
-            hidden.
-          </p>
-          <dl className="settings-paths">
-            <dt>Reviews, repositories, and settings</dt>
-            <dd>
-              <code>{settings.home}</code> <span className="muted">· GEWU_HOME</span>
-            </dd>
-            <dt>Gewu command agents call</dt>
-            <dd>
-              <code>{settings.gewu}</code> <span className="muted">· GEWU_BIN</span>
-            </dd>
-            <dt>Never contact GitHub for one launch</dt>
-            <dd>
-              <code>GEWU_GITHUB=record</code>{" "}
-              <span className="muted">· a stand-in GitHub that records instead of sending</span>
-            </dd>
-          </dl>
-        </section>
-      </form>
-      {/* Outside the form: nothing here is saved. */}
-      {loadPrompts && (
-        <PromptsSection agents={agents} load={loadPrompts} report={reportPrompt} />
-      )}
-    </main>
+          {/* Read-only tabs, outside the form; mounted only when shown. */}
+          {tab === "prompts" && loadPrompts && (
+            <div {...panel("prompts", tab)}>
+              <PromptsSection agents={agents} load={loadPrompts} report={reportPrompt} />
+            </div>
+          )}
+          {tab === "storage" && (
+            <div {...panel("storage", tab)}>
+              <StorageSettings settings={settings} />
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
   );
+}
+
+function panel(id: Tab, shown: Tab) {
+  return {
+    role: "tabpanel",
+    id: `settings-panel-${id}`,
+    "aria-labelledby": `settings-tab-${id}`,
+    hidden: id !== shown,
+    className: "settings-panel",
+  } as const;
 }

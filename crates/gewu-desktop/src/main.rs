@@ -4,6 +4,7 @@
 mod commands;
 mod github;
 mod root;
+mod settings_menu;
 mod state;
 
 use std::{env, sync::Mutex};
@@ -19,6 +20,8 @@ fn main() {
     tauri::Builder::default()
         .manage(state)
         .manage(github)
+        .menu(settings_menu::menu)
+        .on_menu_event(|app, event| settings_menu::handle(app, event.id().as_ref()))
         .invoke_handler(tauri::generate_handler![
             commands::mode,
             commands::snapshot,

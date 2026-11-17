@@ -27,7 +27,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   );
   const [filter, setFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const { route, snapshot, navigate: goTo } = wb;
+  const { route, snapshot, navigate: goTo, setError } = wb;
   // Where Settings returns to. Found by QA: opened from a review, Settings
   // had no way back to it.
   const [returnTo, setReturnTo] = useState<WorkbenchRoute>({ screen: "home" });
@@ -38,6 +38,11 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
     },
     [goTo, route],
   );
+  // Settings is a page of its own, as in Codex: it takes the window, with its
+  // sections in the sidebar, and Back returns to where it was opened. The
+  // app menu's Settings… (⌘,) opens it too.
+  const openSettings = useCallback(() => navigate({ screen: "settings" }), [navigate]);
+  useEffect(() => backend.onOpenSettings?.(openSettings), [backend, openSettings]);
   useWorkbenchTestApi(wb);
   useFocusOnRoute(route);
 
@@ -56,7 +61,6 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
     },
     [wb],
   );
-  const { setError } = wb;
   const closeAdding = useCallback(() => {
     setAdding(false);
     setError(null);
@@ -87,10 +91,34 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
     );
   }
 
+  if (route.screen === "settings") {
+    return (
+      <SettingsScreen
+        onBack={() => navigate(returnTo)}
+        backLabel={returnTo.screen === "review" ? "Back to the review" : "Back to reviews"}
+        settings={snapshot.settings}
+        agents={snapshot.agents}
+        github={github}
+        loadPrompts={loadPrompts}
+        reportPrompt={reportPrompt}
+        onSave={async (settings) => {
+          // Refused values are shown beside Save, not in the banner.
+          try {
+            await backend.dispatch({ type: "update_settings", settings });
+          } catch (err) {
+            return err instanceof Error ? err.message : String(err);
+          }
+          wb.refresh();
+          return null;
+        }}
+      />
+    );
+  }
+
   if (route.screen === "review" && task?.review) {
     // Back returns to the list the reader came from: the filter they had,
     // not the task's repository. Found by QA.
-    return <TaskReview key={task.id} wb={wb} task={task} github={github} onSettings={() => navigate({ screen: "settings" })} onBack={() => {
+    return <TaskReview key={task.id} wb={wb} task={task} github={github} onSettings={openSettings} onBack={() => {
       navigate({ screen: "home" });
     }} />;
   }
@@ -133,27 +161,6 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             onAddRepository={addRepository}
             onCreate={wb.createTask}
             onCancel={leaveNewReview}
-          />
-        )}
-        {route.screen === "settings" && (
-          <SettingsScreen
-            onBack={() => navigate(returnTo)}
-            backLabel={returnTo.screen === "review" ? "Back to the review" : "Back"}
-            settings={snapshot.settings}
-            agents={snapshot.agents}
-            github={github}
-            loadPrompts={loadPrompts}
-            reportPrompt={reportPrompt}
-            onSave={async (settings) => {
-              // Refused values are shown beside Save, not in the banner.
-              try {
-                await backend.dispatch({ type: "update_settings", settings });
-              } catch (err) {
-                return err instanceof Error ? err.message : String(err);
-              }
-              wb.refresh();
-              return null;
-            }}
           />
         )}
         {route.screen === "task" && task && (
