@@ -3,9 +3,9 @@
 
 use gewu_app::{Action, Snapshot};
 use gewu_workbench::{
-    Account, Contributor, GitHub, GitHubError, GitHubSettings, Preferences, Publication, Receipt,
-    RepositoryRefs, SignInMethod, SignInPoll, SignInStart, TaskLog, WorkbenchAction,
-    WorkbenchSnapshot,
+    Account, Contributor, GitHub, GitHubError, GitHubSettings, Preferences, PromptView,
+    Publication, Receipt, RepositoryRefs, SignInMethod, SignInPoll, SignInStart, TaskLog,
+    WorkbenchAction, WorkbenchSnapshot,
 };
 use tauri::State;
 
@@ -163,6 +163,12 @@ pub fn github_update_settings(
 }
 
 /// A folder the reviewer picks, or `None` if they cancel.
+/// Every prompt agents are sent, for Settings to show.
+#[tauri::command]
+pub fn prompts() -> Vec<PromptView> {
+    PromptView::all()
+}
+
 #[tauri::command]
 pub async fn pick_directory() -> Option<String> {
     rfd::AsyncFileDialog::new()

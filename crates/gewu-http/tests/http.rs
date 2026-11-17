@@ -219,3 +219,32 @@ fn the_sandbox_github_signs_in_without_contacting_github() {
     let (status, _, body) = http_get(&server.addr, "/api/tasks/missing/publication");
     assert_eq!(status, 404, "{body}");
 }
+
+#[test]
+fn the_workbench_shows_every_prompt_agents_are_sent() {
+    let home = tempfile::tempdir().expect("home");
+    let assets = static_dir();
+    let server = RunningServer::serve(ServeOptions {
+        mode: Mode::Workbench {
+            home: home.path().to_path_buf(),
+            gewu: PathBuf::from("gewu"),
+        },
+        static_dir: assets.path().to_path_buf(),
+        port: 0,
+    });
+
+    let (status, _, body) = http_get(&server.addr, "/api/prompts");
+    assert_eq!(status, 200, "{body}");
+    let prompts: serde_json::Value = serde_json::from_str(&body).expect("json");
+    let expand = prompts
+        .as_array()
+        .and_then(|all| all.iter().find(|prompt| prompt["id"] == "expand"))
+        .expect("the expand prompt");
+    assert_eq!(expand["title"], "Expand");
+    assert!(
+        expand["general"]
+            .as_str()
+            .is_some_and(|text| text.contains("{{item_id}}"))
+    );
+    assert!(expand["additions"].is_array());
+}

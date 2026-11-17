@@ -1784,6 +1784,7 @@ dependencies = [
  "gewu-git",
  "gewu-github",
  "gewu-harness",
+ "gewu-prompts",
  "gewu-review",
  "hex",
  "serde",

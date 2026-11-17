@@ -14,6 +14,7 @@ import type {
 import type { Action, Snapshot } from "../protocol";
 import type { Publication, Receipt } from "../publication";
 import type {
+  PromptView,
   RepositoryRefs,
   TaskLog,
   WorkbenchAction,
@@ -25,6 +26,8 @@ export interface WorkbenchBackend {
   workbench(): Promise<WorkbenchSnapshot>;
   dispatch(action: WorkbenchAction): Promise<WorkbenchSnapshot>;
   refs(repositoryId: string): Promise<RepositoryRefs>;
+  /** Every prompt agents are sent, for Settings to show. */
+  prompts(): Promise<PromptView[]>;
   log(taskId: string, after: number): Promise<TaskLog>;
   /** The review of one task, as the review screens consume it. */
   review(taskId: string): Backend;
@@ -49,6 +52,10 @@ export class HttpWorkbench implements WorkbenchBackend {
 
   refs(repositoryId: string) {
     return request<RepositoryRefs>(`/api/repositories/${path(repositoryId)}/refs`);
+  }
+
+  prompts() {
+    return request<PromptView[]>("/api/prompts");
   }
 
   log(taskId: string, after: number) {
@@ -107,6 +114,10 @@ export class TauriWorkbench implements WorkbenchBackend {
 
   refs(repositoryId: string) {
     return command<RepositoryRefs>("repository_refs", { repositoryId });
+  }
+
+  prompts() {
+    return command<PromptView[]>("prompts");
   }
 
   log(taskId: string, after: number) {

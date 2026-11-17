@@ -54,6 +54,30 @@ describe("settings", () => {
     expect(storage).toHaveTextContent("GEWU_GITHUB=record");
   });
 
+  it("shows every prompt and what a backend adds to it, read-only", async () => {
+    const user = userEvent.setup();
+    const settings = await openSettings(user);
+    const prompts = within(settings).getByRole("region", { name: "Prompts agents are sent" });
+    await user.click(within(prompts).getByText("Show the prompts"));
+
+    const list = await within(prompts).findByRole("navigation", { name: "Prompts" });
+    expect(within(list).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Plan",
+      "Expand +",
+    ]);
+    await user.click(within(list).getByRole("button", { name: /Expand/ }));
+    const view = within(prompts).getByRole("article", { name: "Expand prompt" });
+    expect(view).toHaveTextContent("Write the walkthrough for one work item.");
+    expect(view).not.toHaveTextContent("Added for");
+
+    await user.selectOptions(within(view).getByRole("combobox", { name: "As sent to" }), "codex");
+    expect(view).toHaveTextContent("Added for Codex");
+    expect(view).toHaveTextContent("State why each part exists");
+    await user.selectOptions(within(view).getByRole("combobox", { name: "As sent to" }), "claude");
+    expect(view).toHaveTextContent("Claude Code adds nothing here");
+    expect(within(prompts).queryByRole("textbox")).toBeNull();
+  });
+
   it("saves the choices and the next review starts from them", async () => {
     const user = userEvent.setup();
     const settings = await openSettings(user);

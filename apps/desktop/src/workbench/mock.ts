@@ -8,6 +8,7 @@ import type { WorkbenchBackend } from "./backend";
 import type {
   AgentPreset,
   LogEvent,
+  PromptView,
   RepositoryRefs,
   RepositoryView,
   Settings,
@@ -148,6 +149,10 @@ export class MockWorkbench implements WorkbenchBackend {
       }
     }
     return this.workbench();
+  }
+
+  async prompts(): Promise<PromptView[]> {
+    return structuredClone(PROMPTS);
   }
 
   async refs(repositoryId: string): Promise<RepositoryRefs> {
@@ -357,3 +362,21 @@ export class MockWorkbench implements WorkbenchBackend {
     return repository;
   }
 }
+
+/** A stand-in for the binary's prompts: two stages, one with a backend's addition. */
+const PROMPTS: PromptView[] = [
+  {
+    id: "plan",
+    title: "Plan",
+    when: "After investigating: order the change into the work items a reviewer will read.",
+    general: "# Gewu harness: plan\n\nTurn the investigation into at most {{max_chunks}} work items.\n",
+    additions: [],
+  },
+  {
+    id: "expand",
+    title: "Expand",
+    when: "For each work item: write its chunk of the walkthrough.",
+    general: "# Gewu harness: expand `{{item_id}}`\n\nWrite the walkthrough for one work item.\n",
+    additions: [{ backend: "codex", text: "State why each part exists before describing it." }],
+  },
+];

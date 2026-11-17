@@ -26,6 +26,7 @@ fn main() {
             commands::workbench,
             commands::workbench_dispatch,
             commands::repository_refs,
+            commands::prompts,
             commands::task_log,
             commands::task_snapshot,
             commands::task_dispatch,

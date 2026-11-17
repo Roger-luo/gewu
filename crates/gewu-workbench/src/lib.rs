@@ -10,6 +10,7 @@ mod batch;
 mod error;
 mod home;
 mod log;
+mod prompts;
 mod protocol;
 mod repository;
 mod settings;
@@ -25,6 +26,7 @@ pub use gewu_github::{
     Transport,
 };
 pub use home::Home;
+pub use prompts::{PromptAddition, PromptView};
 pub use protocol::{
     AgentChoice, LogEvent, RepositoryView, ReviewProgress, Source, TaskLog, TaskStatus, TaskView,
     WorkbenchAction, WorkbenchSnapshot,

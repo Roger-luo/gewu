@@ -1,6 +1,6 @@
 use gewu_app::Action;
 use gewu_workbench::{
-    GitHub, Preferences, SignInMethod, Workbench, WorkbenchAction, WorkbenchError,
+    GitHub, Preferences, PromptView, SignInMethod, Workbench, WorkbenchAction, WorkbenchError,
 };
 use serde::{Deserialize, Serialize};
 use tiny_http::{Method, Request};
@@ -17,7 +17,7 @@ struct UseMethod {
     method: SignInMethod,
 }
 
-/// `/api/workbench`, `/api/repositories/<id>/refs`, `/api/tasks/<id>/…`,
+/// `/api/workbench`, `/api/repositories/<id>/refs`, `/api/prompts`, `/api/tasks/<id>/…`,
 /// and `/api/github/…`.
 pub(super) fn route(
     workbench: &Workbench,
@@ -35,6 +35,7 @@ pub(super) fn route(
             Err(reply) => reply,
         },
         (Method::Get, ["repositories", id, "refs"]) => answer(workbench.refs(id)),
+        (Method::Get, ["prompts"]) => Json::ok(PromptView::all()),
         (Method::Get, ["tasks", id, "log"]) => answer(workbench.log(id, after(query))),
         (Method::Get, ["tasks", id, "snapshot"]) => answer(workbench.task_snapshot(id)),
         (Method::Post, ["tasks", id, "dispatch"]) => match Json::body::<Action>(request) {

@@ -12,6 +12,7 @@ gewu-app = { path = "../gewu-app" }
 gewu-git = { path = "../gewu-git" }
 gewu-github = { path = "../gewu-github" }
 gewu-harness = { path = "../gewu-harness" }
+gewu-prompts = { path = "../gewu-prompts" }
 gewu-review = { path = "../gewu-review" }
 hex = "0.4.3"
 serde = { version = "1.0.229", features = ["derive"] }

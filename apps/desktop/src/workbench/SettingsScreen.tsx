@@ -4,8 +4,9 @@ import type { GitHubPreferences } from "../backend/types";
 import { GearIcon } from "../components/Icons";
 import type { GitHubState } from "../hooks/useGitHub";
 import { GitHubSettingsFields } from "./GitHubSettingsFields";
+import { PromptsSection } from "./PromptsSection";
 import { ProofreaderField } from "./ProofreaderField";
-import type { AgentPreset, Settings, SettingsView } from "./protocol";
+import type { AgentPreset, PromptView, Settings, SettingsView } from "./protocol";
 
 /**
  * Every option Gewu has, in one place: GitHub, agents and generation, and
@@ -18,6 +19,7 @@ export function SettingsScreen({
   onSave,
   onBack,
   backLabel = "Back",
+  loadPrompts,
 }: {
   /** Returns to the screen Settings was opened from. */
   onBack?: () => void;
@@ -27,6 +29,8 @@ export function SettingsScreen({
   github: GitHubState;
   /** Resolves to `null` when saved, otherwise why not. */
   onSave: (settings: Settings) => Promise<string | null>;
+  /** Every prompt agents are sent; absent where it cannot be read. */
+  loadPrompts?: () => Promise<PromptView[]>;
 }) {
   const [draft, setDraft] = useState<Settings>({
     proofread_rounds: settings.proofread_rounds,
@@ -213,6 +217,8 @@ export function SettingsScreen({
           </dl>
         </section>
       </form>
+      {/* Outside the form: nothing here is saved. */}
+      {loadPrompts && <PromptsSection agents={agents} load={loadPrompts} />}
     </main>
   );
 }

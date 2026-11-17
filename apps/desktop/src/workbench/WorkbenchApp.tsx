@@ -18,6 +18,8 @@ import { useGitHub, type GitHubState } from "../hooks/useGitHub";
 export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
   const wb = useWorkbench(backend);
   const github = useGitHub(backend.github);
+  // Stable, so Settings fetches the prompts once per opening.
+  const loadPrompts = useCallback(() => backend.prompts(), [backend]);
   const [filter, setFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { route, snapshot, navigate: goTo } = wb;
@@ -135,6 +137,7 @@ export function WorkbenchApp({ backend }: { backend: WorkbenchBackend }) {
             settings={snapshot.settings}
             agents={snapshot.agents}
             github={github}
+            loadPrompts={loadPrompts}
             onSave={async (settings) => {
               // Refused values are shown beside Save, not in the banner.
               try {

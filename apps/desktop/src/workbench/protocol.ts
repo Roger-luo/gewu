@@ -158,3 +158,16 @@ export type WorkbenchRoute =
   | { screen: "task"; task_id: string }
   | { screen: "review"; task_id: string }
   | { screen: "settings" };
+
+/** One prompt agents are sent, as Settings shows it. */
+export interface PromptView {
+  /** The file stem in `harness/prompts/`, e.g. `expand`. */
+  id: string;
+  title: string;
+  /** When Gewu sends it. */
+  when: string;
+  /** What every agent is sent. `{{…}}` marks what Gewu fills in per run. */
+  general: string;
+  /** What some backends get after it. */
+  additions: { backend: string; text: string }[];
+}
