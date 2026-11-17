@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { InlineMarkdown, Markdown } from "./Markdown";
 import type { CommentRequest, LineSelection } from "../anchors";
+import { locate, type Composer } from "../composer";
 import { plainInline } from "../markdown";
 import { assignNotes } from "../quoteNotes";
 import { sectionPosition } from "../navigation";
@@ -31,6 +32,7 @@ export function ChunkScreen({
   onSelectLine,
   onComment,
   onCommentLines,
+  composer = null,
 }: {
   snapshot: Snapshot;
   chunkIndex: number;
@@ -42,6 +44,8 @@ export function ChunkScreen({
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onComment: (request: CommentRequest) => void;
   onCommentLines: (request: CommentRequest) => void;
+  /** The open comment box, placed beside what it is about. */
+  composer?: Composer | null;
 }) {
   const chunk = snapshot.chunks[chunkIndex];
   const [narrow, setNarrow] = useState(() => {
@@ -172,7 +176,12 @@ export function ChunkScreen({
           onSelectLine={onSelectLine}
           onComment={onComment}
           onCommentLines={onCommentLines}
+          composer={composer}
         />
+
+        {composer && !locate(chunk.blocks, composer.place) && (
+          <div className="block chunk-composer">{composer.node}</div>
+        )}
 
         {chunk.status.open_issues > 0 && (
           <p className="notice feedback-jump" role="status">
@@ -199,14 +208,17 @@ function ChunkBody({
   onSelectLine,
   onComment,
   onCommentLines,
+  composer,
 }: {
   blocks: Snapshot["chunks"][number]["blocks"];
   lineSelection: LineSelection | null;
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onComment: (request: CommentRequest) => void;
   onCommentLines: (request: CommentRequest) => void;
+  composer: Composer | null;
 }) {
   const rendered: ReactNode[] = [];
+  const at = composer && locate(blocks, composer.place);
   let pending = "";
   const flushLead = (key: string) => {
     const markdown = pending;
@@ -244,6 +256,7 @@ function ChunkBody({
         onSelectLine={onSelectLine}
         onComment={onComment}
         onCommentLines={onCommentLines}
+        composer={composer && at && at[0] === index ? { ...composer, quote: at[1] } : null}
       />,
     );
   });

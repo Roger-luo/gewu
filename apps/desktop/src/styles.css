@@ -1725,3 +1725,28 @@ main[data-gewu-screen] {
   color: var(--success-ink);
   font-weight: 600;
 }
+
+/* The comment box opens in the page, under what it is about, like GitHub's. */
+.dialog.inline-composer {
+  width: auto;
+  max-width: 640px;
+  margin: var(--space-2) var(--space-3);
+  padding: var(--space-4);
+  box-shadow: none;
+  border-color: var(--accent);
+  font-family: var(--font-sans, inherit);
+  white-space: normal;
+}
+
+.diff-table tr.inline-row > td {
+  background: var(--bg);
+  padding: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.quote-note .inline-composer,
+.quote-composer .inline-composer,
+.chunk-composer .inline-composer {
+  margin: var(--space-2) 0 0;
+}

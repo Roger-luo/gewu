@@ -1,4 +1,8 @@
 import type { QuoteView } from "../protocol";
+import { Fragment } from "react";
+
+import { belongsUnder, type InlineRow } from "../composer";
+import { InlineRowView } from "./InlineRow";
 import { LineComment } from "./LineComment";
 import { QuoteFrame } from "./QuoteFrame";
 import { TokenLine } from "./TokenLine";
@@ -10,11 +14,14 @@ export function AddedCodeQuote({
   selectedLines,
   onSelectLine,
   onCommentLine,
+  inline,
 }: {
   quote: QuoteView;
   selectedLines: Set<number>;
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onCommentLine?: (line: number) => void;
+  /** A comment box drawn under one line. */
+  inline?: InlineRow;
 }) {
   const rows = quote.lines.filter((line) => line.kind !== "removed");
   const { lines: highlighted, pending } = useHighlightedLines(
@@ -32,7 +39,8 @@ export function AddedCodeQuote({
           {rows.map((row, index) => {
             const selected = row.new_line != null && selectedLines.has(row.new_line);
             return (
-              <tr key={`${quote.change_id}-${index}`} className={selected ? "selected" : undefined}>
+              <Fragment key={`${quote.change_id}-${index}`}>
+              <tr className={selected ? "selected" : undefined}>
                 <td className="ln-cell">
                   <button
                     type="button"
@@ -58,6 +66,10 @@ export function AddedCodeQuote({
                   </code>
                 </td>
               </tr>
+              {belongsUnder(inline, row) && inline && (
+                <InlineRowView inline={inline} columns={2} />
+              )}
+              </Fragment>
             );
           })}
         </tbody>

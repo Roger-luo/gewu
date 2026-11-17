@@ -102,6 +102,43 @@ describe("comments on blocks and explanations", () => {
     expect(dialog.textContent).toMatch(new RegExp(`Anchored to \\S+:${first}-${third}`));
   });
 
+  it("opens the comment box under the line, leaving the code visible", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk();
+    const [plus] = within(main).getAllByRole("button", { name: /^comment on line \d+$/i });
+    const row = plus.closest("tr");
+    await user.click(plus);
+
+    const dialog = screen.getByRole("dialog", { name: /add comment/i });
+    expect(dialog).not.toHaveAttribute("aria-modal");
+    expect(document.querySelector(".dialog-backdrop")).toBeNull();
+    expect(dialog.closest("tr")?.previousElementSibling).toBe(row);
+  });
+
+  it("keeps the box in place when more lines are picked while typing", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk();
+    const [plus] = within(main).getAllByRole("button", { name: /^comment on line \d+$/i });
+    await user.click(plus);
+    await user.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Draft");
+    const lines = within(main).getAllByRole("button", { name: /^select line \d+$/i });
+    await user.click(lines[lines.length - 1]);
+
+    expect(within(screen.getByRole("dialog")).getByRole("textbox")).toHaveValue("Draft");
+  });
+
+  it("opens an explanation comment under its note", async () => {
+    const user = userEvent.setup();
+    const main = await openFirstChunk("paired");
+    const [noteGroup] = within(main).getAllByRole("group", {
+      name: /feedback on this explanation/i,
+    });
+    await user.click(within(noteGroup).getByRole("button", { name: /comment on explanation/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /add comment/i });
+    expect(dialog.closest(".quote-note")).toBe(noteGroup.closest(".quote-note"));
+  });
+
   it("forgets a block anchor when the dialog is cancelled", async () => {
     const user = userEvent.setup();
     const main = await openFirstChunk();

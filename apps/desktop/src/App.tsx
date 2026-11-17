@@ -1,13 +1,3 @@
-import { useCallback, useMemo, useState } from "react";
-
-import {
-  anchorInput,
-  anchorLabel,
-  selectLine as nextSelection,
-  spanSelection,
-  type CommentRequest,
-  type LineSelection,
-} from "./anchors";
 import type { Backend } from "./backend";
 import { ChunkScreen } from "./components/ChunkScreen";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -17,6 +7,7 @@ import { Navigator } from "./components/Navigator";
 import { OverviewScreen } from "./components/OverviewScreen";
 import { SummaryScreen } from "./components/SummaryScreen";
 import { useFocusOnNavigate } from "./hooks/useFocusOnNavigate";
+import { useCommentAnchor } from "./hooks/useCommentAnchor";
 import { useContributors } from "./hooks/useContributors";
 import { useGitHub, type GitHubState } from "./hooks/useGitHub";
 import { useKeyboard } from "./hooks/useKeyboard";
@@ -24,8 +15,9 @@ import { usePublication } from "./hooks/usePublication";
 import { useReviewApp } from "./hooks/useReviewApp";
 import { useTestApi, type TestApiHost } from "./hooks/useTestApi";
 import { firstUnreviewed } from "./navigation";
+import type { Composer } from "./composer";
 import { localPublication, rangeTitle, reviewVenue, type Publication } from "./publication";
-import type { FeedbackAnchorInput, FeedbackTarget, ReviewPlace } from "./protocol";
+import type { FeedbackTarget, ReviewPlace } from "./protocol";
 import { TaskBar } from "./workbench/TaskBar";
 import type { TaskView } from "./workbench/protocol";
 
@@ -53,90 +45,21 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
     onChange: task?.onChange,
     revision: task?.view.updated_at,
   });
-  const [lineSelection, setLineSelection] = useState<LineSelection | null>(null);
-
   useKeyboard(app);
   useTestApi(app, task?.host);
   useFocusOnNavigate(app.screen, app.chunkIndex);
 
-  const selectLine = useCallback((changeId: string, line: number, extend: boolean) => {
-    setLineSelection((current) => nextSelection(current, changeId, line, extend));
-  }, []);
-
-  const anchor = useMemo<FeedbackAnchorInput>(() => {
-    if (!lineSelection || lineSelection.lines.size === 0) {
-      return null;
-    }
-    const lines = [...lineSelection.lines].sort((a, b) => a - b);
-    return {
-      change_id: lineSelection.changeId,
-      start_line: lines[0],
-      end_line: lines[lines.length - 1],
-    };
-  }, [lineSelection]);
-
-  // A comment opened from a block or an explanation carries its own span,
-  // which wins over the line-number selection.
-  const commentOn = app.feedbackRequest;
-  const openComment = useCallback(
-    (request: CommentRequest) => {
-      app.openFeedback(request.kind, { target: request.target, span: request.span });
-    },
-    [app],
-  );
-  // A comment opened from one line selects what it covers, so the gutter
-  // shows the lines the comment will land on.
-  const commentOnLines = useCallback(
-    (request: CommentRequest) => {
-      setLineSelection(spanSelection(request.span));
-      openComment(request);
-    },
-    [openComment],
-  );
-
-  // Lines the reader selected inside the block they comment on narrow the
-  // block's span. Found by QA: "Comment on code" with line 9 selected used to
-  // anchor to the whole block.
-  const narrowed = useMemo(
-    () =>
-      commentOn?.target === "code" && anchor && anchor.change_id === commentOn.span.change_id
-        ? { ...commentOn.span, start_line: anchor.start_line, end_line: anchor.end_line }
-        : null,
-    [anchor, commentOn],
-  );
-  const dialogAnchor = narrowed
-    ? anchorInput(narrowed)
-    : commentOn
-      ? anchorInput(commentOn.span)
-      : anchor;
-
-  const anchorSummary = useMemo(() => {
-    if (narrowed) {
-      return anchorLabel(narrowed);
-    }
-    if (commentOn) {
-      return anchorLabel(commentOn.span);
-    }
-    if (!anchor || !app.snapshot || app.chunkIndex === null) {
-      return null;
-    }
-    const chunk = app.snapshot.chunks[app.chunkIndex];
-    for (const block of chunk?.blocks ?? []) {
-      if (block.type !== "changes") {
-        continue;
-      }
-      const quote = block.quotes.find((item) => item.change_id === anchor.change_id);
-      if (quote) {
-        return anchorLabel({
-          path: quote.path,
-          side: "new",
-          start_line: anchor.start_line,
-          end_line: anchor.end_line,
-        });
-      }
-    }
-    return `${anchor.change_id}:${anchor.start_line}-${anchor.end_line}`;
-  }, [anchor, app.chunkIndex, app.snapshot, commentOn, narrowed]);
+  const {
+    lineSelection,
+    clearSelection,
+    selectLine,
+    openComment,
+    commentOnLines,
+    commentOn,
+    dialogAnchor,
+    anchorSummary,
+    composerPlace,
+  } = useCommentAnchor(app);
 
   // Inside the workbench, share its account state so a sign-in made here
   // shows in its sidebar and Settings too.
@@ -204,10 +127,27 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
       anchor: dialogAnchor,
     });
     if (result) {
-      setLineSelection(null);
+      clearSelection();
       app.closeOverlay();
     }
   };
+
+  const composer: Composer | null =
+    app.overlay === "feedback" && currentChunk
+      ? {
+          place: composerPlace,
+          node: (
+            <FeedbackDialog
+              kind={app.feedbackKind}
+              anchorSummary={anchorSummary}
+              initialTarget={commentOn?.target}
+              contributors={contributors}
+              onCancel={app.closeOverlay}
+              onSubmit={(body, target) => void submitFeedback(body, target)}
+            />
+          ),
+        }
+      : null;
 
   return (
     <div className="app-shell">
@@ -251,6 +191,7 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
             onSelectLine={selectLine}
             onComment={openComment}
             onCommentLines={commentOnLines}
+            composer={composer}
           />
         )}
         {app.screen === "summary" && (
@@ -269,16 +210,6 @@ export function App({ backend, task }: { backend: Backend; task?: ReviewTask }) 
 
       {app.overlay === "help" && (
         <HelpOverlay onClose={app.closeOverlay} />
-      )}
-      {app.overlay === "feedback" && currentChunk && (
-        <FeedbackDialog
-          kind={app.feedbackKind}
-          anchorSummary={anchorSummary}
-          initialTarget={commentOn?.target}
-          contributors={contributors}
-          onCancel={app.closeOverlay}
-          onSubmit={(body, target) => void submitFeedback(body, target)}
-        />
       )}
     </div>
   );

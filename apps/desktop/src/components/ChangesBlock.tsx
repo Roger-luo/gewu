@@ -5,6 +5,7 @@ import {
   type CommentRequest,
   type LineSelection,
 } from "../anchors";
+import type { Composer, InlineRow } from "../composer";
 import type { BlockView, QuoteView } from "../protocol";
 import { AddedCodeQuote } from "./AddedCodeQuote";
 import { CommentActions } from "./CommentActions";
@@ -20,6 +21,7 @@ export function ChangesBlock({
   onSelectLine,
   onComment,
   onCommentLines,
+  composer = null,
 }: {
   block: Extract<BlockView, { type: "changes" }>;
   /** Prose for each quote, empty when the walkthrough named no lines in it. */
@@ -28,6 +30,8 @@ export function ChangesBlock({
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onComment: (request: CommentRequest) => void;
   onCommentLines: (request: CommentRequest) => void;
+  /** The open comment box when it belongs to quote `quote` of this block. */
+  composer?: (Composer & { quote: number }) | null;
 }) {
   return (
     <div className="block changes-block">
@@ -43,6 +47,13 @@ export function ChangesBlock({
             ? (line: number) =>
                 onCommentLines({ kind: "note", target: "code", span: lineSpan(span, lines, line) })
             : undefined;
+        const here = composer?.quote === index ? composer : null;
+        const underNote = here?.place.at === "note" && note ? here.node : null;
+        const inline: InlineRow | undefined =
+          here && here.place.at === "line" && LINED.has(block.presentation)
+            ? { side: here.place.side, line: here.place.line, node: here.node }
+            : undefined;
+        const underCode = here && !underNote && !inline ? here.node : null;
         return (
           <div
             className={note ? "quote-row has-note" : "quote-row"}
@@ -58,7 +69,9 @@ export function ChangesBlock({
                 selectedLines={lines}
                 onSelectLine={onSelectLine}
                 onCommentLine={commentLine}
+                inline={inline}
               />
+              {underCode && <div className="quote-composer">{underCode}</div>}
             </div>
             {note && (
               <aside className="quote-note">
@@ -66,6 +79,7 @@ export function ChangesBlock({
                 {span && (
                   <CommentActions target="explanation" span={span} onComment={onComment} />
                 )}
+                {underNote}
               </aside>
             )}
           </div>
@@ -81,12 +95,14 @@ function QuotePresentation({
   selectedLines,
   onSelectLine,
   onCommentLine,
+  inline,
 }: {
   quote: QuoteView;
   presentation: Extract<BlockView, { type: "changes" }>["presentation"];
   selectedLines: Set<number>;
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onCommentLine?: (line: number) => void;
+  inline?: InlineRow;
 }) {
   switch (presentation) {
     case "diff":
@@ -96,6 +112,7 @@ function QuotePresentation({
           selectedLines={selectedLines}
           onSelectLine={onSelectLine}
           onCommentLine={onCommentLine}
+          inline={inline}
         />
       );
     case "added_code":
@@ -105,6 +122,7 @@ function QuotePresentation({
           selectedLines={selectedLines}
           onSelectLine={onSelectLine}
           onCommentLine={onCommentLine}
+          inline={inline}
         />
       );
     case "rendered_markdown":
@@ -115,3 +133,6 @@ function QuotePresentation({
 }
 
 const NONE: Set<number> = new Set();
+
+/** Presentations that draw one row per line, so a comment box can sit under one. */
+const LINED = new Set(["diff", "added_code"]);

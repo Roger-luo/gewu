@@ -1,6 +1,10 @@
 import type { QuoteView } from "../protocol";
 import { TokenLine } from "./TokenLine";
 import { useHighlightedLines } from "./useHighlightedLines";
+import { Fragment } from "react";
+
+import { belongsUnder, type InlineRow } from "../composer";
+import { InlineRowView } from "./InlineRow";
 import { LineComment } from "./LineComment";
 import { QuoteFrame } from "./QuoteFrame";
 
@@ -9,11 +13,14 @@ export function DiffQuote({
   selectedLines,
   onSelectLine,
   onCommentLine,
+  inline,
 }: {
   quote: QuoteView;
   selectedLines: Set<number>;
   onSelectLine: (changeId: string, line: number, extend: boolean) => void;
   onCommentLine?: (line: number) => void;
+  /** A comment box drawn under one line. */
+  inline?: InlineRow;
 }) {
   const { lines: highlighted, pending } = useHighlightedLines(
     quote.lines.map((row) => row.text).join("\n"),
@@ -30,7 +37,8 @@ export function DiffQuote({
             const selected =
               selectable && selectedLines.has(row.new_line as number);
             return (
-              <tr key={`${quote.change_id}-${index}`} className={selected ? `${row.kind} selected` : row.kind}>
+              <Fragment key={`${quote.change_id}-${index}`}>
+              <tr className={selected ? `${row.kind} selected` : row.kind}>
                 <td className="ln">{row.old_line ?? ""}</td>
                 <td
                   className={`ln${selected ? " selected" : ""}`}
@@ -72,6 +80,10 @@ export function DiffQuote({
                   </code>
                 </td>
               </tr>
+              {belongsUnder(inline, row) && inline && (
+                <InlineRowView inline={inline} columns={4} />
+              )}
+              </Fragment>
             );
           })}
         </tbody>
