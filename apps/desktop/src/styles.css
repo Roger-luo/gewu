@@ -425,7 +425,6 @@ main[data-gewu-screen] {
   font-size: 17px;
   line-height: 1.4;
   margin: 0 0 var(--space-4);
-  max-width: 48rem;
 }
 
 .stack {
@@ -649,7 +648,6 @@ main[data-gewu-screen] {
   font-size: 16.5px;
   line-height: 1.55;
   margin: 0 0 var(--space-4);
-  max-width: 42rem;
 }
 
 .block {
@@ -679,7 +677,6 @@ main[data-gewu-screen] {
 }
 
 .markdown {
-  max-width: 42rem;
   font-size: 16px;
   line-height: 1.6;
 }
@@ -755,7 +752,6 @@ main[data-gewu-screen] {
 }
 
 .quote-note .markdown {
-  max-width: none;
   font-size: inherit;
   line-height: inherit;
 }
