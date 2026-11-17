@@ -622,9 +622,11 @@
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
+/* Only the block margins: a `margin` shorthand would reset the inline ones
+   and pull the notice out of the centered column to the window's edge. */
 [data-gewu-screen="task"] > .notice {
-  max-width: 48rem;
-  margin: 0 0 var(--space-3);
+  margin-top: 0;
+  margin-bottom: var(--space-3);
 }
 
 [data-gewu-screen="task"] > .actions-row {
