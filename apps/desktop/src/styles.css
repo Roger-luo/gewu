@@ -82,6 +82,25 @@ body,
   margin: 0;
 }
 
+/* The app scrolls inside its panes, never the page. #root is the containing
+   block for anything absolutely positioned without a positioned ancestor,
+   such as screen-reader-only text far down a long step, so it cannot make
+   the page taller than the window and scroll it into blank space. */
+html,
+body {
+  overflow: hidden;
+}
+
+#root {
+  position: relative;
+  overflow: hidden;
+}
+
+/* KaTeX hides its MathML copy with absolute positioning; keep it by its formula. */
+.katex {
+  position: relative;
+}
+
 body {
   font-family: var(--font-sans);
   font-size: 14px;
