@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use gewu_review::harness::WriteAhead;
+
 use crate::{AgentChoice, WorkbenchError};
 
 /// The most rewrites a fresh agent may make after a batch is written.
@@ -29,6 +31,15 @@ pub struct Settings {
     /// 259 dimensions, so its rubric caught nothing.
     #[serde(default)]
     pub proofreader: Option<String>,
+    /// How far the agent writes ahead of the reviewer. Agents write faster
+    /// than people read, so by default it writes on while the reviewer reads,
+    /// and the review completes once every batch is read.
+    #[serde(default = "default_write_ahead")]
+    pub write_ahead: WriteAhead,
+}
+
+fn default_write_ahead() -> WriteAhead {
+    WriteAhead::Unlimited
 }
 
 fn default_rounds() -> u32 {
@@ -42,6 +53,7 @@ impl Default for Settings {
             default_agent: None,
             explain_tests: false,
             proofreader: None,
+            write_ahead: default_write_ahead(),
         }
     }
 }
@@ -51,6 +63,14 @@ impl Settings {
         if self.proofread_rounds > MAX_PROOFREAD_ROUNDS {
             return Err(WorkbenchError::invalid(format!(
                 "proofread rounds must be between 0 and {MAX_PROOFREAD_ROUNDS}"
+            )));
+        }
+        if let WriteAhead::Batches(count) = self.write_ahead
+            && count > WriteAhead::MAX_BATCHES
+        {
+            return Err(WorkbenchError::invalid(format!(
+                "write at most {} batches ahead, or choose no limit",
+                WriteAhead::MAX_BATCHES
             )));
         }
         if let Some(agent) = &self.default_agent
@@ -98,6 +118,8 @@ pub struct SettingsView {
     #[serde(flatten)]
     pub settings: Settings,
     pub max_proofread_rounds: u32,
+    /// The most batches ahead a limit may allow.
+    pub max_write_ahead_batches: u32,
     /// `GEWU_HOME`.
     pub home: String,
     /// `GEWU_BIN`: the binary agents run harness commands with.

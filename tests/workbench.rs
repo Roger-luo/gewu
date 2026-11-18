@@ -5,7 +5,7 @@ mod support;
 
 use std::{path::Path, time::Duration};
 
-use gewu::workbench::{Home, Settings, Source, TaskStatus, Workbench, WorkbenchAction};
+use gewu::workbench::{Home, Settings, Source, TaskStatus, Workbench, WorkbenchAction, WriteAhead};
 use gewu_app::Action;
 use gewu_review::{FeedbackKind, FeedbackTarget};
 use support::{Fixture, fake, none, range, slow_fake};
@@ -41,9 +41,36 @@ fn a_commit_range_without_an_agent_opens_as_a_raw_diff_in_its_own_checkout() {
 /// Asked for by the reviewer after a Cursor run of #276 made them wait
 /// minutes after every section: the agent writes one batch ahead, and
 /// finishing a batch starts the next without pressing Continue.
+/// Agents write faster than people read, so by default the agent writes the
+/// whole plan while the reviewer reads, and only completing the review waits
+/// for them.
+#[test]
+fn by_default_the_agent_writes_the_whole_plan_while_the_reviewer_reads() {
+    let fixture = Fixture::new();
+    fixture.write("src/a.rs", "pub const A: u32 = 3;\n");
+    fixture.write("src/b.rs", "pub const B: u32 = 3;\n");
+    fixture.write("src/c.rs", "pub const C: u32 = 3;\n");
+    fixture.git(&["add", "-A"]);
+    fixture.git(&["commit", "-qm", "test: three files"]);
+    let id = fixture.start(range(), fake("harness"));
+
+    let settled = fixture.settled(&id);
+    assert_eq!(settled.status, TaskStatus::AwaitingReviewer, "{settled:?}");
+    assert_eq!(fixture.chunks(&id), 3, "every batch is written unread");
+}
+
 #[test]
 fn an_acp_agent_writes_one_batch_ahead_of_the_reviewer() {
     let fixture = Fixture::new();
+    fixture
+        .workbench
+        .dispatch(WorkbenchAction::UpdateSettings {
+            settings: Settings {
+                write_ahead: WriteAhead::Batches(1),
+                ..Settings::default()
+            },
+        })
+        .expect("settings");
     fixture.write("src/a.rs", "pub const A: u32 = 3;\n");
     fixture.write("src/b.rs", "pub const B: u32 = 3;\n");
     fixture.write("src/c.rs", "pub const C: u32 = 3;\n");
@@ -138,9 +165,8 @@ fn a_batch_accepted_mid_run_is_readable_before_the_run_ends() {
         .dispatch(WorkbenchAction::UpdateSettings {
             settings: Settings {
                 proofread_rounds: 0,
-                default_agent: None,
-                explain_tests: false,
-                proofreader: None,
+                write_ahead: WriteAhead::Batches(1),
+                ..Settings::default()
             },
         })
         .expect("settings");

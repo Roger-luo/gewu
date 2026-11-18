@@ -57,6 +57,7 @@ export function SettingsScreen({
     proofread_rounds: settings.proofread_rounds,
     default_agent: settings.default_agent,
     explain_tests: settings.explain_tests,
+    write_ahead: settings.write_ahead,
     proofreader: settings.proofreader,
   });
   // Only the GitHub fields edited here. The rest show the live value, so a

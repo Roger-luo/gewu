@@ -31,13 +31,6 @@ impl HarnessState {
         self
     }
 
-    /// Writes one batch ahead of the reviewer when `on`.
-    #[must_use]
-    pub fn writing_ahead(mut self, on: bool) -> Self {
-        self.write_ahead = on;
-        self
-    }
-
     /// Proofreads every batch, allowing up to `rounds` rewrites of each.
     #[must_use]
     pub fn proofread(mut self, rounds: u32) -> Self {

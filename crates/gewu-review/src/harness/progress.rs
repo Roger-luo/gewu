@@ -5,7 +5,7 @@ use crate::{
     handover::chunks_to_revise,
 };
 
-use super::WorkList;
+use super::{WorkList, WriteAhead};
 
 /// What the harness should do when asked to continue.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -37,8 +37,8 @@ pub enum Verdict {
 /// drift, because chunks over code that has since moved must be re-planned.
 /// Only then does the harness wait for the rest of the batch to be read.
 /// `force` skips the request gates, for a reviewer who knows their request is
-/// confined to what is already expanded. `ahead` lets the agent write one
-/// batch beyond the one the reviewer is reading.
+/// confined to what is already expanded. `ahead` is how many batches the
+/// agent may write beyond the one the reviewer is reading.
 #[must_use]
 pub fn next_step(
     spec: &ReviewSpec,
@@ -47,7 +47,7 @@ pub fn next_step(
     current: &ReviewInput,
     previous: &ReviewInput,
     force: bool,
-    ahead: bool,
+    ahead: WriteAhead,
 ) -> Verdict {
     // Approving or commenting settles what the reviewer has read, and settles
     // the review itself only once there is nothing left to read. On a review
@@ -134,19 +134,18 @@ pub fn next_step(
     // reading one: this is the gate the whole design rests on, and letting a
     // decision retire it would let an agent write the entire plan unread.
     //
-    // The gate holds the agent one batch ahead of the reviewer, not level
-    // with them: while they read the latest batch, the next is written, so
-    // finishing one opens another without waiting minutes for an agent. Any
-    // unread chunk before the latest batch still stops it, so no more than two
-    // batches are ever unread, and the last batch must be read to complete.
-    let latest = if ahead { work.latest_batch() } else { &[] };
+    // The gate lets the agent run `ahead` of the reviewer rather than level
+    // with them: while they read, the next batches are written, so finishing
+    // one opens another without waiting minutes for an agent. A chunk unread
+    // from before the latest `ahead` batches still stops it, and the last
+    // batch must be read to complete.
     let unread: Vec<&ReviewChunk> = spec
         .chunks
         .iter()
         .filter(|chunk| !session.reviewed.contains(&chunk.id))
         .collect();
-    let behind = unread.iter().any(|chunk| !latest.contains(&chunk.id));
-    if behind || (!unread.is_empty() && work.next_item().is_none()) {
+    let free = ahead.allows(work, unread.iter().map(|chunk| chunk.id.as_str()));
+    if !free || (!unread.is_empty() && work.next_item().is_none()) {
         return Verdict::Wait {
             unreviewed: unread.len(),
         };
@@ -166,7 +165,7 @@ mod tests {
         harness::{HARNESS_SCHEMA_VERSION, WorkItem, WorkList},
     };
 
-    use super::{Verdict, next_step};
+    use super::{Verdict, WriteAhead, next_step};
 
     fn change(path: &str, body: &str) -> Change {
         Change::new(path, (0, 0, 1, 1), format!("@@ -0,0 +1,1 @@\n+{body}\n"))
@@ -259,7 +258,7 @@ mod tests {
             &input,
             &input,
             false,
-            true,
+            WriteAhead::Batches(1),
         );
         assert_eq!(verdict, Verdict::Expand);
 
@@ -272,7 +271,7 @@ mod tests {
             &input,
             &input,
             false,
-            true,
+            WriteAhead::Batches(1),
         );
         assert_eq!(verdict, Verdict::Wait { unreviewed: 2 });
 
@@ -280,8 +279,97 @@ mod tests {
         let mut session = ReviewSession::default();
         session.apply(&ReviewEvent::reviewed("chunk-0", true));
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Expand
+        );
+    }
+
+    /// The reviewer chooses how far ahead: with room for two batches, two
+    /// unread batches still let the agent write, and a third holds it.
+    #[test]
+    fn writes_as_many_batches_ahead_as_the_reviewer_allows() {
+        let changes: Vec<_> = ["a", "b", "c", "d"]
+            .iter()
+            .map(|name| change(&format!("{name}.rs"), name))
+            .collect();
+        let ids: Vec<String> = changes.iter().map(|change| change.id.clone()).collect();
+        let step = |expanded: &[String], ahead| {
+            let (spec, work, input) = fixture(changes.clone(), expanded);
+            next_step(
+                &spec,
+                &ReviewSession::default(),
+                &work,
+                &input,
+                &input,
+                false,
+                ahead,
+            )
+        };
+        assert_eq!(step(&ids[..2], WriteAhead::Batches(2)), Verdict::Expand);
+        assert_eq!(
+            step(&ids[..3], WriteAhead::Batches(2)),
+            Verdict::Wait { unreviewed: 3 }
+        );
+        assert_eq!(
+            step(&ids[..1], WriteAhead::Batches(0)),
+            Verdict::Wait { unreviewed: 1 }
+        );
+    }
+
+    /// With no limit the agent writes the whole plan unread, and the review
+    /// still waits for every chunk to be read before it completes.
+    #[test]
+    fn writes_the_whole_plan_unread_without_a_limit_but_completes_only_when_read() {
+        let changes: Vec<_> = ["a", "b", "c"]
+            .iter()
+            .map(|name| change(&format!("{name}.rs"), name))
+            .collect();
+        let ids: Vec<String> = changes.iter().map(|change| change.id.clone()).collect();
+        let (spec, work, input) = fixture(changes.clone(), &ids[..2]);
+        assert_eq!(
+            next_step(
+                &spec,
+                &ReviewSession::default(),
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Unlimited
+            ),
+            Verdict::Expand
+        );
+        let (spec, work, input) = fixture(changes, &ids);
+        assert_eq!(
+            next_step(
+                &spec,
+                &ReviewSession::default(),
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Unlimited
+            ),
+            Verdict::Wait { unreviewed: 3 }
+        );
+        assert_eq!(
+            next_step(
+                &spec,
+                &reviewed(&spec),
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Unlimited
+            ),
+            Verdict::Complete
         );
     }
 
@@ -305,7 +393,7 @@ mod tests {
             &input,
             &input,
             false,
-            true,
+            WriteAhead::Batches(1),
         );
 
         assert_eq!(verdict, Verdict::Wait { unreviewed: 1 });
@@ -338,13 +426,29 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
         );
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, true, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                true,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Expand
         );
     }
@@ -364,7 +468,15 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -393,7 +505,15 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Handover {
                 feedback_ids: vec!["bug".into()]
             }
@@ -417,7 +537,15 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
@@ -442,7 +570,15 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::RequestChanges));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -457,7 +593,15 @@ mod tests {
             std::slice::from_ref(&first.id),
         );
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false, true);
+        let verdict = next_step(
+            &spec,
+            &reviewed(&spec),
+            &work,
+            &input,
+            &input,
+            false,
+            WriteAhead::Batches(1),
+        );
 
         assert_eq!(verdict, Verdict::Expand);
     }
@@ -467,7 +611,15 @@ mod tests {
         let first = change("a.rs", "one");
         let (spec, work, input) = fixture(vec![first.clone()], std::slice::from_ref(&first.id));
 
-        let verdict = next_step(&spec, &reviewed(&spec), &work, &input, &input, false, true);
+        let verdict = next_step(
+            &spec,
+            &reviewed(&spec),
+            &work,
+            &input,
+            &input,
+            false,
+            WriteAhead::Batches(1),
+        );
 
         assert_eq!(verdict, Verdict::Complete);
     }
@@ -479,7 +631,15 @@ mod tests {
         let mut session = reviewed(&spec);
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
+        let verdict = next_step(
+            &spec,
+            &session,
+            &work,
+            &input,
+            &input,
+            false,
+            WriteAhead::Batches(1),
+        );
 
         assert_eq!(verdict, Verdict::Complete);
     }
@@ -499,7 +659,15 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Wait { unreviewed: 2 }
         );
     }
@@ -520,7 +688,15 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Wait { unreviewed: 1 }
         );
     }
@@ -539,7 +715,15 @@ mod tests {
         let mut session = reviewed(&spec);
         session.apply(&ReviewEvent::decision(Decision::Approve));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
+        let verdict = next_step(
+            &spec,
+            &session,
+            &work,
+            &input,
+            &input,
+            false,
+            WriteAhead::Batches(1),
+        );
 
         assert_eq!(verdict, Verdict::Expand);
     }
@@ -561,7 +745,15 @@ mod tests {
         session.apply(&ReviewEvent::decision(Decision::Comment));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &input, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &input,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Handover {
                 feedback_ids: vec!["feedback-1".into()]
             }
@@ -583,7 +775,15 @@ mod tests {
             FeedbackTarget::Code,
         )));
 
-        let verdict = next_step(&spec, &session, &work, &input, &input, false, true);
+        let verdict = next_step(
+            &spec,
+            &session,
+            &work,
+            &input,
+            &input,
+            false,
+            WriteAhead::Batches(1),
+        );
 
         // Nothing on screen can resolve it, so it must not hold the gate shut.
         assert_eq!(verdict, Verdict::Expand);
@@ -610,7 +810,15 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &drifted, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &drifted,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Revise {
                 chunk_ids: vec!["chunk-0".into()]
             }
@@ -636,7 +844,15 @@ mod tests {
         )));
 
         assert_eq!(
-            next_step(&spec, &session, &work, &drifted, &input, false, true),
+            next_step(
+                &spec,
+                &session,
+                &work,
+                &drifted,
+                &input,
+                false,
+                WriteAhead::Batches(1)
+            ),
             Verdict::Replan {
                 stale_chunks: vec!["chunk-0".into()]
             }
@@ -660,7 +876,7 @@ mod tests {
             &drifted,
             &input,
             false,
-            true,
+            WriteAhead::Batches(1),
         );
 
         assert_eq!(
@@ -688,7 +904,7 @@ mod tests {
             &drifted,
             &input,
             false,
-            true,
+            WriteAhead::Batches(1),
         );
 
         assert_eq!(

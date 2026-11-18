@@ -65,8 +65,8 @@ impl Ended {
                 TaskStatus::AwaitingReviewer,
                 Some("await".into()),
                 unreviewed.unwrap_or_else(|| {
-                    "A batch is ready. As you mark its steps reviewed, the agent writes the next \
-                     one ahead of you."
+                    "A batch is ready. The agent writes ahead of you as far as Settings allows, \
+                     and writes on as you mark steps reviewed."
                         .to_owned()
                 }),
             ))
@@ -274,11 +274,11 @@ impl Workbench {
                     format!("{files} change(s) to review"),
                 );
                 if record.uses_agent() {
-                    // The app keeps the next batch ready while the reviewer
-                    // reads, so finishing one opens another without a wait.
+                    // The app keeps batches ready while the reviewer reads,
+                    // as far ahead as Settings allows.
                     HarnessRunner::in_project(&prepared.root, DEFAULT_MAX_CHUNKS, false)
                         .with_proofread(self.settings().proofread_rounds)
-                        .with_write_ahead(true)
+                        .with_write_ahead(self.settings().write_ahead)
                         .with_explain_tests(self.settings().explain_tests)
                         .start(
                             format!("review-{:x}", now()),
@@ -340,6 +340,9 @@ impl Workbench {
         cancel: &Cancel,
     ) -> Result<Ended, WorkbenchError> {
         let runner = HarnessRunner::in_project(root, DEFAULT_MAX_CHUNKS, false);
+        // Settings may have changed since the review started; the next batch
+        // follows them.
+        runner.update_write_ahead(self.settings().write_ahead)?;
         let mut prompt = runner.status()?;
         // The reviewer may have read the batch since, or the next item may be
         // one Gewu writes itself; the harness decides, before any agent starts.

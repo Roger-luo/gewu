@@ -84,11 +84,17 @@ export interface Settings {
   explain_tests: boolean;
   /** The preset that proofreads each batch; `null` uses the writer. */
   proofreader: string | null;
+  /** How far the agent writes ahead of the reader. */
+  write_ahead: WriteAhead;
 }
+
+/** Batches the agent may write beyond the one being read, or no limit. */
+export type WriteAhead = "unlimited" | { batches: number };
 
 /** The settings, and where Gewu keeps things (set only by environment variables). */
 export interface SettingsView extends Settings {
   max_proofread_rounds: number;
+  max_write_ahead_batches: number;
   /** `GEWU_HOME`. */
   home: string;
   /** `GEWU_BIN`. */

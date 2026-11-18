@@ -6,7 +6,7 @@ use gewu_review::{
     ValidatedReview,
     harness::{
         HARNESS_SCHEMA_VERSION, HarnessStage, HarnessState, HarnessStore, ReviewOrigin, Verdict,
-        WorkItem, WorkList, next_step,
+        WorkItem, WorkList, WriteAhead, next_step,
     },
 };
 
@@ -30,8 +30,8 @@ pub struct HarnessRunner {
     max_chunks: usize,
     force: bool,
     proofread_rounds: u32,
-    /// Whether runs this runner starts write one batch ahead of the reviewer.
-    write_ahead: bool,
+    /// How far runs this runner starts write ahead of the reviewer.
+    write_ahead: WriteAhead,
     /// Whether runs this runner starts have the agent explain items of tests.
     explain_tests: bool,
 }
@@ -45,12 +45,12 @@ impl HarnessRunner {
         self
     }
 
-    /// Has runs this runner starts write one batch ahead of the reviewer, so
-    /// the next is ready when they finish. Off by default: the gate holds the
-    /// agent level with the reviewer.
+    /// Has runs this runner starts write `ahead` of the reviewer, so the next
+    /// batch is ready when they finish. Level by default: the gate holds the
+    /// agent with the reviewer.
     #[must_use]
-    pub fn with_write_ahead(mut self, on: bool) -> Self {
-        self.write_ahead = on;
+    pub fn with_write_ahead(mut self, ahead: WriteAhead) -> Self {
+        self.write_ahead = ahead;
         self
     }
 
@@ -121,7 +121,7 @@ impl HarnessRunner {
             max_chunks,
             force,
             proofread_rounds: 0,
-            write_ahead: false,
+            write_ahead: WriteAhead::default(),
             explain_tests: true,
         }
     }
@@ -139,7 +139,7 @@ impl HarnessRunner {
             max_chunks,
             force,
             proofread_rounds: 0,
-            write_ahead: false,
+            write_ahead: WriteAhead::default(),
             explain_tests: true,
         }
     }
@@ -184,7 +184,7 @@ impl HarnessRunner {
             max_chunks: crate::DEFAULT_MAX_CHUNKS,
             force: false,
             proofread_rounds: 0,
-            write_ahead: false,
+            write_ahead: WriteAhead::default(),
             explain_tests: true,
         }
     }
@@ -539,7 +539,7 @@ impl HarnessRunner {
             &current,
             &run.input,
             self.force,
-            run.state.write_ahead,
+            run.state.write_ahead(),
         ))
     }
 
@@ -816,6 +816,7 @@ fn accepted(prompt: String, what: &str) -> String {
     }
 }
 
+mod ahead;
 #[cfg(test)]
 mod ahead_tests;
 #[cfg(test)]

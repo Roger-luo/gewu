@@ -1,4 +1,5 @@
 import { ProofreaderField } from "./ProofreaderField";
+import { WriteAheadField } from "./WriteAheadField";
 import type { AgentPreset, Settings, SettingsView } from "./protocol";
 
 /** Which agent writes and proofreads reviews, and how much. */
@@ -51,6 +52,11 @@ export function AgentsSettings({
           />
         </label>
       )}
+      <WriteAheadField
+        value={draft.write_ahead}
+        max={settings.max_write_ahead_batches}
+        onChange={(write_ahead) => onChange({ ...draft, write_ahead })}
+      />
       <label className="field">
         <span>Proofread rounds</span>
         <input

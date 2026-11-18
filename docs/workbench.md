@@ -121,14 +121,17 @@ created ──▶ generating ──▶ awaiting_reviewer ──(continue)──�
   are rewritten (`polish`), at most two times, before the batch reaches the
   reviewer.
 - `awaiting_reviewer`: a batch is ready; the review can be opened. The agent
-  writes one batch ahead of the reviewer: a run that accepts a batch the
-  reviewer has not reached yet asks for the next at once, and stops only when
-  an older batch is still unread. When the reviewer marks the last step of
-  that older batch reviewed, the workbench starts the next run itself, so the
-  following batch is written while they read. `continue_task` is for
-  everything else: feedback, drift, or a batch that stopped. Tasks started
-  before this, and CLI runs, keep the agent level with the reviewer
-  (`HarnessState::write_ahead`).
+  writes ahead of the reviewer as far as the `write_ahead` setting allows. By
+  default (`"unlimited"`) it writes the whole plan while the reviewer reads,
+  and the review completes only once every chunk is read. With
+  `{"batches": n}` a run that accepts a batch asks for the next at once, and
+  stops only when a batch older than the latest `n` is still unread; when the
+  reviewer marks that batch's last step reviewed, the workbench starts the next
+  run itself. `0` keeps the agent level with the reviewer. A change to the
+  setting reaches running reviews at their next batch. `continue_task` is for
+  everything else: feedback, drift, or a batch that stopped. CLI runs keep the
+  agent level with the reviewer, and tasks started before the setting existed
+  keep the one batch they had (`HarnessState::write_ahead`).
 - `complete`: the walkthrough is complete.
 - `failed`: `message` says why and what to try.
 - `cancelled`: stopped by the reviewer; `continue_task` resumes.

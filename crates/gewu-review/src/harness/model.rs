@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::WriteAhead;
 use crate::{Quote, ReviewChunk, ReviewInput, SourceIdentity};
 
 use super::{
@@ -64,11 +65,13 @@ pub struct HarnessState {
     /// The chunks of the batch being proofread, and the rewrites spent on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proofreading: Option<Proofreading>,
-    /// Lets the agent write one batch beyond the one the reviewer is reading,
-    /// so the next is ready when they finish. Off, the gate holds the agent
-    /// level with the reviewer, as runs started before this existed do.
+    /// The older switch for writing ahead: on meant one batch. Read through
+    /// [`HarnessState::write_ahead`], which prefers `ahead`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub write_ahead: bool,
+    /// How far the agent may write ahead of the reviewer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ahead: Option<WriteAhead>,
     /// Has the agent explain items of tests. Off, Gewu writes them itself.
     /// Runs started before this existed had every item explained.
     #[serde(default = "explained", skip_serializing_if = "is_explained")]
@@ -99,6 +102,7 @@ impl HarnessState {
             proofread_rounds: 0,
             proofreading: None,
             write_ahead: false,
+            ahead: None,
             explain_tests: true,
         }
     }

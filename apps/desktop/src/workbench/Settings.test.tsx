@@ -152,6 +152,28 @@ describe("settings", () => {
     expect(within(picker).getByRole("radio", { name: /Codex/ })).toBeChecked();
   });
 
+  it("lets the agent write the whole walkthrough ahead by default, or up to a number of batches", async () => {
+    const user = userEvent.setup();
+    const backend = MockWorkbench.seeded(0);
+    render(<WorkbenchApp backend={backend} />);
+    await waitForReady();
+    await user.click(
+      within(screen.getByRole("navigation", { name: "Workbench" })).getByRole("button", { name: "Settings" }),
+    );
+    await tab(user, "Agents");
+    const ahead = screen.getByRole("combobox", { name: "Write ahead of you" });
+    expect(ahead).toHaveDisplayValue(/No limit/);
+    expect(screen.queryByRole("spinbutton", { name: "Batches ahead" })).toBeNull();
+
+    await user.selectOptions(ahead, "limited");
+    const batches = screen.getByRole("spinbutton", { name: "Batches ahead" });
+    await user.clear(batches);
+    await user.type(batches, "3");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect((await backend.workbench()).settings.write_ahead).toEqual({ batches: 3 });
+  });
+
   it("refuses rounds out of range and keeps the old value", async () => {
     const user = userEvent.setup();
     const settings = await openSettings(user);

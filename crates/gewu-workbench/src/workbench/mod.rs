@@ -184,6 +184,7 @@ impl Workbench {
             settings: crate::SettingsView {
                 settings: self.settings(),
                 max_proofread_rounds: crate::MAX_PROOFREAD_ROUNDS,
+                max_write_ahead_batches: crate::WriteAhead::MAX_BATCHES,
                 home: self.inner.home.root().display().to_string(),
                 gewu: self.inner.gewu.display().to_string(),
             },

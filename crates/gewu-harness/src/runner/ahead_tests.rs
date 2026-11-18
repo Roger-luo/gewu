@@ -1,6 +1,8 @@
 //! Writing one batch ahead of the reviewer: the next is ready when they
 //! finish, and no more than two batches are ever unread.
 
+use gewu_review::harness::WriteAhead;
+
 use super::tests::fixture;
 
 /// Asked for by the reviewer after a Cursor run of #276 made them wait
@@ -8,7 +10,7 @@ use super::tests::fixture;
 #[test]
 fn the_next_batch_is_written_while_the_reviewer_reads_the_last() {
     let mut fixture = fixture();
-    fixture.runner.write_ahead = true;
+    fixture.runner.write_ahead = WriteAhead::Batches(1);
 
     // The first batch is accepted, and the harness asks for the next at once.
     let (list, ahead) = fixture.append_first();

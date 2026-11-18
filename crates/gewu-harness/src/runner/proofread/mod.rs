@@ -36,8 +36,8 @@ impl HarnessRunner {
         self.ahead_or_awaiting(run)
     }
 
-    /// The next item's prompt when the gate lets the agent write one batch
-    /// ahead of the reviewer, and otherwise the wait.
+    /// The next item's prompt when the gate lets the agent write ahead of the
+    /// reviewer, and otherwise the wait.
     fn ahead_or_awaiting(&self, run: &mut Run) -> Result<String> {
         if self.verdict(run)? == gewu_review::harness::Verdict::Expand {
             return self.evaluate(run);

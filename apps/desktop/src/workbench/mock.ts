@@ -48,6 +48,7 @@ export class MockWorkbench implements WorkbenchBackend {
     default_agent: null,
     explain_tests: false,
     proofreader: null,
+    write_ahead: "unlimited",
   };
 
   /** Two repositories and reviews in each state a reviewer meets. */
@@ -71,6 +72,7 @@ export class MockWorkbench implements WorkbenchBackend {
       settings: {
         ...this.settings,
         max_proofread_rounds: 5,
+        max_write_ahead_batches: 20,
         home: "/Users/ada/.gewu",
         gewu: "/Users/ada/.cargo/bin/gewu",
       },
@@ -135,7 +137,10 @@ export class MockWorkbench implements WorkbenchBackend {
         break;
       }
       case "update_settings": {
-        const { proofread_rounds, default_agent, proofreader } = action.settings;
+        const { proofread_rounds, default_agent, proofreader, write_ahead } = action.settings;
+        if (write_ahead !== "unlimited" && (write_ahead.batches < 0 || write_ahead.batches > 20)) {
+          throw new BackendError("write at most 20 batches ahead, or choose no limit");
+        }
         if (proofread_rounds < 0 || proofread_rounds > 5) {
           throw new BackendError("proofread rounds must be between 0 and 5");
         }
@@ -303,7 +308,7 @@ export class MockWorkbench implements WorkbenchBackend {
     if (task.pending.length === 0) {
       this.finish(task, "complete", "The walkthrough is complete.");
     } else {
-      this.finish(task, "awaiting_reviewer", "A batch is ready. As you mark its steps reviewed, the agent writes the next one ahead of you.");
+      this.finish(task, "awaiting_reviewer", "A batch is ready. The agent writes ahead of you as far as Settings allows, and writes on as you mark steps reviewed.");
     }
   }
 
@@ -340,7 +345,7 @@ export class MockWorkbench implements WorkbenchBackend {
     this.finish(
       task,
       status,
-      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready. As you mark its steps reviewed, the agent writes the next one ahead of you.",
+      status === "complete" ? "Raw diff in file order; no agent wrote a walkthrough." : "A batch is ready. The agent writes ahead of you as far as Settings allows, and writes on as you mark steps reviewed.",
     );
   }
 

@@ -1,3 +1,4 @@
+mod ahead;
 mod model;
 mod progress;
 mod proofread;
@@ -7,6 +8,7 @@ mod tests_section;
 mod validation;
 mod verdicts;
 
+pub use ahead::WriteAhead;
 pub use model::{
     Expansion, HarnessStage, HarnessState, InvestigationCheckpoint, InvestigationFinding,
     ReviewOrigin, Revision, WorkItem, WorkList,

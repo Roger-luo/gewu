@@ -25,6 +25,7 @@ pub use gewu_github::{
     OAuthSession, Posted, Preferences, Receipt, Recorder, SignInMethod, SignInPoll, SignInStart,
     Transport,
 };
+pub use gewu_review::harness::WriteAhead;
 pub use home::Home;
 pub use prompts::{PromptAddition, PromptReport, PromptView};
 pub use protocol::{
